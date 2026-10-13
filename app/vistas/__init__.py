@@ -8,11 +8,12 @@ sus items no cumplen el contrato, se usa la vista genérica.
 from pydantic import ValidationError
 
 from contrato import items_validos
-from vistas import flashcards, generica, quiz
+from vistas import flashcards, generica, guia, quiz
 
 VISTAS = {
     "Flashcards": flashcards,
     "Quiz": quiz,
+    "Tutorial": guia,
 }
 
 
