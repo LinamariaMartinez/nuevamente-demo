@@ -39,6 +39,9 @@ class ClienteCaido(ClienteMock):
     def salud(self):
         return False
 
+    def obtener_configuracion(self):
+        raise ErrorCliente("no_disponible", "Connection refused")
+
 
 def abrir(cliente=None):
     at = AppTest.from_file(APP, default_timeout=10)
@@ -59,6 +62,13 @@ class PaginaEstudiante(unittest.TestCase):
         at = abrir()
         self.assertIn("Modo demostración: datos de ejemplo", [i.value for i in at.info])
         self.assertTrue(at.button(key="generar").disabled)
+
+    def test_no_pide_nicho_y_muestra_el_sector_de_la_institucion(self):
+        cliente = ClienteMock()
+        cliente.guardar_configuracion("Salud")
+        at = abrir(cliente)
+        self.assertEqual([s.label for s in at.selectbox], ["Tu nivel", "Formato"])
+        self.assertIn("Contexto de tu institución: Salud", [c.value for c in at.caption])
 
     def test_genera_y_muestra_el_paquete(self):
         at = pedir(abrir(), "Redes VCN", "Quiz")

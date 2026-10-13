@@ -5,6 +5,7 @@ import hmac
 import streamlit as st
 
 from cliente_api import ErrorCliente
+from contrato import NICHOS
 from paginas import cliente_de_sesion
 from vistas import mostrar_paquete
 
@@ -50,6 +51,21 @@ def _mostrar_error(error):
     if error.detalle:
         with st.expander("Ver detalle"):
             st.code(error.detalle)
+
+
+def _seccion_sector(cliente):
+    st.subheader("Sector de la institución")
+    try:
+        actual = cliente.obtener_configuracion().sector
+    except ErrorCliente as error:
+        _mostrar_error(error)
+        return
+    elegido = st.selectbox("El material se adapta a este sector", NICHOS, index=NICHOS.index(actual), key="sector")
+    if st.button("Guardar sector", key="guardar_sector"):
+        try:
+            st.success(f"Sector guardado: {cliente.guardar_configuracion(elegido).sector}")
+        except ErrorCliente as error:
+            _mostrar_error(error)
 
 
 def _seccion_subir(cliente):
@@ -116,6 +132,7 @@ def mostrar():
     cliente = cliente_de_sesion()
     if cliente.es_mock:
         st.info("Modo demostración: datos de ejemplo")
+    _seccion_sector(cliente)
     _seccion_subir(cliente)
     _seccion_documentos(cliente)
     _seccion_revision(cliente)

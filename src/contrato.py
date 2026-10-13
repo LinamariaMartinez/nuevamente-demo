@@ -131,7 +131,7 @@ class SolicitudPaquete(BaseModel):
     tema: str
     perfil: str
     formato: str
-    nicho: str
+    # Sin nicho: el sector lo define el admin para toda la institución (ver Configuracion)
     documentos: list[str] = []  # reservado: hoy se busca en todos los documentos
 
     @field_validator("tema")
@@ -146,10 +146,23 @@ class SolicitudPaquete(BaseModel):
 
     @model_validator(mode="after")
     def valores_permitidos(self):
-        for campo, permitidos in (("perfil", PERFILES), ("formato", FORMATOS), ("nicho", NICHOS)):
+        for campo, permitidos in (("perfil", PERFILES), ("formato", FORMATOS)):
             if getattr(self, campo) not in permitidos:
                 raise ValueError(f"{campo} no permitido: {getattr(self, campo)!r}")
         return self
+
+
+class Configuracion(BaseModel):
+    """Ajustes que define el admin para toda la institución."""
+
+    sector: str = "General"
+
+    @field_validator("sector")
+    @classmethod
+    def sector_permitido(cls, valor):
+        if valor not in NICHOS:
+            raise ValueError(f"sector no permitido: {valor!r}")
+        return valor
 
 
 class ResumenPaquete(BaseModel):

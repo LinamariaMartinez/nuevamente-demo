@@ -12,7 +12,7 @@ import requests
 from dotenv import load_dotenv
 from pydantic import ValidationError
 
-from contrato import Documento, Paquete, ResumenPaquete
+from contrato import Configuracion, Documento, Paquete, ResumenPaquete
 
 CARPETA_MOCKS = Path(__file__).resolve().parent / "mocks"
 TEMA_SIN_CONTEXTO_MOCK = "tema inexistente"  # en modo mock, este tema devuelve el error sin_contexto
@@ -55,6 +55,7 @@ class ClienteMock:
             Documento(nombre="oci_redes_vcn.pdf", estado="indexado", chunks=24),
             Documento(nombre="manual_escaneado.pdf", estado="error", error="El PDF no tiene texto extraíble."),
         ]
+        self._configuracion = Configuracion()
 
     def _leer(self, nombre):
         return Paquete.model_validate_json((self._carpeta / nombre).read_text(encoding="utf-8"))
@@ -72,7 +73,7 @@ class ClienteMock:
         metadatos = paquete.metadatos.model_copy(update={
             "tema": solicitud.tema,
             "perfil_aplicado": solicitud.perfil,
-            "nicho_sector": solicitud.nicho,
+            "nicho_sector": self._configuracion.sector,
         })
         return paquete.model_copy(update={"metadatos": metadatos})
 
@@ -102,6 +103,16 @@ class ClienteMock:
 
     def listar_documentos(self):
         return list(self._documentos)
+
+    def obtener_configuracion(self):
+        return self._configuracion
+
+    def guardar_configuracion(self, sector):
+        try:
+            self._configuracion = Configuracion(sector=sector)
+        except ValidationError as error:
+            raise ErrorCliente("rechazado", str(error)) from error
+        return self._configuracion
 
 
 class ClienteHttp:
@@ -167,6 +178,13 @@ class ClienteHttp:
 
     def listar_documentos(self):
         return self._lista(Documento, self._pedir("GET", "/documentos", admin=True))
+
+    def obtener_configuracion(self):
+        return self._validar(Configuracion, self._pedir("GET", "/configuracion"))
+
+    def guardar_configuracion(self, sector):
+        datos = self._pedir("PUT", "/configuracion", admin=True, json={"sector": sector})
+        return self._validar(Configuracion, datos)
 
 
 def obtener_cliente():

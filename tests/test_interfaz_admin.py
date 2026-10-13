@@ -52,11 +52,20 @@ class PaginaAdmin(unittest.TestCase):
         self.assertIn("Contraseña incorrecta", [e.value for e in at.error])
         self.assertEqual(len(at.subheader), 0)
 
-    def test_contrasena_correcta_muestra_las_tres_secciones(self):
+    def test_contrasena_correcta_muestra_las_secciones(self):
         at = entrar(abrir(), "clave-de-prueba")
         self.assertEqual([s.value for s in at.subheader],
-                         ["Subir documento", "Documentos", "Paquetes por revisar"])
+                         ["Sector de la institución", "Subir documento", "Documentos", "Paquetes por revisar"])
         self.assertTrue(any("manual_escaneado.pdf" in e.value for e in at.error))
+
+    def test_guardar_el_sector_de_la_institucion(self):
+        cliente = ClienteMock()
+        at = entrar(abrir(cliente=cliente), "clave-de-prueba")
+        self.assertEqual(at.selectbox(key="sector").value, "General")
+        at.selectbox(key="sector").set_value("Salud").run()
+        at = at.button(key="guardar_sector").click().run()
+        self.assertIn("Sector guardado: Salud", [m.value for m in at.success])
+        self.assertEqual(cliente.obtener_configuracion().sector, "Salud")
 
     def test_abrir_un_paquete_por_revisar_lo_muestra_con_aviso(self):
         at = entrar(abrir(), "clave-de-prueba")

@@ -20,7 +20,7 @@ MOCKS = RAIZ / "app" / "mocks"
 
 
 def solicitud(**cambios):
-    datos = {"tema": "Redes VCN", "perfil": PERFILES[1], "formato": "Quiz", "nicho": "Fintech"}
+    datos = {"tema": "Redes VCN", "perfil": PERFILES[1], "formato": "Quiz"}
     datos.update(cambios)
     return SolicitudPaquete(**datos)
 
@@ -59,6 +59,7 @@ class ModoMock(unittest.TestCase):
         self.assertTrue(self.cliente.salud())
 
     def test_genera_un_paquete_por_formato_con_lo_que_pidio_el_estudiante(self):
+        self.cliente.guardar_configuracion("Fintech")
         for formato in FORMATOS:
             with self.subTest(formato=formato):
                 paquete = self.cliente.generar_paquete(solicitud(formato=formato))
@@ -66,6 +67,17 @@ class ModoMock(unittest.TestCase):
                 self.assertEqual(paquete.metadatos.tema, "Redes VCN")
                 self.assertEqual(paquete.metadatos.perfil_aplicado, PERFILES[1])
                 self.assertEqual(paquete.metadatos.nicho_sector, "Fintech")
+
+    def test_sector_empieza_en_general_y_se_puede_cambiar(self):
+        self.assertEqual(self.cliente.obtener_configuracion().sector, "General")
+        self.assertEqual(self.cliente.guardar_configuracion("Salud").sector, "Salud")
+        self.assertEqual(self.cliente.obtener_configuracion().sector, "Salud")
+
+    def test_sector_no_permitido_no_se_guarda(self):
+        with self.assertRaises(ErrorCliente) as ctx:
+            self.cliente.guardar_configuracion("Minería")
+        self.assertEqual(ctx.exception.tipo, "rechazado")
+        self.assertEqual(self.cliente.obtener_configuracion().sector, "General")
 
     def test_tema_inexistente_devuelve_error_sin_contexto(self):
         paquete = self.cliente.generar_paquete(solicitud(tema="Tema inexistente"))
@@ -114,6 +126,17 @@ class ModoHttp(unittest.TestCase):
         for _, _, kwargs in sesion.llamadas:
             self.assertEqual(kwargs["headers"]["X-Clave-Admin"], "secreta")
         self.assertEqual(sesion.llamadas[1][2]["params"], {"requiere_revision": "true"})
+
+    def test_configuracion_se_lee_sin_clave_y_se_guarda_con_clave(self):
+        cliente, sesion = self.cliente(respuesta=respuesta(cuerpo={"sector": "Salud"}))
+        self.assertEqual(cliente.obtener_configuracion().sector, "Salud")
+        cliente.guardar_configuracion("Salud")
+        (m1, u1, k1), (m2, u2, k2) = sesion.llamadas
+        self.assertEqual((m1, u1), ("GET", "http://api.local/configuracion"))
+        self.assertNotIn("X-Clave-Admin", k1["headers"])
+        self.assertEqual((m2, u2), ("PUT", "http://api.local/configuracion"))
+        self.assertEqual(k2["headers"]["X-Clave-Admin"], "secreta")
+        self.assertEqual(k2["json"], {"sector": "Salud"})
 
     def test_errores_de_red_y_de_estado_se_traducen(self):
         casos = [

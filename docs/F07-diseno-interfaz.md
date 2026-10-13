@@ -2,11 +2,14 @@
 
 ## 1. Objetivo
 
-Construir la interfaz que pide el reto ("interfaz interactiva, ej. Streamlit o Gradio") con dos paneles:
+Construir la interfaz que pide el reto ("interfaz interactiva, ej. Streamlit o Gradio"). NuevaMente la usa **una
+institución para capacitar a su gente** (empleados o contratistas): no es abierta al público ni multiempresa.
+La app abre en una **portada** que explica qué es NuevaMente y da acceso a dos paneles:
 
-- **Estudiante:** escribe un tema, elige perfil, formato y nicho, y recibe su paquete de contenido: el material,
+- **Estudiante:** escribe un tema, elige nivel y formato, y recibe su paquete de contenido: el material,
   los metadatos de aprendizaje, el puntaje de calidad, las fuentes y la descarga del JSON.
-- **Admin:** sube documentos (PDF, MD, TXT), revisa que se indexaron bien y revisa los paquetes marcados para revisión.
+- **Admin:** define el **sector de la institución** (el nicho que pide el reto, uno para toda la institución), sube
+  documentos (PDF, MD, TXT), revisa que se indexaron bien y revisa los paquetes marcados para revisión.
 
 F07 trabaja con **datos de ejemplo (mock)**. La conexión con el backend real es F08: se cambia una variable de entorno
 y las pantallas quedan iguales.
@@ -51,7 +54,8 @@ Así Frontend y Backend avanzan en paralelo sin bloquearse.
 | `app/cliente_api.py` | Frontend | Una función por ruta de la API; modo mock o http; traduce los errores |
 | `app/estilo.py` + `.streamlit/config.toml` | Frontend | Tema visual y piezas reutilizables (tarjeta de puntaje, etiquetas de conceptos) |
 | `app/paginas/estudiante.py` | Frontend | Formulario y resultado |
-| `app/paginas/admin.py` | Frontend | Contraseña, subida de documentos, estado de la indexación, paquetes por revisar |
+| `app/paginas/portada.py` | Frontend | Portada: qué es NuevaMente, cómo funciona y accesos a Estudiante y Admin |
+| `app/paginas/admin.py` | Frontend | Contraseña, sector de la institución, subida de documentos, estado de la indexación, paquetes por revisar |
 | `app/vistas/__init__.py` | Frontend | Directorio formato → vista; si no hay vista propia, usa `generica` |
 | `app/vistas/generica.py` | Frontend | Capa 1 |
 | `app/vistas/flashcards.py`, `quiz.py`, `guia.py` | Frontend | Capa 2 (una persona por archivo) |
@@ -125,13 +129,14 @@ Viven en `src/contrato.py`; el formulario y la validación de la API usan las mi
 |---|---|
 | Perfiles | Principiante · Intermedio · Avanzado (los tres niveles del Redactor; acordado en la weekly del 13-oct) |
 | Formatos | Tutorial · Flashcards · Quiz · Resumen · Guion |
-| Nichos | Fintech · Salud · E-commerce · General |
+| Nichos (sector de la institución) | Fintech · Salud · E-commerce · General — lo elige el admin, no el estudiante |
 
 ### 5.4 Petición para generar
 
 ```json
-{ "tema": "Redes VCN en OCI", "perfil": "Principiante", "formato": "Flashcards", "nicho": "General", "documentos": [] }
+{ "tema": "Redes VCN en OCI", "perfil": "Principiante", "formato": "Flashcards", "documentos": [] }
 ```
+La petición no lleva nicho: el Backend aplica el sector guardado en la configuración (`{"sector": "General"}`).
 `documentos` va vacío: hoy se busca en todos los documentos. Queda reservado para que más adelante el estudiante pueda elegir uno.
 
 ### 5.5 Rutas de la API (Backend)
@@ -144,6 +149,8 @@ Viven en `src/contrato.py`; el formulario y la validación de la API usan las mi
 | `GET /paquetes?requiere_revision=true` | Lista resumida: `id_paquete`, `creado_en`, `tema`, `formato`, `anclaje_fuente_score` | **Sí** |
 | `POST /documentos` | Recibe un archivo PDF, MD o TXT y lo indexa | **Sí** |
 | `GET /documentos` | Lista de documentos: `nombre`, `estado` (`procesando` / `indexado` / `error`), `chunks`, `error` | **Sí** |
+| `GET /configuracion` | Devuelve `{"sector": "..."}` (por defecto `"General"`) | No |
+| `PUT /configuracion` | Recibe `{"sector": "..."}` y lo guarda; responde la configuración guardada | **Sí** |
 
 **Clave de admin (requisito para Backend):** las rutas marcadas reciben la cabecera `X-Clave-Admin` y la rechazan
 con 401 si no coincide. El Frontend la envía desde F07. Cómo y cuándo se implementa la validación lo decide Backend.

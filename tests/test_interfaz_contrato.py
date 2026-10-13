@@ -10,7 +10,7 @@ sys.path.insert(0, str(RAIZ / "src"))
 
 from pydantic import ValidationError
 
-from contrato import FORMATOS, NICHOS, PERFILES, Paquete, SolicitudPaquete, items_validos
+from contrato import FORMATOS, NICHOS, PERFILES, Configuracion, Paquete, SolicitudPaquete, items_validos
 
 MOCKS = RAIZ / "app" / "mocks"
 
@@ -94,7 +94,7 @@ class ListasFijas(unittest.TestCase):
 
 class ReglasDeLaSolicitud(unittest.TestCase):
     def base(self, **cambios):
-        datos = {"tema": "Redes VCN", "perfil": PERFILES[0], "formato": "Quiz", "nicho": "General"}
+        datos = {"tema": "Redes VCN", "perfil": PERFILES[0], "formato": "Quiz"}
         datos.update(cambios)
         return datos
 
@@ -112,9 +112,25 @@ class ReglasDeLaSolicitud(unittest.TestCase):
             SolicitudPaquete(**self.base(tema="a" * 301))
 
     def test_valores_fuera_de_las_listas_fallan(self):
-        for campo, valor in (("perfil", "Experto"), ("formato", "Podcast"), ("nicho", "Minería")):
+        for campo, valor in (("perfil", "Experto"), ("formato", "Podcast")):
             with self.subTest(campo=campo), self.assertRaises(ValidationError):
                 SolicitudPaquete(**self.base(**{campo: valor}))
+
+    def test_la_solicitud_no_lleva_nicho(self):
+        # El sector lo define el admin para toda la institución (decisión del 13-oct)
+        self.assertNotIn("nicho", SolicitudPaquete.model_fields)
+
+
+class ConfiguracionDeLaInstitucion(unittest.TestCase):
+    def test_sector_por_defecto_es_general(self):
+        self.assertEqual(Configuracion().sector, "General")
+
+    def test_sector_valido(self):
+        self.assertEqual(Configuracion(sector="Salud").sector, "Salud")
+
+    def test_sector_fuera_de_la_lista_falla(self):
+        with self.assertRaises(ValidationError):
+            Configuracion(sector="Minería")
 
 
 if __name__ == "__main__":
