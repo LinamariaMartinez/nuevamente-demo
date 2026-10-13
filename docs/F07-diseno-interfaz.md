@@ -62,7 +62,7 @@ Así Frontend y Backend avanzan en paralelo sin bloquearse.
 | `app/mocks/*.json` | Frontend | Paquetes de ejemplo; `flashcards.json` sale del ejemplo del Hito 4 |
 | `api/main.py` | Backend | Rutas FastAPI |
 | `api/servicios.py` | Backend | Lógica de cada ruta: llamar al grafo, indexar, guardar en Object Storage |
-| `tests/test_interfaz.py` | Frontend | Pruebas de la interfaz (sección 8) |
+| `tests/test_interfaz_*.py` + `tests/apps_interfaz/` | Frontend | Pruebas de la interfaz, un archivo por pieza; `apps_interfaz/` tiene las mini-apps que usa AppTest (sección 8) |
 
 **Reglas:**
 - Cada rol trabaja solo en sus archivos.
