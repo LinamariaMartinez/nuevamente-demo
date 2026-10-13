@@ -46,18 +46,24 @@ def mostrar():
     st.title("Genera tu material de estudio")
     if cliente.es_mock:
         st.info("Modo demostración: datos de ejemplo")
-    if not cliente.salud():
+    disponible = cliente.salud()
+    if not disponible:
         st.warning("El servicio no está disponible en este momento.")
 
     st.text_input("¿Qué quieres aprender?", key="tema", max_chars=LARGO_MAXIMO_TEMA,
                   placeholder="Ej.: redes VCN en OCI")
     st.selectbox("Tu nivel", PERFILES, key="perfil")
     st.selectbox("Formato", FORMATOS, key="formato")
-    _mostrar_sector(cliente)
+    if disponible:  # con la API caída, esta petición también fallaría y solo haría esperar
+        _mostrar_sector(cliente)
 
     tema_vacio = not st.session_state.get("tema", "").strip()
     reintentar = st.session_state.pop("reintentar_pedido", False)
-    generar = st.button("Generar", key="generar", type="primary", disabled=tema_vacio)
+    # El botón siempre está activo: el tema se guarda al salir del campo, y un botón
+    # desactivado se tragaría el primer clic de quien no pulsó Enter
+    generar = st.button("Generar", key="generar", type="primary")
+    if generar and tema_vacio:
+        st.warning("Escribe un tema para generar tu material.")
     if (generar or reintentar) and not tema_vacio:
         _generar(cliente)
 

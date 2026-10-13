@@ -7,6 +7,7 @@ Las páginas solo usan obtener_cliente() y los métodos de los clientes; nunca s
 
 import os
 from pathlib import Path
+from uuid import uuid4
 
 import requests
 from dotenv import load_dotenv
@@ -17,6 +18,7 @@ from contrato import Configuracion, Documento, Paquete, ResumenPaquete
 CARPETA_MOCKS = Path(__file__).resolve().parent / "mocks"
 TEMA_SIN_CONTEXTO_MOCK = "tema inexistente"  # en modo mock, este tema devuelve el error sin_contexto
 TIEMPO_SALUD_SEGUNDOS = 5
+TIEMPO_CORTO_SEGUNDOS = 10  # rutas que no generan ni indexan: no esperar el tiempo máximo
 MOCK_POR_FORMATO = {
     "Flashcards": "flashcards.json",
     "Quiz": "quiz.json",
@@ -75,7 +77,10 @@ class ClienteMock:
             "perfil_aplicado": solicitud.perfil,
             "nicho_sector": self._configuracion.sector,
         })
-        return paquete.model_copy(update={"metadatos": metadatos})
+        # Id nuevo en cada generación, como hará la API: si se repite, las vistas
+        # interactivas heredan el estado del paquete anterior (quiz ya calificado, etc.)
+        id_nuevo = f"{paquete.id_paquete}-{uuid4().hex[:8]}"
+        return paquete.model_copy(update={"metadatos": metadatos, "id_paquete": id_nuevo})
 
     def obtener_paquete(self, id_paquete):
         for paquete in self._todos():
@@ -130,7 +135,7 @@ class ClienteHttp:
         cabeceras = {"X-Clave-Admin": self._clave_admin} if admin else {}
         try:
             respuesta = self._sesion.request(metodo, self._url + ruta, headers=cabeceras,
-                                             timeout=tiempo or self._tiempo_maximo, **kwargs)
+                                             timeout=tiempo or TIEMPO_CORTO_SEGUNDOS, **kwargs)
         except requests.Timeout as error:  # va antes: Timeout también es RequestException
             raise ErrorCliente("tiempo_agotado", str(error)) from error
         except requests.RequestException as error:
@@ -163,7 +168,8 @@ class ClienteHttp:
             return False
 
     def generar_paquete(self, solicitud):
-        return self._validar(Paquete, self._pedir("POST", "/paquetes", json=solicitud.model_dump()))
+        return self._validar(Paquete, self._pedir("POST", "/paquetes", tiempo=self._tiempo_maximo,
+                                                   json=solicitud.model_dump()))
 
     def obtener_paquete(self, id_paquete):
         return self._validar(Paquete, self._pedir("GET", f"/paquetes/{id_paquete}"))
@@ -173,7 +179,8 @@ class ClienteHttp:
         return self._lista(ResumenPaquete, datos)
 
     def subir_documento(self, nombre, contenido):
-        datos = self._pedir("POST", "/documentos", admin=True, files={"archivo": (nombre, contenido)})
+        datos = self._pedir("POST", "/documentos", admin=True, tiempo=self._tiempo_maximo,
+                            files={"archivo": (nombre, contenido)})
         return self._validar(Documento, datos)
 
     def listar_documentos(self):

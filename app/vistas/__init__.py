@@ -5,6 +5,7 @@ mostrar(paquete, items) y registrarla en VISTAS. Si un formato no tiene vista pr
 sus items no cumplen el contrato, se usa la vista genérica.
 """
 
+import streamlit as st
 from pydantic import ValidationError
 
 from contrato import items_validos
@@ -18,6 +19,9 @@ VISTAS = {
 
 
 def mostrar_paquete(paquete):
+    if paquete.status == "error":  # un paquete de error no trae contenido que dibujar
+        st.error(paquete.mensaje_error or "Este paquete no tiene contenido porque su generación falló.")
+        return
     generica.mostrar_encabezado(paquete)
     vista = VISTAS.get(paquete.metadatos.formato_generado)
     items = None

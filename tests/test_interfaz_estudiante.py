@@ -36,10 +36,15 @@ class ClienteQueFallaUnaVez(ClienteMock):
 class ClienteCaido(ClienteMock):
     es_mock = False
 
+    def __init__(self):
+        super().__init__()
+        self.pidio_configuracion = False
+
     def salud(self):
         return False
 
     def obtener_configuracion(self):
+        self.pidio_configuracion = True
         raise ErrorCliente("no_disponible", "Connection refused")
 
 
@@ -58,10 +63,16 @@ def pedir(at, tema, formato="Quiz"):
 
 @patch.dict(os.environ, {"MODO_API": "mock"})
 class PaginaEstudiante(unittest.TestCase):
-    def test_modo_mock_muestra_la_etiqueta_y_el_boton_empieza_desactivado(self):
+    def test_modo_mock_muestra_la_etiqueta_y_el_boton_esta_activo(self):
+        # Activo siempre: si se desactivara con el tema vacío, el primer clic sin Enter se perdería
         at = abrir()
         self.assertIn("Modo demostración: datos de ejemplo", [i.value for i in at.info])
-        self.assertTrue(at.button(key="generar").disabled)
+        self.assertFalse(at.button(key="generar").disabled)
+
+    def test_generar_sin_tema_pide_escribirlo(self):
+        at = abrir().button(key="generar").click().run()
+        self.assertIn("Escribe un tema para generar tu material.", [w.value for w in at.warning])
+        self.assertEqual(len(at.header), 0)
 
     def test_no_pide_nicho_y_muestra_el_sector_de_la_institucion(self):
         cliente = ClienteMock()
@@ -86,9 +97,11 @@ class PaginaEstudiante(unittest.TestCase):
         self.assertEqual(len(at.warning), 1)
 
     def test_api_caida_avisa_pero_deja_el_formulario(self):
-        at = abrir(ClienteCaido())
+        cliente = ClienteCaido()
+        at = abrir(cliente)
         self.assertIn("El servicio no está disponible en este momento.", [w.value for w in at.warning])
         self.assertEqual(len(at.text_input), 1)
+        self.assertFalse(cliente.pidio_configuracion)  # no esperar otra petición que va a fallar
 
     def test_tiempo_agotado_conserva_el_tema_y_reintentar_funciona(self):
         cliente = ClienteQueFallaUnaVez()
