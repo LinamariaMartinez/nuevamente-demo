@@ -1,0 +1,11 @@
+{
+  "id_paquete": "ejemplo-006",
+  "creado_en": "2026-10-14T15:35:00Z",
+  "status": "error",
+  "codigo_error": "sin_contexto",
+  "mensaje_error": "No se encontró información sobre el tema en los documentos cargados.",
+  "metadatos": null,
+  "contenido_adaptado": null,
+  "fuentes": [],
+  "evaluacion_calidad": null
+}

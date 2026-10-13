@@ -1,0 +1,73 @@
+{
+  "id_paquete": "ejemplo-001",
+  "creado_en": "2026-10-14T15:30:00Z",
+  "status": "exito",
+  "codigo_error": null,
+  "mensaje_error": null,
+  "metadatos": {
+    "tema": "Redes VCN en OCI",
+    "tiempo_estimado_estudio_minutos": 5,
+    "conceptos_clave": [
+      "VCN",
+      "Subredes",
+      "Internet Gateway",
+      "NAT Gateway",
+      "Security Lists"
+    ],
+    "prerrequisitos": [],
+    "perfil_aplicado": "Principiante / Transición de carrera",
+    "formato_generado": "Flashcards",
+    "nicho_sector": "General",
+    "nivel_detalle": "Didáctico"
+  },
+  "contenido_adaptado": {
+    "titulo": "Introduccion a la Arquitectura de Redes VCN en OCI",
+    "introduccion_contextualizada": "Aprende de forma sencilla y directa los conceptos fundamentales de las redes privadas en la nube de Oracle Cloud Infrastructure diseñados para principiantes.",
+    "items": [
+      {
+        "frente": "¿Que es una VCN?",
+        "dorso": "Es una red privada y personalizable configurada en Oracle Cloud Infrastructure que ofrece control total sobre su entorno de red.",
+        "pista_didactica": "Piensa en ella como una red de centro de datos tradicional pero llevada a la nube."
+      },
+      {
+        "frente": "¿Que son las Subredes o Subnets?",
+        "dorso": "Son divisiones de tu VCN que pueden ser publicas (accesibles desde internet) o privadas (aisladas del exterior).",
+        "pista_didactica": "Sirven para organizar tus recursos segun su nivel de exposicion."
+      },
+      {
+        "frente": "¿Para que sirve el Internet Gateway?",
+        "dorso": "Permite el trafico bidireccional entre la VCN y el internet publico.",
+        "pista_didactica": "Es la puerta principal para conectar tu red con el mundo exterior."
+      },
+      {
+        "frente": "¿Cual es la funcion del NAT Gateway?",
+        "dorso": "Permite que los recursos en una subred privada accedan a internet para actualizaciones, sin recibir conexiones entrantes.",
+        "pista_didactica": "Funciona como una salida de solo ida para descargas o actualizaciones seguras."
+      },
+      {
+        "frente": "¿Que son las Security Lists y como funcionan?",
+        "dorso": "Actuan como un firewall virtual utilizando reglas de entrada (ingress) y salida (egress) para controlar exactamente que tipo de datos fluyen hacia y desde los recursos.",
+        "pista_didactica": "Cuidado con una mala configuracion en las reglas de ingress, ya que es la causa mas comun de vulnerabilidades."
+      }
+    ]
+  },
+  "fuentes": [
+    {
+      "documento": "oci_redes_vcn.pdf",
+      "fragmento": 3,
+      "extracto": "Una VCN es una red privada y personalizable en Oracle Cloud Infrastructure..."
+    },
+    {
+      "documento": "oci_redes_vcn.pdf",
+      "fragmento": 7,
+      "extracto": "El NAT Gateway permite que los recursos de una subred privada accedan a internet..."
+    }
+  ],
+  "evaluacion_calidad": {
+    "anclaje_fuente_score": 1.0,
+    "claridad_pedagogica": "Alta",
+    "observaciones": "El borrador es completamente fiel al contexto técnico original, sin alucinaciones ni omisiones críticas. La adaptación en formato de flashcards es excelente para el perfil de principiante, manteniendo los conceptos clave, la advertencia sobre las reglas de ingress y un nivel didáctico muy adecuado.",
+    "intentos_revision": 1,
+    "requiere_revision_admin": false
+  }
+}
