@@ -13,12 +13,17 @@ for ruta in (RAIZ / "src", RAIZ / "app"):
 
 import streamlit as st
 
-from paginas import admin, estudiante
+from paginas import admin, estudiante, portada
 
 st.set_page_config(page_title="NuevaMente", layout="centered")
 
-paginas = [
-    st.Page(estudiante.mostrar, title="Estudiante", url_path="estudiante", default=True),
-    st.Page(admin.mostrar, title="Admin", url_path="admin"),
-]
-st.navigation(paginas).run()
+pagina_estudiante = st.Page(estudiante.mostrar, title="Estudiante", url_path="estudiante")
+pagina_admin = st.Page(admin.mostrar, title="Admin", url_path="admin")
+
+
+def _portada():
+    portada.mostrar(destino_estudiante=pagina_estudiante, destino_admin=pagina_admin)
+
+
+pagina_portada = st.Page(_portada, title="Inicio", url_path="inicio", default=True)
+st.navigation([pagina_portada, pagina_estudiante, pagina_admin]).run()
