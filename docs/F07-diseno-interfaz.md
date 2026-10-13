@@ -155,7 +155,7 @@ La petición no lleva nicho: el Backend aplica el sector guardado en la configur
 **Clave de admin (requisito para Backend):** las rutas marcadas reciben la cabecera `X-Clave-Admin` y la rechazan
 con 401 si no coincide. El Frontend la envía desde F07. Cómo y cuándo se implementa la validación lo decide Backend.
 
-**Tiempo de respuesta:** el Frontend espera la respuesta de `POST /paquetes` hasta un tiempo máximo configurable.
+**Tiempo de respuesta:** el Frontend espera `POST /paquetes` y `POST /documentos` hasta un tiempo máximo configurable (`TIEMPO_MAXIMO_SEGUNDOS`); las demás rutas, máximo 10 s, y `/salud`, 5 s. Si `/salud` falla, no se piden más datos en esa pantalla.
 Si Backend elige otra forma de responder (por ejemplo, por etapas), solo cambia `cliente_api.py`.
 
 ## 6. Errores (lo que ve el usuario)
@@ -165,7 +165,7 @@ conserva lo que escribió el usuario (`st.session_state`); los errores se traduc
 
 | Caso | Mensaje / comportamiento |
 |---|---|
-| Tema vacío | El botón "Generar" no se activa |
+| Tema vacío | Al pulsar "Generar": "Escribe un tema para generar tu material." (el botón siempre está activo para no perder el primer clic) |
 | La API no responde (`/salud`) | Aviso arriba: "El servicio no está disponible en este momento"; el formulario sigue visible |
 | Se pasa el tiempo máximo | "La generación está tardando más de lo normal" + Reintentar |
 | `codigo_error = sin_contexto` | "No encontré ese tema en los documentos cargados. Prueba con otras palabras." |

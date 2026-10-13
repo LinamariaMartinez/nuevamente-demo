@@ -13,7 +13,7 @@ sys.path.insert(0, str(RAIZ / "app"))
 
 import requests
 
-from cliente_api import ClienteHttp, ClienteMock, ErrorCliente, obtener_cliente
+from cliente_api import TIEMPO_CORTO_SEGUNDOS, ClienteHttp, ClienteMock, ErrorCliente, obtener_cliente
 from contrato import FORMATOS, PERFILES, SolicitudPaquete
 
 MOCKS = RAIZ / "app" / "mocks"
@@ -79,6 +79,13 @@ class ModoMock(unittest.TestCase):
         self.assertEqual(ctx.exception.tipo, "rechazado")
         self.assertEqual(self.cliente.obtener_configuracion().sector, "General")
 
+    def test_cada_generacion_tiene_un_id_nuevo(self):
+        # Si dos paquetes comparten id, sus vistas interactivas comparten estado (quiz ya calificado, etc.)
+        primero = self.cliente.generar_paquete(solicitud(formato="Quiz"))
+        segundo = self.cliente.generar_paquete(solicitud(formato="Quiz"))
+        self.assertNotEqual(primero.id_paquete, segundo.id_paquete)
+        self.assertTrue(primero.id_paquete.startswith("ejemplo-002"))
+
     def test_tema_inexistente_devuelve_error_sin_contexto(self):
         paquete = self.cliente.generar_paquete(solicitud(tema="Tema inexistente"))
         self.assertEqual(paquete.status, "error")
@@ -137,6 +144,20 @@ class ModoHttp(unittest.TestCase):
         self.assertEqual((m2, u2), ("PUT", "http://api.local/configuracion"))
         self.assertEqual(k2["headers"]["X-Clave-Admin"], "secreta")
         self.assertEqual(k2["json"], {"sector": "Salud"})
+
+    def test_solo_generar_y_subir_esperan_el_tiempo_maximo(self):
+        cliente, sesion = self.cliente(respuesta=respuesta(cuerpo={"sector": "General"}))
+        cliente.obtener_configuracion()
+        cliente.guardar_configuracion("General")
+        self.assertEqual([k["timeout"] for _, _, k in sesion.llamadas], [TIEMPO_CORTO_SEGUNDOS] * 2)
+        cliente, sesion = self.cliente(respuesta=respuesta(cuerpo=[]))
+        cliente.listar_documentos()
+        cliente.listar_paquetes_revision()
+        self.assertEqual([k["timeout"] for _, _, k in sesion.llamadas], [TIEMPO_CORTO_SEGUNDOS] * 2)
+        cuerpo = {"nombre": "a.pdf", "estado": "procesando", "chunks": 0, "error": None}
+        cliente, sesion = self.cliente(respuesta=respuesta(cuerpo=cuerpo))
+        cliente.subir_documento("a.pdf", b"%PDF")
+        self.assertEqual(sesion.llamadas[0][2]["timeout"], 30)
 
     def test_errores_de_red_y_de_estado_se_traducen(self):
         casos = [
