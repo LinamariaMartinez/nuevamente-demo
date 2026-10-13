@@ -8,9 +8,11 @@ sus items no cumplen el contrato, se usa la vista genérica.
 from pydantic import ValidationError
 
 from contrato import items_validos
-from vistas import generica
+from vistas import flashcards, generica
 
-VISTAS = {}
+VISTAS = {
+    "Flashcards": flashcards,
+}
 
 
 def mostrar_paquete(paquete):
