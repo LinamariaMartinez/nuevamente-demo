@@ -1,9 +1,11 @@
 """Pruebas de la vista interactiva de quiz."""
 
 import json
+import os
 from pathlib import Path
 import sys
 import unittest
+from unittest.mock import patch
 
 RAIZ = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(RAIZ / "src"))
@@ -12,6 +14,7 @@ sys.path.insert(0, str(RAIZ / "app"))
 from streamlit.testing.v1 import AppTest
 
 APP_VISTA = str(RAIZ / "tests" / "apps_interfaz" / "vista_app.py")
+APP_ESTUDIANTE = str(RAIZ / "tests" / "apps_interfaz" / "estudiante_app.py")
 DATOS = json.loads((RAIZ / "app" / "mocks" / "quiz.json").read_text(encoding="utf-8"))
 ITEMS = DATOS["contenido_adaptado"]["items"]
 CLAVE = "quiz_ejemplo-002"
@@ -48,6 +51,25 @@ class VistaQuiz(unittest.TestCase):
         at = correr(datos)
         self.assertEqual(len(at.exception), 0)
         self.assertEqual(len(at.radio), 0)
+
+
+@patch.dict(os.environ, {"MODO_API": "mock"})
+class QuizNuevoEmpiezaEnBlanco(unittest.TestCase):
+    def test_un_segundo_quiz_no_hereda_respuestas_ni_calificacion(self):
+        at = AppTest.from_file(APP_ESTUDIANTE, default_timeout=10).run()
+        at.text_input(key="tema").input("Redes VCN").run()
+        at.selectbox(key="formato").set_value("Quiz").run()
+        at = at.button(key="generar").click().run()
+        primera = at.radio[0]
+        primera.set_value(primera.options[0])
+        calificar = next(b.key for b in at.button if b.key.endswith("_calificar"))
+        at = at.button(key=calificar).click().run()
+        self.assertIn("Tu puntaje", [m.label for m in at.metric])
+
+        at.text_input(key="tema").input("Otro tema").run()
+        at = at.button(key="generar").click().run()
+        self.assertNotIn("Tu puntaje", [m.label for m in at.metric])
+        self.assertTrue(all(r.value is None for r in at.radio))
 
 
 if __name__ == "__main__":
