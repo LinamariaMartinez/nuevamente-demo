@@ -86,6 +86,12 @@ class ReglasDelPaquete(unittest.TestCase):
             items_validos(Paquete.model_validate(datos))
 
 
+class ListasFijas(unittest.TestCase):
+    def test_perfiles_son_los_tres_niveles_del_redactor(self):
+        # Acordado en la weekly del 13-oct: los mismos niveles que usa el Redactor (writer_examples.py)
+        self.assertEqual(PERFILES, ("Principiante", "Intermedio", "Avanzado"))
+
+
 class ReglasDeLaSolicitud(unittest.TestCase):
     def base(self, **cambios):
         datos = {"tema": "Redes VCN", "perfil": PERFILES[0], "formato": "Quiz", "nicho": "General"}

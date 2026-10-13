@@ -10,12 +10,8 @@ from typing import Literal, Optional
 from pydantic import BaseModel, Field, field_validator, model_validator
 
 # --- Listas fijas: las mismas para el formulario y para la validación de la API ---
-PERFILES = (
-    "Principiante / Transición de carrera",
-    "Desarrollador Junior / Semi Senior",
-    "Líder técnico / Arquitecto",
-    "Gestor / Ejecutivo (no técnico)",
-)
+# Perfiles: los tres niveles que reconoce el Redactor (src/agents/writer_examples.py)
+PERFILES = ("Principiante", "Intermedio", "Avanzado")
 FORMATOS = ("Tutorial", "Flashcards", "Quiz", "Resumen", "Guion")
 NICHOS = ("Fintech", "Salud", "E-commerce", "General")
 LARGO_MAXIMO_TEMA = 300

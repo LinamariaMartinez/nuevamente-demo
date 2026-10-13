@@ -1,9 +1,5 @@
 # F07 — Diseño de la interfaz de NuevaMente
 
-> Estado: **borrador para revisión del equipo** (2026-10-13).
-> Entrega del hackathon: 2026-10-23. Meta de F07: lista el **2026-10-18**, para dejar tiempo a F08 (integración),
-> F09 (Object Storage) y F10 (documentación y demo).
-
 ## 1. Objetivo
 
 Construir la interfaz que pide el reto ("interfaz interactiva, ej. Streamlit o Gradio") con dos paneles:
@@ -127,7 +123,7 @@ Viven en `src/contrato.py`; el formulario y la validación de la API usan las mi
 
 | Lista | Valores (los nombres exactos se confirman con el equipo, ver la sección 10) |
 |---|---|
-| Perfiles | Principiante / Transición de carrera · Desarrollador Junior / Semi Senior · Líder técnico / Arquitecto · Gestor / Ejecutivo (no técnico) |
+| Perfiles | Principiante · Intermedio · Avanzado (los tres niveles del Redactor; acordado en la weekly del 13-oct) |
 | Formatos | Tutorial · Flashcards · Quiz · Resumen · Guion |
 | Nichos | Fintech · Salud · E-commerce · General |
 
@@ -207,35 +203,9 @@ así que se pueden sumar al CI del Hito 3.
   `TIEMPO_MAXIMO_SEGUNDOS`.
 - `.streamlit/secrets.toml` (no se sube; se agrega al `.gitignore`): `contrasena_admin`.
 
-## 10. Reparto, calendario y preguntas abiertas
-
-| Fecha | Pieza | Rol | Depende de |
-|---|---|---|---|
-| 14-oct | `src/contrato.py` + mocks | Frontend y Backend juntos | — (**va primero**) |
-| 14 y 15-oct | Estilo (`estilo.py` + tema) | Frontend (1 persona) | Referencias visuales |
-| 15 y 16-oct | `inicio.py` + `cliente_api.py` | Frontend | Contrato |
-| 15 y 16-oct | Página del estudiante + vista genérica (capa 1) | Frontend | Contrato |
-| 15 y 16-oct | Página del admin | Frontend | Contrato |
-| 16 y 17-oct | Vistas interactivas: flashcards, quiz, guía (capa 2, en paralelo) | Frontend | Capa 1 |
-| 18-oct | Pruebas en verde, revisión y PR hacia F07 | Todos | Todo lo anterior |
-
-**PBIs propuestos** (se avisan en Discord antes de crearlos):
+## 10. **PBIs propuestos**:
 - PBI01-F07 (#20, ya existe): contrato, mocks, cliente, estilo, las dos páginas y la vista genérica.
 - PBI02-F07 (nuevo): vistas interactivas por formato.
 
 **Ramas:** `feature/F07-...` sale de `develop` (ya tiene F02, F03 y F04). El diseño entra como primer commit en
 `docs/F07-diseno-interfaz.md`. Al cerrar el hito, un resumen pasa a la rama `documentacion`.
-
-**Preguntas abiertas** (cada una indica a qué parte del equipo va dirigida):
-1. **Perfiles → equipo de F04 (Redactor).** El texto del reto da como ejemplo cuatro perfiles: Principiante / Transición
-   de carrera, Desarrollador Junior / Semi Senior, Líder técnico / Arquitecto y Gestor / Ejecutivo (no técnico).
-   Los ejemplos de estilo del Redactor (PBI16, `src/agents/writer_examples.py`, hoy en la rama de F04) usan tres niveles:
-   principiante, intermedio y avanzado. Cualquier otro perfil cae en "general".
-   ¿Se usan los cuatro del reto (el jurado probablemente los espera) o se mapean a los tres niveles? Mientras tanto,
-   el formulario ofrece los cuatro del reto.
-2. **Nombres exactos de los valores → equipos de F04 y de salida estructurada (Hito 4).** Perfil, formato y nicho deben
-   escribirse igual en el formulario, en el Redactor y en el JSON de salida (el ejemplo del Hito 4 usa `"Principiante"` y `"Flashcards"`).
-3. **Responsables de F06 → quien organiza el tablero.** F06 (Output Estructurado) es lo mismo que el Hito 4. En el
-   tablero tiene otros responsables que las personas que hoy avanzan el Hito 4. Confirmar quién la lleva y actualizar
-   el tablero, para que no se duplique el trabajo.
-4. **Backend (`api/`) → todo el equipo.** ¿Quién toma la API y en qué feature entra (F08 u otra)?
