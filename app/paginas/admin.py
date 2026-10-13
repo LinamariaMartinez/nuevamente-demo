@@ -1,0 +1,121 @@
+"""Página del admin: sube documentos, revisa su estado y revisa los paquetes marcados."""
+
+import hmac
+
+import streamlit as st
+
+from cliente_api import ErrorCliente
+from paginas import cliente_de_sesion
+from vistas import mostrar_paquete
+
+EXTENSIONES = ("pdf", "md", "txt")
+TAMANO_MAXIMO_MB = 10
+
+
+def validar_archivo(nombre, tamano_bytes):
+    """Devuelve el mensaje de error para el admin, o None si el archivo se puede subir."""
+    extension = nombre.rsplit(".", 1)[-1].lower() if "." in nombre else ""
+    if extension not in EXTENSIONES:
+        return "Solo se aceptan archivos PDF, MD o TXT."
+    if tamano_bytes == 0:
+        return "El archivo está vacío."
+    if tamano_bytes > TAMANO_MAXIMO_MB * 1024 * 1024:
+        return f"El archivo supera {TAMANO_MAXIMO_MB} MB."
+    return None
+
+
+def _contrasena_configurada():
+    try:
+        return st.secrets.get("contrasena_admin") or None
+    except Exception:  # no existe .streamlit/secrets.toml
+        return None
+
+
+def _pedir_contrasena():
+    esperada = _contrasena_configurada()
+    if esperada is None:
+        st.error("Falta configurar la contraseña del admin (contrasena_admin en .streamlit/secrets.toml).")
+        return
+    clave = st.text_input("Contraseña", type="password", key="clave_admin")
+    if st.button("Entrar", key="entrar"):
+        if hmac.compare_digest(clave.encode(), str(esperada).encode()):
+            st.session_state["admin_ok"] = True
+            st.rerun()
+        else:
+            st.error("Contraseña incorrecta")
+
+
+def _mostrar_error(error):
+    st.error(error.mensaje)
+    if error.detalle:
+        with st.expander("Ver detalle"):
+            st.code(error.detalle)
+
+
+def _seccion_subir(cliente):
+    st.subheader("Subir documento")
+    archivo = st.file_uploader(f"PDF, MD o TXT (máximo {TAMANO_MAXIMO_MB} MB)", type=list(EXTENSIONES), key="archivo")
+    if archivo is None or not st.button("Subir e indexar", key="subir"):
+        return
+    problema = validar_archivo(archivo.name, archivo.size)
+    if problema:
+        st.error(problema)
+        return
+    try:
+        documento = cliente.subir_documento(archivo.name, archivo.getvalue())
+        st.success(f"{documento.nombre}: {documento.estado}")
+    except ErrorCliente as error:
+        _mostrar_error(error)
+
+
+def _seccion_documentos(cliente):
+    st.subheader("Documentos")
+    try:
+        documentos = cliente.listar_documentos()
+    except ErrorCliente as error:
+        _mostrar_error(error)
+        return
+    if not documentos:
+        st.info("Todavía no hay documentos.")
+        return
+    for documento in documentos:
+        if documento.estado == "error":
+            st.error(f"{documento.nombre}: {documento.error or 'error sin detalle.'}")
+        else:
+            st.markdown(f"**{documento.nombre}** · {documento.estado} · {documento.chunks} fragmentos")
+
+
+def _seccion_revision(cliente):
+    st.subheader("Paquetes por revisar")
+    try:
+        resumenes = cliente.listar_paquetes_revision()
+    except ErrorCliente as error:
+        _mostrar_error(error)
+        return
+    if not resumenes:
+        st.info("No hay paquetes pendientes de revisión.")
+        return
+    for resumen in resumenes:
+        st.markdown(f"**{resumen.tema}** · {resumen.formato} · anclaje {resumen.anclaje_fuente_score:.0%}"
+                    f" · {resumen.creado_en:%Y-%m-%d %H:%M}")
+        if st.button("Abrir", key=f"abrir_{resumen.id_paquete}"):
+            st.session_state["paquete_admin"] = resumen.id_paquete
+    elegido = st.session_state.get("paquete_admin")
+    if elegido:
+        try:
+            mostrar_paquete(cliente.obtener_paquete(elegido))
+        except ErrorCliente as error:
+            _mostrar_error(error)
+
+
+def mostrar():
+    st.title("Panel del administrador")
+    if not st.session_state.get("admin_ok"):
+        _pedir_contrasena()
+        return
+    cliente = cliente_de_sesion()
+    if cliente.es_mock:
+        st.info("Modo demostración: datos de ejemplo")
+    _seccion_subir(cliente)
+    _seccion_documentos(cliente)
+    _seccion_revision(cliente)

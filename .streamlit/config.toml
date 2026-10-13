@@ -1,0 +1,3 @@
+[server]
+# Límite del selector de archivos del admin, en MB (cuida los 20 GB de Object Storage)
+maxUploadSize = 10
