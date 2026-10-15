@@ -26,3 +26,12 @@ Thumbs.db
 
 # Índice vectorial FAISS (se regenera a partir de los documentos)
 vectorstore/
+
+# Datos locales, resultados y pruebas de la API
+storage/
+output/
+tmp/
+.pytest_cache/
+*.sqlite3
+*.sqlite3-wal
+*.sqlite3-shm
