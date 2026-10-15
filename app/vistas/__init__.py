@@ -20,7 +20,7 @@ VISTAS = {
 
 def mostrar_paquete(paquete):
     if paquete.status == "error":  # un paquete de error no trae contenido que dibujar
-        st.error(paquete.mensaje_error or "Este paquete no tiene contenido porque su generación falló.")
+        st.error(paquete.mensaje_error or "No se pudo generar este material. Inténtalo de nuevo.")
         return
     generica.mostrar_encabezado(paquete)
     vista = VISTAS.get(paquete.metadatos.formato_generado)

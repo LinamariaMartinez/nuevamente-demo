@@ -49,7 +49,7 @@ class PaginaAdmin(unittest.TestCase):
 
     def test_contrasena_incorrecta(self):
         at = entrar(abrir(), "otra")
-        self.assertIn("Contraseña incorrecta", [e.value for e in at.error])
+        self.assertIn("La contraseña no es correcta. Revísala e inténtalo de nuevo.", [e.value for e in at.error])
         self.assertEqual(len(at.subheader), 0)
 
     def test_contrasena_correcta_muestra_las_secciones(self):
@@ -72,10 +72,15 @@ class PaginaAdmin(unittest.TestCase):
         at = at.button(key="abrir_ejemplo-005").click().run()
         self.assertEqual(at.header[0].value, "Guion de clase: arquitectura de red en OCI")
         self.assertEqual(len(at.warning), 1)
+        self.assertEqual(at.download_button(key="exportar_ejemplo-005").label, "Exportar JSON")
+
+    def test_el_boton_del_sector_dice_guardar_cambios(self):
+        at = entrar(abrir(), "clave-de-prueba")
+        self.assertEqual(at.button(key="guardar_sector").label, "Guardar cambios")
 
     def test_api_sin_permiso_muestra_el_mensaje(self):
         at = entrar(abrir(cliente=ClienteSinPermiso()), "clave-de-prueba")
-        self.assertIn("No tienes permiso. Revisa la configuración de la clave.", [e.value for e in at.error])
+        self.assertIn("No tienes permiso para esta acción. Revisa la clave del administrador en la configuración.", [e.value for e in at.error])
 
 
 class ValidarArchivo(unittest.TestCase):
@@ -86,8 +91,8 @@ class ValidarArchivo(unittest.TestCase):
             ("notas.md", 10 * MB, None),
             ("notas.txt", 10 * MB + 1, "El archivo supera 10 MB."),
             ("vacio.txt", 0, "El archivo está vacío."),
-            ("informe.docx", MB, "Solo se aceptan archivos PDF, MD o TXT."),
-            ("sin_extension", MB, "Solo se aceptan archivos PDF, MD o TXT."),
+            ("informe.docx", MB, "Solo se aceptan archivos PDF, Markdown o TXT."),
+            ("sin_extension", MB, "Solo se aceptan archivos PDF, Markdown o TXT."),
         ]
         for nombre, tamano, esperado in casos:
             with self.subTest(nombre=nombre, tamano=tamano):
