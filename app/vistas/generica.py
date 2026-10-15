@@ -2,8 +2,8 @@
 
 import streamlit as st
 
-AVISO_REVISION = ("Este material no superó la revisión automática de calidad. "
-                  "Un administrador lo va a revisar.")
+AVISO_REVISION = ("Este material no superó la revisión automática de calidad "
+                  "y está oculto para quienes estudian.")
 
 
 def mostrar_encabezado(paquete):
@@ -29,7 +29,7 @@ def mostrar_encabezado(paquete):
 def mostrar_items(paquete):
     items = paquete.contenido_adaptado.items
     if not items:
-        st.info("Este paquete no trae contenido.")
+        st.info("Este material no trae contenido.")
         return
     for numero, item in enumerate(items, start=1):
         st.markdown(f"**{numero}.**")
@@ -47,12 +47,6 @@ def mostrar_pie(paquete):
             st.write(paquete.evaluacion_calidad.observaciones)
     if paquete.fuentes:
         with st.expander(f"Fuentes ({len(paquete.fuentes)})"):
+            st.caption("Consulta los documentos utilizados para preparar este material.")
             for fuente in paquete.fuentes:
                 st.markdown(f"- **{fuente.documento}**, fragmento {fuente.fragmento}: {fuente.extracto}")
-    st.download_button(
-        "Descargar JSON",
-        data=paquete.model_dump_json(indent=2),
-        file_name=f"{paquete.id_paquete}.json",
-        mime="application/json",
-        key=f"descargar_{paquete.id_paquete}",
-    )

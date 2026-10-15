@@ -91,6 +91,12 @@ class ModoMock(unittest.TestCase):
         self.assertEqual(paquete.status, "error")
         self.assertEqual(paquete.codigo_error, "sin_contexto")
 
+    def test_el_guion_alterna_entre_en_revision_y_aprobado(self):
+        # Para la demo: el primer guion cae en revisión y "Generar otra versión" trae uno aprobado
+        revisiones = [self.cliente.generar_paquete(solicitud(formato="Guion")).evaluacion_calidad.requiere_revision_admin
+                      for _ in range(3)]
+        self.assertEqual(revisiones, [True, False, True])
+
     def test_lista_de_revision_trae_solo_el_guion(self):
         resumenes = self.cliente.listar_paquetes_revision()
         self.assertEqual([r.formato for r in resumenes], ["Guion"])

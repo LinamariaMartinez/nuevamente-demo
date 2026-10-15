@@ -32,11 +32,11 @@ class ErrorCliente(Exception):
     """Error ya traducido para el usuario. `tipo` dice qué pasó; `detalle` va en el desplegable."""
 
     MENSAJES = {
-        "no_disponible": "El servicio no está disponible en este momento.",
-        "tiempo_agotado": "La generación está tardando más de lo normal.",
-        "sin_permiso": "No tienes permiso. Revisa la configuración de la clave.",
-        "respuesta_invalida": "Hubo un problema con el material generado.",
-        "rechazado": "La API no pudo atender la petición.",
+        "no_disponible": "El servicio no está disponible en este momento. Inténtalo de nuevo más tarde.",
+        "tiempo_agotado": "La generación está tardando más de lo normal. Inténtalo de nuevo en unos minutos.",
+        "sin_permiso": "No tienes permiso para esta acción. Revisa la clave del administrador en la configuración.",
+        "respuesta_invalida": "Hubo un problema con el material generado. Inténtalo de nuevo.",
+        "rechazado": "El servicio no pudo atender la petición. Inténtalo de nuevo.",
     }
 
     def __init__(self, tipo, detalle=""):
@@ -58,6 +58,7 @@ class ClienteMock:
             Documento(nombre="manual_escaneado.pdf", estado="error", error="El PDF no tiene texto extraíble."),
         ]
         self._configuracion = Configuracion()
+        self._guiones_generados = 0
 
     def _leer(self, nombre):
         return Paquete.model_validate_json((self._carpeta / nombre).read_text(encoding="utf-8"))
@@ -80,7 +81,14 @@ class ClienteMock:
         # Id nuevo en cada generación, como hará la API: si se repite, las vistas
         # interactivas heredan el estado del paquete anterior (quiz ya calificado, etc.)
         id_nuevo = f"{paquete.id_paquete}-{uuid4().hex[:8]}"
-        return paquete.model_copy(update={"metadatos": metadatos, "id_paquete": id_nuevo})
+        cambios = {"metadatos": metadatos, "id_paquete": id_nuevo}
+        if solicitud.formato == "Guion":
+            # Para la demo: un guion sí y otro no cae en revisión, así se ven los dos casos
+            self._guiones_generados += 1
+            if self._guiones_generados % 2 == 0:
+                cambios["evaluacion_calidad"] = paquete.evaluacion_calidad.model_copy(
+                    update={"requiere_revision_admin": False})
+        return paquete.model_copy(update=cambios)
 
     def obtener_paquete(self, id_paquete):
         for paquete in self._todos():

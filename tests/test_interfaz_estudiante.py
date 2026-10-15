@@ -88,38 +88,54 @@ class PaginaEstudiante(unittest.TestCase):
 
     def test_tema_sin_contexto_muestra_el_mensaje_claro(self):
         at = pedir(abrir(), "Tema inexistente")
-        self.assertIn("No encontré ese tema en los documentos cargados. Prueba con otras palabras.",
+        self.assertIn("No encontramos ese tema en los documentos cargados. Prueba con otras palabras.",
                       [e.value for e in at.error])
 
-    def test_guion_no_aprobado_muestra_el_material_con_aviso(self):
+    def test_material_en_revision_no_se_muestra_y_se_puede_pedir_otro(self):
+        # En el mock, el primer guion cae en revisión y el siguiente sale aprobado
         at = pedir(abrir(), "Redes VCN", "Guion")
-        self.assertEqual(len(at.header), 1)
-        self.assertEqual(len(at.warning), 1)
+        self.assertEqual(len(at.header), 0)  # ni el título del material
+        self.assertEqual(len(at.metric), 0)  # ni sus métricas
+        self.assertIn("Este material necesita una revisión adicional antes de estar disponible.",
+                      [i.value for i in at.info])
+        self.assertEqual(at.button(key="reintentar").label, "Generar otra versión")
+        at = at.button(key="reintentar").click().run()
+        self.assertEqual(len(at.exception), 0)
+        self.assertEqual(at.header[0].value, "Guion de clase: arquitectura de red en OCI")  # la versión nueva sí se ve
+        self.assertEqual(len(at.info), 1)  # solo queda la etiqueta del modo demostración
+
+    def test_el_nivel_explica_que_no_cambia_las_fuentes(self):
+        self.assertEqual(abrir().selectbox(key="perfil").help,
+                         "La dificultad cambia la profundidad de la explicación, no las fuentes utilizadas.")
+
+    def test_boton_principal_dice_generar_material(self):
+        self.assertEqual(abrir().button(key="generar").label, "Generar material")
 
     def test_api_caida_avisa_pero_deja_el_formulario(self):
         cliente = ClienteCaido()
         at = abrir(cliente)
-        self.assertIn("El servicio no está disponible en este momento.", [w.value for w in at.warning])
+        self.assertIn("El servicio no está disponible en este momento. Inténtalo de nuevo más tarde.", [w.value for w in at.warning])
         self.assertEqual(len(at.text_input), 1)
         self.assertFalse(cliente.pidio_configuracion)  # no esperar otra petición que va a fallar
 
     def test_tiempo_agotado_conserva_el_tema_y_reintentar_funciona(self):
         cliente = ClienteQueFallaUnaVez()
         at = pedir(abrir(cliente), "Redes VCN")
-        self.assertIn("La generación está tardando más de lo normal.", [e.value for e in at.error])
+        self.assertIn("La generación está tardando más de lo normal. Inténtalo de nuevo en unos minutos.", [e.value for e in at.error])
         self.assertEqual(at.text_input(key="tema").value, "Redes VCN")
         at = at.button(key="reintentar").click().run()
         self.assertEqual(len(at.error), 0)
         self.assertEqual(at.header[0].value, "Quiz: componentes de red de una VCN")
         self.assertEqual(cliente.llamadas, 2)
 
-    def test_reintentar_con_el_tema_borrado_no_genera_ni_se_rompe(self):
+    def test_reintentar_con_el_tema_borrado_no_genera_y_pide_escribirlo(self):
         cliente = ClienteQueFallaUnaVez()
         at = pedir(abrir(cliente), "Redes VCN")
         at.text_input(key="tema").input("").run()
         at = at.button(key="reintentar").click().run()
         self.assertEqual(len(at.exception), 0)
         self.assertEqual(cliente.llamadas, 1)
+        self.assertIn("Escribe un tema para generar tu material.", [w.value for w in at.warning])
 
 
 if __name__ == "__main__":

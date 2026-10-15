@@ -42,6 +42,12 @@ class VistaGenerica(unittest.TestCase):
                 self.assertEqual(at.header[0].value, datos["contenido_adaptado"]["titulo"])
                 self.assertTrue(any(e.label.startswith("Fuentes") for e in at.expander))
 
+    def test_la_vista_no_ofrece_descargar_el_json(self):
+        # El JSON es para integrar con otros sistemas: lo exporta el admin, no quien estudia
+        for nombre in MOCKS_EXITO:
+            with self.subTest(mock=nombre):
+                self.assertEqual(len(correr(cargar(nombre)).download_button), 0)
+
     def test_paquete_que_requiere_revision_muestra_el_aviso(self):
         at = correr(cargar("guion.json"))
         self.assertEqual(at.warning[0].value, AVISO_REVISION)
@@ -66,7 +72,7 @@ class VistaGenerica(unittest.TestCase):
         datos = cargar("resumen.json")
         datos["contenido_adaptado"]["items"] = []
         at = correr(datos)
-        self.assertIn("Este paquete no trae contenido.", [i.value for i in at.info])
+        self.assertIn("Este material no trae contenido.", [i.value for i in at.info])
 
 
 if __name__ == "__main__":

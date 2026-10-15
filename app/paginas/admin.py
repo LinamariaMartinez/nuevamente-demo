@@ -17,7 +17,7 @@ def validar_archivo(nombre, tamano_bytes):
     """Devuelve el mensaje de error para el admin, o None si el archivo se puede subir."""
     extension = nombre.rsplit(".", 1)[-1].lower() if "." in nombre else ""
     if extension not in EXTENSIONES:
-        return "Solo se aceptan archivos PDF, MD o TXT."
+        return "Solo se aceptan archivos PDF, Markdown o TXT."
     if tamano_bytes == 0:
         return "El archivo está vacío."
     if tamano_bytes > TAMANO_MAXIMO_MB * 1024 * 1024:
@@ -43,7 +43,7 @@ def _pedir_contrasena():
             st.session_state["admin_ok"] = True
             st.rerun()
         else:
-            st.error("Contraseña incorrecta")
+            st.error("La contraseña no es correcta. Revísala e inténtalo de nuevo.")
 
 
 def _mostrar_error(error):
@@ -61,7 +61,8 @@ def _seccion_sector(cliente):
         _mostrar_error(error)
         return
     elegido = st.selectbox("El material se adapta a este sector", NICHOS, index=NICHOS.index(actual), key="sector")
-    if st.button("Guardar sector", key="guardar_sector"):
+    st.caption("El sector adapta los ejemplos y el vocabulario del material; no cambia lo que dicen los documentos.")
+    if st.button("Guardar cambios", key="guardar_sector"):
         try:
             st.success(f"Sector guardado: {cliente.guardar_configuracion(elegido).sector}")
         except ErrorCliente as error:
@@ -70,7 +71,7 @@ def _seccion_sector(cliente):
 
 def _seccion_subir(cliente):
     st.subheader("Subir documento")
-    archivo = st.file_uploader(f"PDF, MD o TXT (máximo {TAMANO_MAXIMO_MB} MB)", type=list(EXTENSIONES), key="archivo")
+    archivo = st.file_uploader(f"PDF, Markdown o TXT (máximo {TAMANO_MAXIMO_MB} MB)", type=list(EXTENSIONES), key="archivo")
     if archivo is None or not st.button("Subir e indexar", key="subir"):
         return
     problema = validar_archivo(archivo.name, archivo.size)
@@ -92,7 +93,7 @@ def _seccion_documentos(cliente):
         _mostrar_error(error)
         return
     if not documentos:
-        st.info("Todavía no hay documentos.")
+        st.info("Todavía no hay documentos. Sube el primero en la sección de arriba.")
         return
     for documento in documentos:
         if documento.estado == "error":
@@ -119,9 +120,20 @@ def _seccion_revision(cliente):
     elegido = st.session_state.get("paquete_admin")
     if elegido:
         try:
-            mostrar_paquete(cliente.obtener_paquete(elegido))
+            paquete = cliente.obtener_paquete(elegido)
         except ErrorCliente as error:
             _mostrar_error(error)
+            return
+        mostrar_paquete(paquete)
+        # El JSON es para integrarlo con otros sistemas de la institución (por ejemplo, su LMS)
+        st.download_button(
+            "Exportar JSON",
+            data=paquete.model_dump_json(indent=2),
+            file_name=f"{paquete.id_paquete}.json",
+            mime="application/json",
+            key=f"exportar_{paquete.id_paquete}",
+            icon=":material/download:",
+        )
 
 
 def mostrar():

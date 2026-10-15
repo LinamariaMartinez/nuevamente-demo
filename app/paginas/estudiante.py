@@ -8,8 +8,10 @@ from paginas import cliente_de_sesion
 from vistas import mostrar_paquete
 
 MENSAJES_POR_CODIGO = {
-    "sin_contexto": "No encontré ese tema en los documentos cargados. Prueba con otras palabras.",
+    "sin_contexto": "No encontramos ese tema en los documentos cargados. Prueba con otras palabras.",
 }
+EN_REVISION = "Este material necesita una revisión adicional antes de estar disponible."
+AYUDA_NIVEL = "La dificultad cambia la profundidad de la explicación, no las fuentes utilizadas."
 
 
 def _generar(cliente):
@@ -21,7 +23,7 @@ def _generar(cliente):
     st.session_state.pop("error_generacion", None)
     st.session_state.pop("paquete", None)
     try:
-        with st.spinner("Generando tu material… puede tardar un poco."):
+        with st.spinner("Estamos preparando el material a partir de los documentos de tu institución."):
             st.session_state["paquete"] = cliente.generar_paquete(solicitud)
     except ErrorCliente as error:
         st.session_state["error_generacion"] = error
@@ -35,8 +37,8 @@ def _mostrar_sector(cliente):
         pass
 
 
-def _boton_reintentar():
-    if st.button("Reintentar", key="reintentar"):
+def _boton_reintentar(etiqueta="Reintentar"):
+    if st.button(etiqueta, key="reintentar"):
         st.session_state["reintentar_pedido"] = True
         st.rerun()
 
@@ -48,11 +50,11 @@ def mostrar():
         st.info("Modo demostración: datos de ejemplo")
     disponible = cliente.salud()
     if not disponible:
-        st.warning("El servicio no está disponible en este momento.")
+        st.warning("El servicio no está disponible en este momento. Inténtalo de nuevo más tarde.")
 
     st.text_input("¿Qué quieres aprender?", key="tema", max_chars=LARGO_MAXIMO_TEMA,
                   placeholder="Ej.: redes VCN en OCI")
-    st.selectbox("Tu nivel", PERFILES, key="perfil")
+    st.selectbox("Tu nivel", PERFILES, key="perfil", help=AYUDA_NIVEL)
     st.selectbox("Formato", FORMATOS, key="formato")
     if disponible:  # con la API caída, esta petición también fallaría y solo haría esperar
         _mostrar_sector(cliente)
@@ -61,8 +63,8 @@ def mostrar():
     reintentar = st.session_state.pop("reintentar_pedido", False)
     # El botón siempre está activo: el tema se guarda al salir del campo, y un botón
     # desactivado se tragaría el primer clic de quien no pulsó Enter
-    generar = st.button("Generar", key="generar", type="primary")
-    if generar and tema_vacio:
+    generar = st.button("Generar material", key="generar", type="primary")
+    if (generar or reintentar) and tema_vacio:
         st.warning("Escribe un tema para generar tu material.")
     if (generar or reintentar) and not tema_vacio:
         _generar(cliente)
@@ -83,5 +85,10 @@ def mostrar():
         st.error(MENSAJES_POR_CODIGO.get(paquete.codigo_error,
                                          paquete.mensaje_error or "No se pudo generar el material."))
         _boton_reintentar()
+        return
+    if paquete.evaluacion_calidad.requiere_revision_admin:
+        # No superó la revisión automática: no se muestra hasta que lo revise un administrador
+        st.info(EN_REVISION)
+        _boton_reintentar("Generar otra versión")
         return
     mostrar_paquete(paquete)
