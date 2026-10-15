@@ -12,6 +12,7 @@ from state import AgentState
 from the_keys import GEMINI_API_KEY
 from the_models import GEMINI_LIGERO
 from agents.retry import invoke_with_retry
+from agents.writer_examples import profile_examples
 
 
 def writer_node(state: AgentState) -> dict:
@@ -60,11 +61,15 @@ INSTRUCCIONES:
 - CRÍTICO: Debes basar tu explicación EXCLUSIVAMENTE en el Contexto Técnico proporcionado. 
   No introduzcas datos externos ni inventes (alucines) características que no se mencionen en el contexto.
 
-CONTEXTO TÉCNICO:
-{context}
+EJEMPLOS DE ESTILO:
+- Los turnos de ejemplo son ficticios: ilustran la adaptación al perfil y cómo reconocer información ausente.
+- No son fuentes de la consulta real. No copies sus nombres, hechos ni respuestas al contenido solicitado.
+- Aunque los ejemplos usan Resumen, respeta el formato y el nicho de la petición real.
+- Usa exclusivamente el contexto técnico de la última petición para los hechos de tu respuesta.
 """,
             ),
-            ("human", "Tema a explicar: {query}{feedback_section}"),
+            *profile_examples(user_profile),
+            ("human", "PETICIÓN REAL\nCONTEXTO TÉCNICO:\n{context}\n\nTema a explicar: {query}{feedback_section}"),
         ]
     )
     
