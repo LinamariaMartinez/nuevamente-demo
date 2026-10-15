@@ -20,8 +20,8 @@ def crear_modelo_embeddings():
     )
 
 
-def chunk_embeddings(docs, chunk_size=1000, chunk_overlap=100, ruta=RUTA_VECTORSTORE):
-    """Divide los documentos en chunks, genera sus embeddings y guarda el índice FAISS."""
+def crear_vectorstore(docs, chunk_size=1000, chunk_overlap=100):
+    """Construye un índice aislado en memoria para una generación."""
     if not docs:
         raise ValueError("No hay documentos para procesar.")
 
@@ -30,7 +30,12 @@ def chunk_embeddings(docs, chunk_size=1000, chunk_overlap=100, ruta=RUTA_VECTORS
     )
     docs_splits = splitter.split_documents(docs)
 
-    vectorstore = FAISS.from_documents(docs_splits, crear_modelo_embeddings())
+    return FAISS.from_documents(docs_splits, crear_modelo_embeddings())
+
+
+def chunk_embeddings(docs, chunk_size=1000, chunk_overlap=100, ruta=RUTA_VECTORSTORE):
+    """Construye y persiste el índice global usado por el CLI."""
+    vectorstore = crear_vectorstore(docs, chunk_size, chunk_overlap)
     vectorstore.save_local(ruta)
 
     return vectorstore
