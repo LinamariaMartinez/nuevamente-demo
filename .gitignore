@@ -26,3 +26,7 @@ Thumbs.db
 
 # Índice vectorial FAISS (se regenera a partir de los documentos)
 vectorstore/
+
+# Base de datos local NuevaMente
+nuevamente.db
+nuevamente.db-*
