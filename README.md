@@ -127,7 +127,6 @@ Sigue la [guía de uso paso a paso](docs/uso_api.md): incluye Swagger, comandos 
 
 El flujo es: cargar documento → copiar su ID → generar → leer `X-Contenido-ID` → consultar o descargar el resultado. En `/docs` puedes completar todo el flujo sin crear un frontend.
 
-Por petición del responsable de esta entrega se retiraron las pruebas nuevas de F06. Se conservan las pruebas del equipo, con los ajustes de compatibilidad necesarios para la salida estructurada. Por petición del responsable se eliminó el workflow hito3-tests.yml: esas pruebas ya no se ejecutan automáticamente mediante ese flujo de GitHub Actions.
 
 ## CLI existente
 
