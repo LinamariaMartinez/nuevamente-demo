@@ -1,0 +1,16 @@
+name: Hito 3 - pruebas sin API
+on:
+  pull_request:
+  push:
+    branches: [develop, main]
+jobs:
+  review-flow:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install langgraph==1.2.12 langchain-google-genai==4.4.0 pydantic==2.13.5 python-dotenv==1.2.4
+      - run: python -m unittest discover -s tests -p test_review_flow.py -v
+      - run: python -m unittest discover -s tests -p test_writer_prompt.py -v
