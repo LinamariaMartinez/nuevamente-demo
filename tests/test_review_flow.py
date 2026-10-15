@@ -15,6 +15,7 @@ from pydantic import ValidationError
 
 import graph
 from agents import reviewer
+from schemas import SummaryDraft
 from agents.retry import invoke_with_retry
 from google.genai.errors import ServerError, ClientError
 import test_fase3
@@ -32,9 +33,15 @@ class ReviewFlowTests(unittest.TestCase):
 
         def write(state):
             feedback.append(state.get("review_feedback", ""))
-            draft = f"Borrador {len(drafts) + 1}"
+            structured = SummaryDraft(
+                tiempo_estimado_estudio_minutos=5, conceptos_clave=["VCN"], prerrequisitos=[],
+                contenido_adaptado={"titulo": f"Borrador {len(drafts) + 1}",
+                                    "introduccion_contextualizada": "Una red en la nube.",
+                                    "items": [{"subtitulo": "VCN", "texto": "Una red privada."}]},
+            )
+            draft = structured.model_dump_json(indent=2)
             drafts.append(draft)
-            return {"current_draft": draft}
+            return {"current_draft": draft, "structured_draft": structured.model_dump(mode="json")}
 
         def evaluate(prompt):
             return reviewer.ReviewResult(source_anchoring_score=next(scores), pedagogical_score=0.9, format_compliance_score=0.9, approved=True, feedback="Corregir dato")
