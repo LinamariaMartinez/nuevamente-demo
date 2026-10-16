@@ -5,7 +5,7 @@ import streamlit as st
 import marca
 import sesion
 from cliente_api import ErrorCliente
-from paginas import mostrar_error
+from paginas import ir_a, mostrar_error
 
 LARGO_MINIMO_CONTRASENA = 8
 
@@ -24,7 +24,9 @@ def validar_contrasena_nueva(actual, nueva, confirmar):
 
 
 def mostrar_inicio():
-    st.image(str(marca.LOGO), width=280)
+    if st.button("Volver al inicio", key="volver_landing", icon=":material/arrow_back:"):
+        ir_a("landing")
+    st.image(str(marca.logo_principal(st.context.theme.type)), width=280)
     st.markdown("**Aprender hoy, construir mañana.**")
     st.caption("Consulta tus temas → estudia con material a tu medida → presenta la evaluación.")
     aviso = st.session_state.pop("aviso_acceso", None)

@@ -8,6 +8,7 @@ from streamlit.testing.v1 import AppTest
 
 import menu
 import paginas
+from paginas.landing import TITULAR
 from cliente_api import ClienteMock
 
 INICIO = str(RAIZ / "app" / "inicio.py")
@@ -37,10 +38,43 @@ class MenuPorRol(unittest.TestCase):
 
 
 class PuntoDeEntrada(unittest.TestCase):
-    def test_sin_sesion_solo_iniciar_sesion(self):
+    def test_sin_sesion_abre_la_landing(self):
         at = abrir()
-        self.assertEqual(at.text_input(key="acceso_usuario").label, "Usuario")
+        self.assertEqual(at.title[0].value, TITULAR)
         self.assertEqual([b.key for b in at.sidebar.button], [])
+        self.assertEqual(set(paginas.DESTINOS), {"landing", "acceso"})
+
+    def test_de_la_landing_a_iniciar_sesion_y_de_vuelta(self):
+        at = abrir().button(key="ir_acceso").click().run()
+        self.assertEqual(at.text_input(key="acceso_usuario").label, "Usuario")
+        at = at.button(key="volver_landing").click().run()
+        self.assertEqual(at.title[0].value, TITULAR)
+
+    def test_sesion_vencida_va_directo_a_iniciar_sesion_con_el_aviso(self):
+        at = AppTest.from_file(INICIO, default_timeout=10)
+        at.session_state["aviso_acceso"] = "Tu sesión terminó. Inicia sesión de nuevo."
+        at = at.run()
+        self.assertIn("Tu sesión terminó. Inicia sesión de nuevo.", textos(at.info))
+        self.assertIsNotNone(at.text_input(key="acceso_usuario"))
+
+    def test_cerrar_sesion_vuelve_a_la_landing(self):
+        at = abrir("laura").sidebar.button(key="cerrar_sesion").click().run()
+        self.assertNotIn("sesion", at.session_state)
+        self.assertEqual(at.title[0].value, TITULAR)
+
+    def test_el_logo_del_menu_solo_aparece_dentro_de_la_app(self):
+        # st.logo hace aparecer la barra lateral: en la landing y en Iniciar sesión no debe haber menú
+        inicio = (RAIZ / "app" / "inicio.py").read_text(encoding="utf-8")
+        self.assertEqual(inicio.count("st.logo("), 1)
+        self.assertGreater(inicio.index("st.logo("), inicio.index("else:"))
+
+    def test_sin_sesion_la_navegacion_no_usa_posicion_oculta(self):
+        # Con position="hidden", Streamlit 1.65 deja pegada la columna vacía del menú al cerrar sesión (marca
+        # "hideSidebarNav" mientras la barra aún tiene los elementos de la sesión). Con una sola página visible,
+        # Streamlit no dibuja menú y la columna desaparece.
+        inicio = (RAIZ / "app" / "inicio.py").read_text(encoding="utf-8")
+        self.assertNotIn('position="hidden"', inicio)
+        self.assertIn('url_path="acceso", default=vencida,\n                                 visibility="hidden"', inicio)
 
     def test_contrasena_temporal_obliga_a_cambiarla(self):
         at = abrir("mateo")
@@ -58,11 +92,6 @@ class PuntoDeEntrada(unittest.TestCase):
         self.assertEqual(at.title[0].value, "Documentos")
         self.assertIn("Administración", textos(at.sidebar.caption))
         self.assertEqual(set(paginas.DESTINOS), {"documentos", "temas", "revision", "configuracion"})
-
-    def test_cerrar_sesion_vuelve_a_iniciar_sesion(self):
-        at = abrir("laura").sidebar.button(key="cerrar_sesion").click().run()
-        self.assertNotIn("sesion", at.session_state)
-        self.assertIsNotNone(at.text_input(key="acceso_usuario"))
 
     def test_el_menu_se_contrae_con_el_material_y_vuelve_en_otra_pagina(self):
         # AppTest no recuerda st.switch_page entre ejecuciones con páginas-función: el cambio de página se

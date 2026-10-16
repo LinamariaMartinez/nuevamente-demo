@@ -16,17 +16,16 @@ for ruta in (RAIZ / "src", RAIZ / "app"):
 
 import streamlit as st
 
+import estilo
 import marca
 import menu
 import sesion
-from paginas import DESTINOS, acceso, aplicar_estado_menu
+from paginas import DESTINOS, acceso, aplicar_estado_menu, landing
 from paginas.admin import configuracion, documentos, revision, temas
 from paginas.estudiante import mis_temas, tema
 
 # Pantalla ancha (v2.2): las pantallas de acción usan dos columnas (spec §6.6)
 st.set_page_config(page_title="NuevaMente", page_icon=str(marca.FAVICON), layout="wide")
-# El menú es verde oscuro en los dos modos: el logo del menú es siempre la versión clara
-st.logo(str(marca.LOGO_MENU), size="large", icon_image=str(marca.ICONO))
 
 FUNCIONES = {
     "mis-temas": mis_temas.mostrar,
@@ -65,16 +64,23 @@ def _mostrar_usuario(usuario):
 usuario = sesion.usuario_actual()
 if usuario is None:
     DESTINOS.clear()
-    st.navigation([st.Page(acceso.mostrar_inicio, title="Iniciar sesión", url_path="acceso")],
-                  position="hidden").run()
+    # Con sesión vencida se va directo a Iniciar sesión: en la landing el aviso se perdería
+    vencida = "aviso_acceso" in st.session_state
+    DESTINOS["landing"] = st.Page(landing.mostrar, title="NuevaMente", url_path="inicio", default=not vencida)
+    DESTINOS["acceso"] = st.Page(acceso.mostrar_inicio, title="Iniciar sesión", url_path="acceso", default=vencida,
+                                 visibility="hidden")
+    st.navigation([DESTINOS["landing"], DESTINOS["acceso"]]).run()
 elif usuario.debe_cambiar_contrasena:
     DESTINOS.clear()
-    st.navigation([st.Page(acceso.mostrar_cambio, title="Cambia tu contraseña", url_path="contrasena")],
-                  position="hidden").run()
+    st.navigation([st.Page(acceso.mostrar_cambio, title="Cambia tu contraseña", url_path="contrasena")]).run()
 else:
+    # El logo va solo dentro de la app: st.logo hace aparecer la barra lateral, y la landing y el acceso no llevan menú.
+    # El menú es verde oscuro en los dos modos: el logo del menú es siempre la versión clara
+    st.logo(str(marca.LOGO_MENU), size="large", icon_image=str(marca.ICONO))
     pagina = st.navigation(_paginas_del_rol(usuario.rol))
     # st.navigation usa el ícono de cada página como favicon: se vuelve a fijar el de NuevaMente
     st.set_page_config(page_icon=str(marca.FAVICON))
+    estilo.aplicar()  # nombre, rol y Cerrar sesión al fondo del menú
     _mostrar_usuario(usuario)
     pagina.run()
     aplicar_estado_menu()  # al final: la página ya dijo si quiere el menú contraído
