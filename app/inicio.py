@@ -33,4 +33,7 @@ def _portada():
 
 
 pagina_portada = st.Page(_portada, title="Inicio", url_path="inicio", default=True, icon=":material/home:")
-st.navigation([pagina_portada, pagina_estudiante, pagina_admin]).run()
+pagina = st.navigation([pagina_portada, pagina_estudiante, pagina_admin])
+# st.navigation usa el ícono de cada página como favicon: se vuelve a fijar el de NuevaMente
+st.set_page_config(page_icon=str(marca.ICONO))
+pagina.run()

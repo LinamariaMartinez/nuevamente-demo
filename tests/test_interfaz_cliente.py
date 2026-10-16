@@ -14,15 +14,24 @@ sys.path.insert(0, str(RAIZ / "app"))
 import requests
 
 from cliente_api import TIEMPO_CORTO_SEGUNDOS, ClienteHttp, ClienteMock, ErrorCliente, obtener_cliente
-from contrato import FORMATOS, PERFILES, SolicitudPaquete
+from contrato import FORMATOS, PERFILES, DatosTema, SolicitudPaquete
 
 MOCKS = RAIZ / "app" / "mocks"
 
 
 def solicitud(**cambios):
-    datos = {"tema": "Redes VCN", "perfil": PERFILES[1], "formato": "Quiz"}
+    datos = {"id_tema": "t-redes", "tema": "Redes VCN", "perfil": PERFILES[1], "formato": "Quiz"}
     datos.update(cambios)
     return SolicitudPaquete(**datos)
+
+
+CUENTAS = {"laura": "demo-estudiante", "mateo": "temporal-123", "admin": "demo-admin"}
+
+
+def con_sesion(usuario, cliente=None):
+    cliente = cliente or ClienteMock()
+    cliente.iniciar_sesion(usuario, CUENTAS[usuario])
+    return cliente
 
 
 def respuesta(status=200, cuerpo=None, texto=None):
@@ -34,7 +43,8 @@ def respuesta(status=200, cuerpo=None, texto=None):
 
 
 class SesionFalsa:
-    def __init__(self, respuesta=None, excepcion=None):
+    def __init__(self, respuesta=None, excepcion=None, respuestas=None):
+        self.respuestas = list(respuestas) if respuestas is not None else None
         self.respuesta = respuesta
         self.excepcion = excepcion
         self.llamadas = []
@@ -43,7 +53,14 @@ class SesionFalsa:
         self.llamadas.append((metodo, url, kwargs))
         if self.excepcion is not None:
             raise self.excepcion
+        if self.respuestas is not None:
+            return self.respuestas.pop(0)
         return self.respuesta
+
+
+SESION_JSON = {"token": "tok-123", "usuario": {"id_usuario": "u-1", "nombre": "Ana", "usuario": "ana",
+                                               "rol": "admin", "temas": []}}
+TEMA_JSON = {"id_tema": "t-1", "nombre": "Redes", "descripcion": "", "documentos": ["a.pdf"]}
 
 
 def paquete_json(nombre="quiz.json"):
@@ -51,125 +68,260 @@ def paquete_json(nombre="quiz.json"):
 
 
 class ModoMock(unittest.TestCase):
-    def setUp(self):
-        self.cliente = ClienteMock()
+    def test_es_mock_y_esta_sano_sin_sesion(self):
+        cliente = ClienteMock()
+        self.assertTrue(cliente.es_mock)
+        self.assertTrue(cliente.salud())
 
-    def test_es_mock_y_esta_sano(self):
-        self.assertTrue(self.cliente.es_mock)
-        self.assertTrue(self.cliente.salud())
+    # --- Sesión ---
+    def test_inicio_correcto_devuelve_token_y_usuario(self):
+        sesion = ClienteMock().iniciar_sesion("laura", "demo-estudiante")
+        self.assertTrue(sesion.token)
+        self.assertEqual((sesion.usuario.nombre, sesion.usuario.rol), ("Laura Gómez", "estudiante"))
 
+    def test_contrasena_mala_y_usuario_inexistente_dan_el_mismo_error(self):
+        for usuario, contrasena in (("laura", "otra"), ("nadie", "demo-estudiante")):
+            with self.subTest(usuario=usuario), self.assertRaises(ErrorCliente) as ctx:
+                ClienteMock().iniciar_sesion(usuario, contrasena)
+            self.assertEqual(ctx.exception.tipo, "credenciales")
+
+    def test_sin_sesion_pide_iniciarla(self):
+        with self.assertRaises(ErrorCliente) as ctx:
+            ClienteMock().listar_temas()
+        self.assertEqual(ctx.exception.tipo, "sesion_vencida")
+
+    def test_cerrar_sesion(self):
+        cliente = con_sesion("laura")
+        cliente.cerrar_sesion()
+        with self.assertRaises(ErrorCliente):
+            cliente.listar_temas()
+
+    def test_cambiar_contrasena(self):
+        cliente = con_sesion("mateo")
+        with self.assertRaises(ErrorCliente) as ctx:
+            cliente.cambiar_contrasena("equivocada", "nueva-clave-1")
+        self.assertEqual(ctx.exception.mensaje, "La contraseña actual no es correcta.")
+        cliente.cambiar_contrasena("temporal-123", "nueva-clave-1")
+        cliente.cerrar_sesion()
+        sesion = cliente.iniciar_sesion("mateo", "nueva-clave-1")
+        self.assertFalse(sesion.usuario.debe_cambiar_contrasena)
+
+    # --- Temas y permisos ---
+    def test_estudiante_ve_solo_sus_temas_y_admin_todos(self):
+        self.assertEqual([t.id_tema for t in con_sesion("laura").listar_temas()], ["t-redes", "t-seguridad"])
+        self.assertEqual(len(con_sesion("admin").listar_temas()), 3)
+
+    def test_estudiante_no_usa_rutas_de_admin(self):
+        cliente = con_sesion("laura")
+        for llamada in (cliente.listar_documentos, cliente.listar_paquetes_revision,
+                        lambda: cliente.guardar_configuracion("Salud"),
+                        lambda: cliente.crear_tema(DatosTema(nombre="X", documentos=["guia_datos.txt"]))):
+            with self.subTest(llamada=llamada), self.assertRaises(ErrorCliente) as ctx:
+                llamada()
+            self.assertEqual(ctx.exception.tipo, "sin_permiso")
+
+    def test_crear_editar_y_retirar_tema(self):
+        cliente = con_sesion("admin")
+        tema = cliente.crear_tema(DatosTema(nombre="Bases de datos", documentos=["guia_datos.txt"]))
+        self.assertIn(tema.id_tema, [t.id_tema for t in cliente.listar_temas()])
+        editado = cliente.editar_tema(tema.id_tema, DatosTema(nombre="Bases de datos SQL", documentos=["guia_datos.txt"]))
+        self.assertEqual(editado.nombre, "Bases de datos SQL")
+        cliente.retirar_tema(tema.id_tema)
+        self.assertNotIn(tema.id_tema, [t.id_tema for t in cliente.listar_temas()])
+
+    def test_nombre_repetido_no_crea_duplicado(self):
+        cliente = con_sesion("admin")
+        with self.assertRaises(ErrorCliente) as ctx:
+            cliente.crear_tema(DatosTema(nombre="redes en oci", documentos=["guia_datos.txt"]))
+        self.assertEqual((ctx.exception.tipo, ctx.exception.mensaje), ("rechazado", "Ya existe un tema con ese nombre."))
+        self.assertEqual(len(cliente.listar_temas()), 3)
+
+    def test_documento_no_indexado_no_sirve_para_un_tema(self):
+        with self.assertRaises(ErrorCliente) as ctx:
+            con_sesion("admin").crear_tema(DatosTema(nombre="Escaneos", documentos=["manual_escaneado.pdf"]))
+        self.assertEqual(ctx.exception.mensaje, "Elige solo documentos ya indexados.")
+
+    def test_retirar_un_tema_lo_quita_de_quien_lo_tenia(self):
+        cliente = con_sesion("admin")
+        cliente.retirar_tema("t-redes")
+        cliente.cerrar_sesion()
+        cliente.iniciar_sesion("laura", "demo-estudiante")
+        self.assertEqual([t.id_tema for t in cliente.listar_temas()], ["t-seguridad"])
+
+    def test_tema_inexistente_es_no_encontrado(self):
+        with self.assertRaises(ErrorCliente) as ctx:
+            con_sesion("admin").retirar_tema("t-no-existe")
+        self.assertEqual(ctx.exception.tipo, "no_encontrado")
+
+    # --- Generar material ---
     def test_genera_un_paquete_por_formato_con_lo_que_pidio_el_estudiante(self):
-        self.cliente.guardar_configuracion("Fintech")
+        cliente = con_sesion("admin")
+        cliente.guardar_configuracion("Fintech")
+        cliente.cerrar_sesion()
+        cliente.iniciar_sesion("laura", "demo-estudiante")
         for formato in FORMATOS:
             with self.subTest(formato=formato):
-                paquete = self.cliente.generar_paquete(solicitud(formato=formato))
+                paquete = cliente.generar_paquete(solicitud(formato=formato))
                 self.assertEqual(paquete.metadatos.formato_generado, formato)
                 self.assertEqual(paquete.metadatos.tema, "Redes VCN")
                 self.assertEqual(paquete.metadatos.perfil_aplicado, PERFILES[1])
                 self.assertEqual(paquete.metadatos.nicho_sector, "Fintech")
 
-    def test_sector_empieza_en_general_y_se_puede_cambiar(self):
-        self.assertEqual(self.cliente.obtener_configuracion().sector, "General")
-        self.assertEqual(self.cliente.guardar_configuracion("Salud").sector, "Salud")
-        self.assertEqual(self.cliente.obtener_configuracion().sector, "Salud")
+    def test_pedido_vacio_usa_el_nombre_del_tema(self):
+        paquete = con_sesion("laura").generar_paquete(solicitud(tema=""))
+        self.assertEqual(paquete.metadatos.tema, "Redes en OCI")
 
-    def test_sector_no_permitido_no_se_guarda(self):
+    def test_tema_no_asignado_no_genera(self):
         with self.assertRaises(ErrorCliente) as ctx:
-            self.cliente.guardar_configuracion("Minería")
-        self.assertEqual(ctx.exception.tipo, "rechazado")
-        self.assertEqual(self.cliente.obtener_configuracion().sector, "General")
+            con_sesion("laura").generar_paquete(solicitud(id_tema="t-datos"))
+        self.assertEqual(ctx.exception.tipo, "sin_permiso")
 
     def test_cada_generacion_tiene_un_id_nuevo(self):
         # Si dos paquetes comparten id, sus vistas interactivas comparten estado (quiz ya calificado, etc.)
-        primero = self.cliente.generar_paquete(solicitud(formato="Quiz"))
-        segundo = self.cliente.generar_paquete(solicitud(formato="Quiz"))
+        cliente = con_sesion("laura")
+        primero = cliente.generar_paquete(solicitud(formato="Quiz"))
+        segundo = cliente.generar_paquete(solicitud(formato="Quiz"))
         self.assertNotEqual(primero.id_paquete, segundo.id_paquete)
         self.assertTrue(primero.id_paquete.startswith("ejemplo-002"))
 
-    def test_tema_inexistente_devuelve_error_sin_contexto(self):
-        paquete = self.cliente.generar_paquete(solicitud(tema="Tema inexistente"))
-        self.assertEqual(paquete.status, "error")
-        self.assertEqual(paquete.codigo_error, "sin_contexto")
+    def test_pedido_inexistente_devuelve_error_sin_contexto(self):
+        paquete = con_sesion("laura").generar_paquete(solicitud(tema="Tema inexistente"))
+        self.assertEqual((paquete.status, paquete.codigo_error), ("error", "sin_contexto"))
 
     def test_el_guion_alterna_entre_en_revision_y_aprobado(self):
         # Para la demo: el primer guion cae en revisión y "Generar otra versión" trae uno aprobado
-        revisiones = [self.cliente.generar_paquete(solicitud(formato="Guion")).evaluacion_calidad.requiere_revision_admin
+        cliente = con_sesion("laura")
+        revisiones = [cliente.generar_paquete(solicitud(formato="Guion")).evaluacion_calidad.requiere_revision_admin
                       for _ in range(3)]
         self.assertEqual(revisiones, [True, False, True])
 
+    # --- Admin ---
     def test_lista_de_revision_trae_solo_el_guion(self):
-        resumenes = self.cliente.listar_paquetes_revision()
-        self.assertEqual([r.formato for r in resumenes], ["Guion"])
+        self.assertEqual([r.formato for r in con_sesion("admin").listar_paquetes_revision()], ["Guion"])
 
     def test_obtener_paquete_existente_y_no_existente(self):
-        self.assertEqual(self.cliente.obtener_paquete("ejemplo-002").metadatos.formato_generado, "Quiz")
+        cliente = con_sesion("admin")
+        self.assertEqual(cliente.obtener_paquete("ejemplo-002").metadatos.formato_generado, "Quiz")
         with self.assertRaises(ErrorCliente) as ctx:
-            self.cliente.obtener_paquete("no-existe")
-        self.assertEqual(ctx.exception.tipo, "rechazado")
+            cliente.obtener_paquete("no-existe")
+        self.assertEqual(ctx.exception.tipo, "no_encontrado")
 
-    def test_subir_documento_lo_agrega_a_la_lista(self):
-        antes = len(self.cliente.listar_documentos())
-        documento = self.cliente.subir_documento("nuevo.md", b"# Hola")
+    def test_documentos_de_demostracion_y_subir_uno(self):
+        cliente = con_sesion("admin")
+        estados = [d.estado for d in cliente.listar_documentos()]
+        self.assertEqual(estados.count("indexado"), 3)
+        self.assertIn("error", estados)
+        documento = cliente.subir_documento("nuevo.md", b"# Hola")
         self.assertEqual(documento.estado, "indexado")
-        self.assertEqual(len(self.cliente.listar_documentos()), antes + 1)
+        self.assertEqual(len(cliente.listar_documentos()), len(estados) + 1)
 
-    def test_la_lista_de_documentos_trae_uno_con_error(self):
-        self.assertIn("error", [d.estado for d in self.cliente.listar_documentos()])
+    def test_sector_empieza_en_general_se_cambia_y_rechaza_valores_raros(self):
+        cliente = con_sesion("admin")
+        self.assertEqual(cliente.obtener_configuracion().sector, "General")
+        self.assertEqual(cliente.guardar_configuracion("Salud").sector, "Salud")
+        with self.assertRaises(ErrorCliente) as ctx:
+            cliente.guardar_configuracion("Minería")
+        self.assertEqual(ctx.exception.tipo, "rechazado")
+        self.assertEqual(cliente.obtener_configuracion().sector, "Salud")
 
 
 class ModoHttp(unittest.TestCase):
     def cliente(self, **kwargs):
         sesion = SesionFalsa(**kwargs)
-        return ClienteHttp("http://api.local/", clave_admin="secreta", tiempo_maximo=30, sesion=sesion), sesion
+        return ClienteHttp("http://api.local/", tiempo_maximo=30, sesion=sesion), sesion
 
-    def test_generar_envia_post_con_la_solicitud_y_el_tiempo_maximo(self):
-        cliente, sesion = self.cliente(respuesta=respuesta(cuerpo=paquete_json()))
+    def con_token(self, *respuestas):
+        """Cliente que ya inició sesión; `respuestas` son las de las llamadas siguientes."""
+        cliente, sesion = self.cliente(respuestas=[respuesta(cuerpo=SESION_JSON), *respuestas])
+        cliente.iniciar_sesion("ana", "clave")
+        return cliente, sesion
+
+    # --- Sesión y token ---
+    def test_iniciar_sesion_guarda_el_token_y_lo_envia_despues(self):
+        cliente, sesion = self.con_token(respuesta(cuerpo=[TEMA_JSON]))
+        temas = cliente.listar_temas()
+        (m1, u1, k1), (m2, u2, k2) = sesion.llamadas
+        self.assertEqual((m1, u1, k1["json"]), ("POST", "http://api.local/sesion", {"usuario": "ana", "contrasena": "clave"}))
+        self.assertNotIn("Authorization", k1["headers"])
+        self.assertEqual((m2, u2), ("GET", "http://api.local/temas"))
+        self.assertEqual(k2["headers"]["Authorization"], "Bearer tok-123")
+        self.assertNotIn("tok-123", u2)  # el token nunca va en la URL
+        self.assertEqual(temas[0].nombre, "Redes")
+
+    def test_401_en_inicio_es_credenciales_y_en_otra_ruta_sesion_vencida(self):
+        cliente, _ = self.cliente(respuesta=respuesta(status=401, texto="no"))
+        with self.assertRaises(ErrorCliente) as ctx:
+            cliente.iniciar_sesion("ana", "mala")
+        self.assertEqual(ctx.exception.tipo, "credenciales")
+        cliente, _ = self.con_token(respuesta(status=401, texto="vencido"))
+        with self.assertRaises(ErrorCliente) as ctx:
+            cliente.listar_temas()
+        self.assertEqual(ctx.exception.tipo, "sesion_vencida")
+
+    def test_cerrar_sesion_borra_el_token_aunque_la_api_falle(self):
+        cliente, sesion = self.con_token(respuesta(status=500, texto="caída"), respuesta(cuerpo=[]))
+        with self.assertRaises(ErrorCliente):
+            cliente.cerrar_sesion()
+        self.assertEqual(sesion.llamadas[1][0], "DELETE")
+        cliente.listar_temas()
+        self.assertNotIn("Authorization", sesion.llamadas[2][2]["headers"])
+
+    def test_cambiar_contrasena_envia_actual_y_nueva(self):
+        cliente, sesion = self.con_token(respuesta(status=204, texto=""))
+        self.assertIsNone(cliente.cambiar_contrasena("vieja-123", "nueva-1234"))
+        metodo, url, kwargs = sesion.llamadas[1]
+        self.assertEqual((metodo, url, kwargs["json"]),
+                         ("PUT", "http://api.local/sesion/contrasena", {"actual": "vieja-123", "nueva": "nueva-1234"}))
+
+    # --- Temas ---
+    def test_crear_editar_y_retirar_tema(self):
+        datos = DatosTema(nombre="Redes", documentos=["a.pdf"])
+        cliente, sesion = self.con_token(respuesta(cuerpo=TEMA_JSON), respuesta(cuerpo=TEMA_JSON),
+                                         respuesta(status=204, texto=""))
+        cliente.crear_tema(datos)
+        cliente.editar_tema("t-1", datos)
+        self.assertIsNone(cliente.retirar_tema("t-1"))
+        self.assertEqual([(m, u) for m, u, _ in sesion.llamadas[1:]],
+                         [("POST", "http://api.local/temas"), ("PUT", "http://api.local/temas/t-1"),
+                          ("DELETE", "http://api.local/temas/t-1")])
+        self.assertEqual(sesion.llamadas[1][2]["json"], {"nombre": "Redes", "descripcion": "", "documentos": ["a.pdf"]})
+
+    def test_id_con_caracteres_especiales_va_codificado(self):
+        cliente, sesion = self.con_token(respuesta(status=204, texto=""))
+        cliente.retirar_tema("t/1 a")
+        self.assertEqual(sesion.llamadas[1][1], "http://api.local/temas/t%2F1%20a")
+
+    # --- Material, documentos y configuración ---
+    def test_generar_envia_id_tema_y_espera_el_tiempo_maximo(self):
+        cliente, sesion = self.con_token(respuesta(cuerpo=paquete_json()))
         paquete = cliente.generar_paquete(solicitud())
-        metodo, url, kwargs = sesion.llamadas[0]
+        metodo, url, kwargs = sesion.llamadas[1]
         self.assertEqual((metodo, url), ("POST", "http://api.local/paquetes"))
-        self.assertEqual(kwargs["json"]["tema"], "Redes VCN")
+        self.assertEqual((kwargs["json"]["id_tema"], kwargs["json"]["tema"]), ("t-redes", "Redes VCN"))
         self.assertEqual(kwargs["timeout"], 30)
-        self.assertNotIn("X-Clave-Admin", kwargs["headers"])
         self.assertEqual(paquete.metadatos.formato_generado, "Quiz")
 
-    def test_rutas_de_admin_envian_la_clave(self):
-        cliente, sesion = self.cliente(respuesta=respuesta(cuerpo=[]))
-        cliente.listar_documentos()
-        cliente.listar_paquetes_revision()
-        for _, _, kwargs in sesion.llamadas:
-            self.assertEqual(kwargs["headers"]["X-Clave-Admin"], "secreta")
-        self.assertEqual(sesion.llamadas[1][2]["params"], {"requiere_revision": "true"})
-
-    def test_configuracion_se_lee_sin_clave_y_se_guarda_con_clave(self):
-        cliente, sesion = self.cliente(respuesta=respuesta(cuerpo={"sector": "Salud"}))
-        self.assertEqual(cliente.obtener_configuracion().sector, "Salud")
-        cliente.guardar_configuracion("Salud")
-        (m1, u1, k1), (m2, u2, k2) = sesion.llamadas
-        self.assertEqual((m1, u1), ("GET", "http://api.local/configuracion"))
-        self.assertNotIn("X-Clave-Admin", k1["headers"])
-        self.assertEqual((m2, u2), ("PUT", "http://api.local/configuracion"))
-        self.assertEqual(k2["headers"]["X-Clave-Admin"], "secreta")
-        self.assertEqual(k2["json"], {"sector": "Salud"})
-
     def test_solo_generar_y_subir_esperan_el_tiempo_maximo(self):
-        cliente, sesion = self.cliente(respuesta=respuesta(cuerpo={"sector": "General"}))
+        documento = {"nombre": "a.pdf", "estado": "procesando", "chunks": 0, "error": None}
+        cliente, sesion = self.con_token(respuesta(cuerpo={"sector": "General"}), respuesta(cuerpo={"sector": "General"}),
+                                         respuesta(cuerpo=[]), respuesta(cuerpo=[]), respuesta(cuerpo=documento))
         cliente.obtener_configuracion()
         cliente.guardar_configuracion("General")
-        self.assertEqual([k["timeout"] for _, _, k in sesion.llamadas], [TIEMPO_CORTO_SEGUNDOS] * 2)
-        cliente, sesion = self.cliente(respuesta=respuesta(cuerpo=[]))
         cliente.listar_documentos()
         cliente.listar_paquetes_revision()
-        self.assertEqual([k["timeout"] for _, _, k in sesion.llamadas], [TIEMPO_CORTO_SEGUNDOS] * 2)
-        cuerpo = {"nombre": "a.pdf", "estado": "procesando", "chunks": 0, "error": None}
-        cliente, sesion = self.cliente(respuesta=respuesta(cuerpo=cuerpo))
         cliente.subir_documento("a.pdf", b"%PDF")
-        self.assertEqual(sesion.llamadas[0][2]["timeout"], 30)
+        tiempos = [k["timeout"] for _, _, k in sesion.llamadas[1:]]
+        self.assertEqual(tiempos, [TIEMPO_CORTO_SEGUNDOS] * 4 + [30])
+        self.assertEqual(sesion.llamadas[4][2]["params"], {"requiere_revision": "true"})
+        self.assertEqual(sesion.llamadas[5][2]["files"], {"archivo": ("a.pdf", b"%PDF")})
 
+    # --- Errores ---
     def test_errores_de_red_y_de_estado_se_traducen(self):
         casos = [
             ({"excepcion": requests.ConnectionError("caída")}, "no_disponible"),
             ({"excepcion": requests.Timeout("lento")}, "tiempo_agotado"),
-            ({"respuesta": respuesta(status=401, texto="clave mala")}, "sin_permiso"),
+            ({"respuesta": respuesta(status=403, texto="rol")}, "sin_permiso"),
+            ({"respuesta": respuesta(status=404, texto="no")}, "no_encontrado"),
             ({"respuesta": respuesta(status=500, texto="explotó")}, "rechazado"),
             ({"respuesta": respuesta(texto="<html>proxy</html>")}, "respuesta_invalida"),
             ({"respuesta": respuesta(cuerpo={"status": "exito"})}, "respuesta_invalida"),
@@ -182,6 +334,16 @@ class ModoHttp(unittest.TestCase):
                 self.assertEqual(ctx.exception.tipo, tipo)
                 self.assertTrue(ctx.exception.mensaje)
 
+    def test_409_y_422_usan_el_mensaje_de_backend_si_viene(self):
+        cliente, _ = self.cliente(respuesta=respuesta(status=409, cuerpo={"mensaje": "Ya existe un tema con ese nombre."}))
+        with self.assertRaises(ErrorCliente) as ctx:
+            cliente.crear_tema(DatosTema(nombre="Redes", documentos=["a.pdf"]))
+        self.assertEqual((ctx.exception.tipo, ctx.exception.mensaje), ("rechazado", "Ya existe un tema con ese nombre."))
+        cliente, _ = self.cliente(respuesta=respuesta(status=422, cuerpo={"detail": [{"loc": ["body"]}]}))
+        with self.assertRaises(ErrorCliente) as ctx:
+            cliente.crear_tema(DatosTema(nombre="Redes", documentos=["a.pdf"]))
+        self.assertEqual(ctx.exception.mensaje, ErrorCliente.MENSAJES["rechazado"])
+
     def test_lista_que_no_es_lista_es_respuesta_invalida(self):
         cliente, _ = self.cliente(respuesta=respuesta(cuerpo={"documentos": []}))
         with self.assertRaises(ErrorCliente) as ctx:
@@ -192,13 +354,6 @@ class ModoHttp(unittest.TestCase):
         cliente, sesion = self.cliente(excepcion=requests.ConnectionError("caída"))
         self.assertFalse(cliente.salud())
         self.assertEqual(sesion.llamadas[0][2]["timeout"], 5)
-
-    def test_subir_documento_envia_el_archivo(self):
-        cuerpo = {"nombre": "a.pdf", "estado": "procesando", "chunks": 0, "error": None}
-        cliente, sesion = self.cliente(respuesta=respuesta(cuerpo=cuerpo))
-        documento = cliente.subir_documento("a.pdf", b"%PDF")
-        self.assertEqual(documento.estado, "procesando")
-        self.assertEqual(sesion.llamadas[0][2]["files"], {"archivo": ("a.pdf", b"%PDF")})
 
 
 class ElegirCliente(unittest.TestCase):

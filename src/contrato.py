@@ -128,18 +128,16 @@ def items_validos(paquete):
 
 # --- Peticiones y listados ---
 class SolicitudPaquete(BaseModel):
-    tema: str
+    id_tema: str = Field(min_length=1)  # Backend busca solo en los documentos de este tema
+    tema: str = ""  # "¿Algo en particular?": vacío = todo el tema
     perfil: str
     formato: str
     # Sin nicho: el sector lo define el admin para toda la institución (ver Configuracion)
-    documentos: list[str] = []  # reservado: hoy se busca en todos los documentos
 
     @field_validator("tema")
     @classmethod
     def tema_valido(cls, valor):
         valor = valor.strip()
-        if not valor:
-            raise ValueError("el tema no puede estar vacío")
         if len(valor) > LARGO_MAXIMO_TEMA:
             raise ValueError(f"el tema no puede pasar de {LARGO_MAXIMO_TEMA} caracteres")
         return valor
@@ -178,3 +176,63 @@ class Documento(BaseModel):
     estado: Literal["procesando", "indexado", "error"]
     chunks: int = 0
     error: Optional[str] = None
+
+
+# --- Cuentas y temas (v2): el admin crea las cuentas y arma los temas ---
+ROLES = ("estudiante", "admin")
+LARGO_MAXIMO_NOMBRE_TEMA = 100
+LARGO_MAXIMO_DESCRIPCION = 500
+
+
+class Usuario(BaseModel):
+    id_usuario: str
+    nombre: str
+    usuario: str
+    rol: Literal["estudiante", "admin"]
+    activo: bool = True
+    debe_cambiar_contrasena: bool = False
+    temas: list[str] = []  # id_tema asignados (solo estudiantes)
+
+
+class Sesion(BaseModel):
+    token: str
+    usuario: Usuario
+
+
+class Tema(BaseModel):
+    id_tema: str
+    nombre: str
+    descripcion: str = ""
+    # Nombres de archivo, iguales al metadata["source"] de los chunks: el Investigador filtra por ellos
+    documentos: list[str] = []
+
+
+class DatosTema(BaseModel):
+    """Lo que el admin escribe para crear o editar un tema."""
+
+    nombre: str
+    descripcion: str = ""
+    documentos: list[str] = Field(min_length=1)
+
+    @field_validator("nombre")
+    @classmethod
+    def nombre_valido(cls, valor):
+        valor = valor.strip()
+        if not valor:
+            raise ValueError("el nombre no puede estar vacío")
+        if len(valor) > LARGO_MAXIMO_NOMBRE_TEMA:
+            raise ValueError(f"el nombre no puede pasar de {LARGO_MAXIMO_NOMBRE_TEMA} caracteres")
+        return valor
+
+    @field_validator("descripcion")
+    @classmethod
+    def descripcion_valida(cls, valor):
+        valor = valor.strip()
+        if len(valor) > LARGO_MAXIMO_DESCRIPCION:
+            raise ValueError(f"la descripción no puede pasar de {LARGO_MAXIMO_DESCRIPCION} caracteres")
+        return valor
+
+    @field_validator("documentos")
+    @classmethod
+    def sin_repetidos(cls, valor):
+        return list(dict.fromkeys(valor))

@@ -1,0 +1,11 @@
+[
+  {"id_tema": "t-redes", "nombre": "Redes en OCI",
+   "descripcion": "Redes virtuales (VCN), subredes y reglas de seguridad en Oracle Cloud.",
+   "documentos": ["oci_redes_vcn.pdf"]},
+  {"id_tema": "t-seguridad", "nombre": "Seguridad en la nube",
+   "descripcion": "Buenas prácticas de identidad, acceso y protección de datos.",
+   "documentos": ["politicas_nube.md"]},
+  {"id_tema": "t-datos", "nombre": "Herramientas de datos",
+   "descripcion": "Herramientas para consultar y preparar datos.",
+   "documentos": ["guia_datos.txt"]}
+]
