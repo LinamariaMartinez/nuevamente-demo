@@ -1,6 +1,19 @@
-# F07 — Diseño de la interfaz de NuevaMente (versión 2.1)
+# F07 — Diseño de la interfaz de NuevaMente (versión 2.2)
 
 ## 0. Cambios
+
+### Versión 2.2 (respecto a la 2.1)
+
+Ajustes tras recorrer la pieza 1 en la app. El contrato (§5) no cambia.
+
+| Tema | Versión 2.1 | Versión 2.2 |
+|---|---|---|
+| Entrada sin sesión | Iniciar sesión | **Landing** para el jurado y visitantes; desde ahí, Iniciar sesión |
+| Ancho de la app | Centrada | **Pantalla ancha** (`layout="wide"`) |
+| Pantallas de acción | Formulario y resultado uno debajo del otro | **Dos columnas:** formulario o lista a la izquierda (1/3), resultado a la derecha (2/3) |
+| Flashcards | Tarjeta plana con botones | **Tarjeta que se voltea** (animada), progreso, teclado y **Lo sé / Repasar** |
+| Resumen y Guion | Vista genérica ("Titulo: … Contenido: …") | **Resumen en tarjetas** con "En pocas palabras"; **Guion en escenas** numeradas |
+| Nombre, rol y Cerrar sesión | Justo debajo del menú | **Al fondo del menú** (única excepción de CSS, §9) |
 
 ### Versión 2.1 (respecto a la 2)
 
@@ -54,7 +67,7 @@ modo mock; si una no llega a tiempo, la app sigue completa con las anteriores.
 
 | Pieza | Contenido |
 |---|---|
-| **1** | Inicio de sesión y cambio de contraseña temporal · Mis temas · Estudiar dentro del tema · Admin: Documentos, Temas, Material en revisión, Configuración |
+| **1** | Landing · Inicio de sesión y cambio de contraseña temporal · Mis temas · Estudiar dentro del tema · Admin: Documentos, Temas, Material en revisión, Configuración |
 | **2** | Evaluaciones del estudiante · Admin: Exámenes |
 | **3** | Admin: Usuarios y Progreso |
 
@@ -78,7 +91,7 @@ le pide todo a la API.
 Si Backend cambia una ruta o un campo, se ajustan `src/contrato.py` y `cliente_api.py`; las pantallas no cambian.
 
 **Entrada y menú.** `app/inicio.py` decide qué se ve:
-- sin sesión → solo **Iniciar sesión**;
+- sin sesión → **Landing** (página inicial) e **Iniciar sesión**, sin menú lateral;
 - con contraseña temporal → solo **Cambia tu contraseña**;
 - con sesión → el menú del rol (`st.navigation`) y, debajo (`st.sidebar`), el nombre, el rol y **Cerrar sesión**.
 
@@ -116,7 +129,11 @@ sin tema elegido, vuelve a la lista de donde salió:
 | `app/paginas/admin/examenes.py` | Frontend | Generar, revisar y publicar el examen de cada tema | 2 |
 | `app/paginas/admin/usuarios.py` | Frontend | Crear usuarios, asignar temas, restablecer contraseña, dar intentos | 3 |
 | `app/paginas/admin/progreso.py` | Frontend | Notas e intentos por tema | 3 |
-| `app/vistas/` | Frontend | Vista genérica y vistas por formato (diseño v1) + `examen.py` (formulario del examen) | 2 |
+| `app/paginas/landing.py` | Frontend | Landing: qué es NuevaMente, cómo funciona y acceso a Iniciar sesión | 1 |
+| `app/estilo.py` | Frontend | El único CSS de la app: bloque del usuario al fondo del menú (§9) | 1 |
+| `app/vistas/` | Frontend | Vista genérica y vistas por formato + `examen.py` (formulario del examen, pieza 2) | 1–2 |
+| `app/vistas/flashcards.py` | Frontend | Componente HTML: tarjeta que se voltea, progreso y Lo sé / Repasar (v2.2) | 1 |
+| `app/vistas/resumen.py`, `app/vistas/guion.py` | Frontend | Resumen en tarjetas y Guion en escenas (v2.2) | 1 |
 | `app/mocks/*.json` | Frontend | Paquetes, usuarios, temas y examen de ejemplo | 1–3 |
 | `api/` | Backend | Rutas FastAPI y su lógica | — |
 | `tests/test_interfaz_*.py` + `tests/apps_interfaz/` | Frontend | Pruebas de la interfaz (sección 10) | 1–3 |
@@ -234,6 +251,17 @@ generación de material funciona de verdad; lo demás puede mostrarse en modo mo
 
 Orden de los elementos y estados de cada pantalla. Los textos siguen el tono del documento de identidad visual.
 
+### 6.0 Landing (pieza 1, v2.2)
+Para el jurado y quien visite el proyecto. Ocupa el ancho completo; sin menú lateral.
+- **Arriba, a la izquierda:** logo, "De documentación técnica a material de estudio, en minutos.", una frase de
+  explicación ("Tu institución sube sus manuales; NuevaMente los convierte en material adaptado a cada nivel, con fuentes
+  y control de calidad."), **Iniciar sesión** y **Ver cómo funciona** (baja a esa sección).
+- **Arriba, a la derecha:** caja **Prueba la demo** con las cuentas de demostración (**solo en modo mock**) y los formatos.
+- **Cómo funciona:** tres pasos en tres tarjetas: la institución sube documentos y arma temas → tres agentes
+  (Investigador busca, Redactor adapta, Revisor verifica) → quien estudia aprende y presenta la evaluación.
+- **Por dentro:** tres tarjetas: fiel a las fuentes (RAG, cada material cita sus fragmentos), calidad revisada
+  (puntaje ≥ 0.8; si no, se corrige hasta 3 veces) y listo para integrar (JSON estructurado, OCI Object Storage).
+
 ### 6.1 Acceso (pieza 1)
 - **Iniciar sesión:** logo, "Aprender hoy, construir mañana.", los tres pasos (consulta tus temas → estudia → presenta la
   evaluación), usuario, contraseña, **Iniciar sesión** (formulario: Enter también envía).
@@ -253,6 +281,18 @@ Orden de los elementos y estados de cada pantalla. Los textos siguen el tono del
 
 ### 6.3 Tema — estudiante (pieza 1)
 Nombre, descripción y "Documentos de este tema: …". Solo tiene **Estudiar**; la evaluación se presenta desde Evaluaciones (§6.4).
+**Dos columnas (v2.2):** a la izquierda, en una caja, nivel, formato, "¿Algo en particular?" y **Generar material**; a la
+derecha, el material (o sus estados). Antes de generar, la derecha muestra un recuadro: "Elige tu nivel y formato y pulsa
+Generar material. Aquí aparecerá tu material."
+
+**Vistas por formato (v2.2):**
+- **Flashcards:** componente HTML con la tarjeta grande que se voltea (clic o espacio), Anterior/Siguiente (botones o
+  flechas), barra de progreso, **Lo sé** y **Repasar** (cuentas arriba y un punto por tarjeta abajo, en verde o ámbar).
+  Colores de la paleta según el modo claro u oscuro. Las marcas viven en el componente; no se guardan.
+- **Resumen:** recuadro "En pocas palabras" con la introducción; cada sección como tarjeta (hasta 3 por fila); los
+  conceptos clave al final.
+- **Guion:** escenas numeradas en una columna ("Escena 1 · <título>" y su contenido).
+- Quiz y Guía paso a paso siguen como en el PBI02.
 
 **Estudiar:** nivel, formato, "¿Algo en particular? (opcional)" y **Generar material**. Estados: preparando,
 error con Reintentar, material en revisión ("Este material necesita una revisión adicional antes de estar disponible." +
@@ -285,9 +325,9 @@ Necesitas la nota mínima para aprobar." Una tarjeta por tema asignado, con nomb
 - **Documentos (pieza 1):** caja **Subir documento** (PDF, Markdown o TXT, máximo 10 MB) con **Subir e indexar**, y
   caja **Documentos subidos** con una tabla: nombre, estado (etiqueta *Indexado* o *Con error*), fragmentos, temas que
   lo usan y el error, si lo hay. Vacío: "Todavía no hay documentos. Sube el primero en la sección de arriba."
-- **Temas (pieza 1):** formulario (nombre, descripción, documentos indexados) con **Crear tema**; lista de temas con sus
+- **Temas (pieza 1):** dos columnas (v2.2): a la izquierda el formulario (nombre, descripción, documentos indexados) con **Crear tema**; a la derecha la lista de temas con sus
   documentos, **Editar** y **Retirar** (con confirmación). Sin documentos: enlace a Documentos. Ante un error, el formulario conserva lo escrito.
-- **Material en revisión (pieza 1):** lista del material que no superó la revisión; **Abrir** muestra el paquete con
+- **Material en revisión (pieza 1):** dos columnas (v2.2): a la izquierda la lista del material que no superó la revisión; **Abrir** muestra a la derecha el paquete con
   **Exportar JSON**.
 - **Configuración (pieza 1):** sector de la institución, con la explicación de cómo se usa, y **Guardar cambios**.
 - **Exámenes (pieza 2):**
@@ -306,6 +346,10 @@ Necesitas la nota mínima para aprobar." Una tarjeta por tema asignado, con nomb
 - **Progreso (pieza 3):** filtro por tema, métricas y tabla (persona, estado, mejor nota, intentos).
 
 ### 6.6 Común
+- **Regla de dos columnas (v2.2):** donde se hace algo y se ve el resultado, el formulario o la lista va a la izquierda
+  (1/3) y el resultado a la derecha (2/3): Estudiar, Crear tema, Material en revisión y, cuando se construyan, Exámenes
+  (pieza 2) y Usuarios (pieza 3). No aplica a Documentos (su tabla necesita el ancho), Presentar evaluación, Mis temas,
+  Evaluaciones, Progreso ni Configuración. En pantallas angostas las columnas se apilan solas.
 - Las acciones sensibles se confirman con un segundo botón en la misma pantalla (sin ventanas emergentes).
 - `MODO_API=mock`: etiqueta visible "Modo demostración: datos de ejemplo".
 
@@ -386,6 +430,16 @@ El verde claro de la referencia (`#7DC1B0`) **no** se usa en botones: Streamlit 
 
 **Maquetas aprobadas:** Mis temas (claro y oscuro), Documentos del admin con el menú agrupado y Evaluaciones del estudiante.
 
+**Ajustes de la versión 2.2.**
+- **Pantalla ancha:** `st.set_page_config(layout="wide")`. El texto largo del material queda en la columna derecha
+  (unos 65–75 caracteres por línea en un portátil).
+- **Única excepción de CSS:** `app/estilo.py` pega al fondo del menú lateral el bloque del usuario (nombre, rol y
+  Cerrar sesión). Son unas pocas reglas y solo para ese bloque. Si una versión futura de Streamlit cambia su estructura
+  interna, el bloque vuelve a quedar debajo del menú; nada más se rompe.
+- **Componente de flashcards:** HTML y CSS propios dentro de `st.components.v1.html`. Animación de 0.5 s; con
+  `prefers-reduced-motion` la tarjeta cambia sin girar. Botones con texto (no solo íconos) y manejables con teclado.
+- **Maquetas aprobadas (v2.2):** landing ancha, dos columnas en Estudiar, flashcards con Lo sé / Repasar y resumen en tarjetas.
+
 ## 10. Pruebas
 
 Con `unittest` y `streamlit.testing.v1.AppTest`. **Ninguna prueba necesita API key ni la API corriendo.**
@@ -399,7 +453,10 @@ Con `unittest` y `streamlit.testing.v1.AppTest`. **Ninguna prueba necesita API k
 | Estudiante | Mis temas: las tres métricas, el filtro en píldoras, la etiqueta de cada uno de los cuatro estados y que no haya barra de progreso; abrir un tema; Estudiar |
 | Evaluaciones | Una tarjeta por tema con el botón según su estado; los seis estados de `evaluacion.py` |
 | Admin | Una prueba por pantalla |
-| Permisos | Un estudiante no puede abrir pantallas del admin, ni por menú ni por URL; sin sesión solo se ve Iniciar sesión |
+| Permisos | Un estudiante no puede abrir pantallas del admin, ni por menú ni por URL; sin sesión solo se ven la Landing e Iniciar sesión |
+| Landing | Es la página inicial sin sesión; **Iniciar sesión** lleva a la pantalla de acceso; las cuentas de demostración aparecen solo en modo mock |
+| Vistas v2.2 | Flashcards: el HTML del componente lleva todas las tarjetas, escapa el texto y usa los colores del modo; Resumen y Guion no caen en la vista genérica |
+| Dos columnas | Estudiar, Crear tema y Material en revisión dibujan dos columnas; Estudiar muestra el recuadro reservado antes de generar |
 | Tema visual | Claves válidas de `config.toml` (incluidas `[theme.light.sidebar]` y `[theme.dark.sidebar]`); contrastes mínimos de §9 (botón oscuro ≥ 4.5:1, bordes ≥ 3:1, texto del menú en los dos modos); los tres SVG existen y `st.logo` usa el del menú |
 
 Cada pieza se revisa también en la app corriendo, en tema claro y oscuro, comparándola con las maquetas aprobadas (§9).
