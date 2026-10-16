@@ -1,6 +1,23 @@
-# F07 — Diseño de la interfaz de NuevaMente (versión 2)
+# F07 — Diseño de la interfaz de NuevaMente (versión 2.1)
 
-## 0. Cambios respecto a la versión 1
+## 0. Cambios
+
+### Versión 2.1 (respecto a la 2)
+
+Ajuste visual y de navegación a partir de la imagen de referencia de la identidad visual. El contrato (§5) no cambia
+en esta versión: se actualiza cuando Backend cierre el contrato común.
+
+| Tema | Versión 2 | Versión 2.1 |
+|---|---|---|
+| Menú lateral | Colores por defecto de Streamlit | **Verde oscuro en los dos modos**, con el nombre, el rol y Cerrar sesión debajo |
+| Menú del estudiante | Mis temas | **Mis temas · Evaluaciones** |
+| Menú del admin | Lista de siete pantallas | **Agrupado:** Contenido · Personas · Ajustes |
+| Página del tema | Selector Estudiar \| Evaluación | Solo **Estudiar**; la evaluación se presenta desde **Evaluaciones** |
+| Mis temas | Métricas, filtro y tarjetas | Igual, con filtro en píldoras, etiqueta de estado por tema e ícono; sin barra de progreso |
+| Logo | Hojas con tallo; texto casi negro; versión según el tema | **Hojas redondeadas sin tallo, texto verde**; el menú usa siempre la versión clara |
+| Modo oscuro | Fondo verde azulado (`#102522`) | **Fondo neutro `#14201E`**, superficie `#1E2B28`, botón `#3A8277` |
+
+### Versión 2 (respecto a la 1)
 
 | Tema | Versión 1 | Versión 2 |
 |---|---|---|
@@ -20,9 +37,10 @@ Se conserva todo lo demás: arquitectura, contrato del paquete, vistas por forma
 Construir la interfaz que pide el reto ("interfaz interactiva, ej. Streamlit o Gradio"). NuevaMente la usa **una
 institución para capacitar a su gente** (empleados o contratistas): no es abierta al público ni multiempresa.
 
-- **Estudiante:** inicia sesión, ve sus temas y, dentro de cada uno, elige entre
-  - **Estudiar:** elige nivel y formato y recibe su material (contenido, metadatos de aprendizaje, puntaje de calidad y fuentes);
-  - **Evaluación:** presenta el examen oficial del tema y ve su nota.
+- **Estudiante:** inicia sesión y tiene dos entradas en el menú:
+  - **Mis temas:** abre un tema para **estudiar**: elige nivel y formato y recibe su material (contenido, metadatos de
+    aprendizaje, puntaje de calidad y fuentes);
+  - **Evaluaciones:** presenta el examen oficial de cada tema y ve su nota.
 - **Admin:** sube documentos, arma temas, genera y publica exámenes, crea usuarios, sigue el progreso, revisa el material
   que no pasó el control de calidad y define el **sector de la institución** (el nicho que pide el reto, uno para toda la institución).
 
@@ -37,7 +55,7 @@ modo mock; si una no llega a tiempo, la app sigue completa con las anteriores.
 | Pieza | Contenido |
 |---|---|
 | **1** | Inicio de sesión y cambio de contraseña temporal · Mis temas · Estudiar dentro del tema · Admin: Documentos, Temas, Material en revisión, Configuración |
-| **2** | Evaluación del estudiante · Admin: Exámenes |
+| **2** | Evaluaciones del estudiante · Admin: Exámenes |
 | **3** | Admin: Usuarios y Progreso |
 
 Del diseño v1 se mantienen la vista genérica del paquete y las vistas interactivas por formato (flashcards, quiz, guía paso a paso), que corresponden al PBI01 y al PBI02.
@@ -62,17 +80,20 @@ Si Backend cambia una ruta o un campo, se ajustan `src/contrato.py` y `cliente_a
 **Entrada y menú.** `app/inicio.py` decide qué se ve:
 - sin sesión → solo **Iniciar sesión**;
 - con contraseña temporal → solo **Cambia tu contraseña**;
-- con sesión → el menú del rol (`st.navigation`) y **Cerrar sesión**.
+- con sesión → el menú del rol (`st.navigation`) y, debajo (`st.sidebar`), el nombre, el rol y **Cerrar sesión**.
 
-El menú se arma desde una lista por rol: una pantalla que no esté lista simplemente no aparece.
+El menú se arma desde una lista por rol: una pantalla que no esté lista simplemente no aparece. El del admin va en
+secciones (`st.navigation` con un diccionario `{sección: [páginas]}`).
 
 | Rol | Menú |
 |---|---|
-| Estudiante | Mis temas |
-| Admin | Documentos · Temas · Exámenes · Usuarios · Progreso · Material en revisión · Configuración |
+| Estudiante | Mis temas · Evaluaciones |
+| Admin | **Contenido:** Documentos · Temas · Exámenes · Material en revisión — **Personas:** Usuarios · Progreso — **Ajustes:** Configuración |
 
-**Abrir un tema.** Mis temas guarda el tema elegido en la sesión y lleva a la página del tema (`st.switch_page`),
-que no aparece en el menú. Si alguien llega a ella sin tema elegido, vuelve a Mis temas.
+**Páginas fuera del menú.** Se abren con `st.switch_page` y guardan en la sesión qué tema se eligió; si alguien llega
+sin tema elegido, vuelve a la lista de donde salió:
+- **Tema** (Estudiar): desde **Abrir tema** en Mis temas.
+- **Evaluación** (presentar el examen o ver el resultado): desde **Comenzar evaluación** o **Ver resultado** en Evaluaciones.
 
 ## 4. Estructura de carpetas y dueños
 
@@ -82,10 +103,12 @@ que no aparece en el menú. Si alguien llega a ella sin tema elegido, vuelve a M
 | `app/inicio.py` | Frontend | Punto de entrada: sesión y menú por rol | 1 |
 | `app/sesion.py` | Frontend | Iniciar y cerrar sesión, usuario actual, exigir rol | 1 |
 | `app/cliente_api.py` | Frontend | Una función por ruta; modo mock o http; token; traduce los errores | 1–3 |
-| `app/marca.py`, `assets/`, `.streamlit/config.toml` | Frontend | Identidad visual: logo, ícono y tema | PBI01 |
+| `app/marca.py`, `assets/`, `.streamlit/config.toml` | Frontend | Identidad visual: logo, ícono y tema (ajustados en la v2.1, §9) | 1 |
 | `app/paginas/acceso.py` | Frontend | Iniciar sesión y cambiar contraseña (reemplaza la portada) | 1 |
 | `app/paginas/estudiante/mis_temas.py` | Frontend | Lista de temas asignados | 1 |
-| `app/paginas/estudiante/tema.py` | Frontend | Página del tema: Estudiar (pieza 1) y Evaluación (pieza 2) | 1–2 |
+| `app/paginas/estudiante/tema.py` | Frontend | Página del tema: Estudiar | 1 |
+| `app/paginas/estudiante/evaluaciones.py` | Frontend | Lista de evaluaciones, una por tema | 2 |
+| `app/paginas/estudiante/evaluacion.py` | Frontend | Presentar la evaluación de un tema y ver el resultado | 2 |
 | `app/paginas/admin/documentos.py` | Frontend | Subir documentos y ver su estado | 1 |
 | `app/paginas/admin/temas.py` | Frontend | Crear, editar y retirar temas | 1 |
 | `app/paginas/admin/revision.py` | Frontend | Material que no pasó el control de calidad + Exportar JSON | 1 |
@@ -96,7 +119,7 @@ que no aparece en el menú. Si alguien llega a ella sin tema elegido, vuelve a M
 | `app/vistas/` | Frontend | Vista genérica y vistas por formato (diseño v1) + `examen.py` (formulario del examen) | 2 |
 | `app/mocks/*.json` | Frontend | Paquetes, usuarios, temas y examen de ejemplo | 1–3 |
 | `api/` | Backend | Rutas FastAPI y su lógica | — |
-| `tests/test_interfaz_*.py` + `tests/apps_interfaz/` | Frontend | Pruebas de la interfaz (sección 8) | 1–3 |
+| `tests/test_interfaz_*.py` + `tests/apps_interfaz/` | Frontend | Pruebas de la interfaz (sección 10) | 1–3 |
 
 **Reglas:**
 - Cada rol trabaja solo en sus archivos.
@@ -218,20 +241,36 @@ Orden de los elementos y estados de cada pantalla. Los textos siguen el tono del
   también en Backend.
 
 ### 6.2 Mis temas — estudiante (pieza 1)
-- Título y orientación breve; métricas: asignados, aprobados y pendientes (todo tema que no esté *Aprobado*);
-  filtro *Todos / Pendientes / Aprobados* con ese mismo criterio.
-- Una tarjeta por tema: nombre, descripción, número de documentos, estado (texto + ícono) y **Abrir tema**.
+- Título "Mis temas" y "Consulta tus temas asignados y continúa donde lo dejaste."
+- Métricas (`st.metric` en contenedores con borde): **Asignados**, **Pendientes** (todo tema que no esté *Aprobado*) y
+  **Aprobados**.
+- Filtro en píldoras (`st.pills`): *Todos / Pendientes / Aprobados*, con ese mismo criterio.
+- Una tarjeta por tema (`st.container(border=True)`): ícono, nombre, etiqueta de estado (`st.badge`: *Pendiente*,
+  *Aprobado*, *Sin intentos* o *Sin evaluación*, según §5.6), "N documentos" más los intentos restantes o la nota, y **Abrir tema**.
+- **Sin barra de progreso:** la app no mide cuánto ha estudiado cada persona; solo conoce la nota de la evaluación.
+- Mientras no exista la pieza 2, todos los temas muestran *Sin evaluación*.
 - Vacío: "Todavía no tienes temas asignados. Cuando la institución te asigne uno, aparecerá aquí."
 
-### 6.3 Tema — estudiante
-Nombre, descripción, "Documentos de este tema: …" y el selector **Estudiar | Evaluación**.
+### 6.3 Tema — estudiante (pieza 1)
+Nombre, descripción y "Documentos de este tema: …". Solo tiene **Estudiar**; la evaluación se presenta desde Evaluaciones (§6.4).
 
-**Estudiar (pieza 1):** nivel, formato, "¿Algo en particular? (opcional)" y **Generar material**. Estados: preparando,
+**Estudiar:** nivel, formato, "¿Algo en particular? (opcional)" y **Generar material**. Estados: preparando,
 error con Reintentar, material en revisión ("Este material necesita una revisión adicional antes de estar disponible." +
 Generar otra versión), material con sus fuentes. Si cambian el nivel o el formato, se quita el material anterior.
 En el quiz de estudio: "Práctica: no cuenta para tu nota."
 
-**Evaluación (pieza 2):**
+### 6.4 Evaluaciones — estudiante (pieza 2)
+**Lista (`evaluaciones.py`):** título "Evaluaciones" y "Presenta la evaluación de cada tema cuando te sientas listo.
+Necesitas la nota mínima para aprobar." Una tarjeta por tema asignado, con nombre, etiqueta de estado y:
+
+| Estado | Detalle | Botón |
+|---|---|---|
+| Pendiente | Nota mínima · mejor nota (si hay) · intentos restantes | **Comenzar evaluación** |
+| Aprobado | Nota · en qué intento aprobó | **Ver resultado** |
+| Sin intentos | Mejor nota · "Habla con quien administra la plataforma para pedir un intento nuevo." | — |
+| Sin evaluación | "Este tema todavía no tiene evaluación." | — |
+
+**Presentar (`evaluacion.py`):**
 
 | Estado | Lo que se ve |
 |---|---|
@@ -242,9 +281,10 @@ En el quiz de estudio: "Práctica: no cuenta para tu nota."
 | Sin intentos | "Ya usaste tus intentos. Habla con quien administra la plataforma para pedir uno nuevo." |
 | Aprobó | "Aprobaste la evaluación. Puedes consultar tu resultado y las explicaciones disponibles.", su nota y un desplegable con respuestas y justificaciones |
 
-### 6.4 Admin
-- **Documentos (pieza 1):** subir (PDF, Markdown o TXT, máximo 10 MB) y lista con nombre, estado, fragmentos y error.
-  Vacío: "Todavía no hay documentos. Sube el primero en la sección de arriba."
+### 6.5 Admin
+- **Documentos (pieza 1):** caja **Subir documento** (PDF, Markdown o TXT, máximo 10 MB) con **Subir e indexar**, y
+  caja **Documentos subidos** con una tabla: nombre, estado (etiqueta *Indexado* o *Con error*), fragmentos, temas que
+  lo usan y el error, si lo hay. Vacío: "Todavía no hay documentos. Sube el primero en la sección de arriba."
 - **Temas (pieza 1):** formulario (nombre, descripción, documentos indexados) con **Crear tema**; lista de temas con sus
   documentos, **Editar** y **Retirar** (con confirmación). Sin documentos: enlace a Documentos. Ante un error, el formulario conserva lo escrito.
 - **Material en revisión (pieza 1):** lista del material que no superó la revisión; **Abrir** muestra el paquete con
@@ -265,7 +305,7 @@ En el quiz de estudio: "Práctica: no cuenta para tu nota."
   **Restablecer contraseña** y **Dar intento extra** (con confirmación).
 - **Progreso (pieza 3):** filtro por tema, métricas y tabla (persona, estado, mejor nota, intentos).
 
-### 6.5 Común
+### 6.6 Común
 - Las acciones sensibles se confirman con un segundo botón en la misma pantalla (sin ventanas emergentes).
 - `MODO_API=mock`: etiqueta visible "Modo demostración: datos de ejemplo".
 
@@ -311,6 +351,41 @@ Identidad **"Bosque sereno"** (documento de identidad visual, aprobado por el eq
 `.streamlit/config.toml`, logo e ícono en `assets/`, íconos de línea en el menú, componentes nativos de Streamlit y
 CSS mínimo. Contrastes según WCAG 2.2 AA, que se verifican con pruebas automáticas.
 
+**Ajustes de la versión 2.1.** Solo componentes nativos y `config.toml`, **sin CSS a mano**: el CSS depende de nombres
+internos de Streamlit que cambian entre versiones.
+
+**Logo** (`assets/`): dos hojas redondeadas, sin tallo, y el texto "NuevaMente" convertido a trazos.
+
+| Archivo | Colores | Dónde va |
+|---|---|---|
+| `logo_nuevamente.svg` | Hojas `#7DC1B0` y `#205E58`; texto `#205E58` | Pantalla de inicio de sesión (fondo claro) |
+| `logo_nuevamente_menu.svg` | Hojas `#A9CDBD` y `#F5F7F5`; texto `#EAF2EF` | Menú lateral, en los dos modos (`st.logo`) |
+| `icono_nuevamente.svg` | Cuadro `#205E58` con las hojas claras | Pestaña del navegador y menú plegado |
+
+Como el menú es oscuro en los dos modos, el logo ya no depende del tema: `app/marca.py` deja de elegirlo y desaparece el
+límite conocido (el logo anterior quedaba hasta el siguiente clic). `logo_nuevamente_oscuro.svg` se borra.
+
+**Menú lateral** (`[theme.light.sidebar]` y `[theme.dark.sidebar]`):
+
+| Modo | Fondo | Texto | Opción activa |
+|---|---|---|---|
+| Claro | `#205E58` | `#EAF2EF` (6.58:1) | `#2E6F66` (texto 5.15:1) |
+| Oscuro | `#0E1715` | `#EAF2EF` (16.01:1) | `#2E6F66` (texto 5.15:1) |
+
+**Modo oscuro** (`[theme.dark]`): el modo claro no cambia.
+
+| Elemento | v2 | v2.1 | Contraste |
+|---|---|---|---|
+| Fondo | `#102522` | `#14201E` | — |
+| Superficie | `#1A3530` | `#1E2B28` | Texto `#EAF2EF`: 12.89:1 |
+| Botón principal | `#2F7A70` | `#3A8277` | Texto blanco: 4.53:1 |
+| Bordes | `#6B8A81` | `#6B8A81` | 3.9:1 sobre la superficie |
+| Enlaces, etiquetas y acentos | `#A9CDBD` | `#7DC1B0` | 7.07:1 sobre la superficie |
+
+El verde claro de la referencia (`#7DC1B0`) **no** se usa en botones: Streamlit pone siempre blanco su texto y quedaría en 2.07:1.
+
+**Maquetas aprobadas:** Mis temas (claro y oscuro), Documentos del admin con el menú agrupado y Evaluaciones del estudiante.
+
 ## 10. Pruebas
 
 Con `unittest` y `streamlit.testing.v1.AppTest`. **Ninguna prueba necesita API key ni la API corriendo.**
@@ -320,12 +395,14 @@ Con `unittest` y `streamlit.testing.v1.AppTest`. **Ninguna prueba necesita API k
 | Contrato | Mocks válidos; `PreguntaEvaluacion` rechaza respuestas |
 | Cliente | Token en cada ruta; 401/403/404/409 traducidos; el token nunca va en la URL; en mock, cada estudiante ve solo sus temas y la nota sigue la regla 5.6 |
 | Acceso | Inicio correcto, incorrecto y vencido; cambio obligatorio de contraseña; cerrar sesión borra el token |
-| Estudiante | Estados de Mis temas, abrir un tema, Estudiar dentro del tema, los seis estados de la Evaluación |
+| Menú | El estudiante ve Mis temas (y Evaluaciones desde la pieza 2); el admin ve las tres secciones, cada una solo con las pantallas listas; debajo, nombre, rol y Cerrar sesión |
+| Estudiante | Mis temas: las tres métricas, el filtro en píldoras, la etiqueta de cada uno de los cuatro estados y que no haya barra de progreso; abrir un tema; Estudiar |
+| Evaluaciones | Una tarjeta por tema con el botón según su estado; los seis estados de `evaluacion.py` |
 | Admin | Una prueba por pantalla |
 | Permisos | Un estudiante no puede abrir pantallas del admin, ni por menú ni por URL; sin sesión solo se ve Iniciar sesión |
-| Tema visual | Claves válidas de `config.toml` y contrastes mínimos |
+| Tema visual | Claves válidas de `config.toml` (incluidas `[theme.light.sidebar]` y `[theme.dark.sidebar]`); contrastes mínimos de §9 (botón oscuro ≥ 4.5:1, bordes ≥ 3:1, texto del menú en los dos modos); los tres SVG existen y `st.logo` usa el del menú |
 
-Cada pieza se revisa también en la app corriendo, en tema claro y oscuro.
+Cada pieza se revisa también en la app corriendo, en tema claro y oscuro, comparándola con las maquetas aprobadas (§9).
 
 ## 11. Configuración y dependencias
 
