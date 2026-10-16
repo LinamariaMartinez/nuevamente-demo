@@ -1,0 +1,91 @@
+"""Pruebas del admin: Documentos, Configuración y Material en revisión."""
+
+import unittest
+
+from apoyo_interfaz import abrir_pagina, textos
+
+from cliente_api import ClienteMock, ErrorCliente
+from contrato import Tema
+from paginas.admin.documentos import ESTADO_DOCUMENTO, temas_por_documento, validar_archivo
+
+DOCUMENTOS = "paginas.admin.documentos:mostrar"
+CONFIGURACION = "paginas.admin.configuracion:mostrar"
+REVISION = "paginas.admin.revision:mostrar"
+MB = 1024 * 1024
+
+
+class ClienteQueFalla(ClienteMock):
+    def listar_documentos(self):
+        raise ErrorCliente("no_disponible", "Connection refused")
+
+    def obtener_configuracion(self):
+        raise ErrorCliente("no_disponible", "Connection refused")
+
+
+class ReglasDeArchivos(unittest.TestCase):
+    def test_validar_archivo(self):
+        self.assertIsNone(validar_archivo("guia.pdf", MB))
+        self.assertEqual(validar_archivo("foto.png", MB), "Solo se aceptan archivos PDF, Markdown o TXT.")
+        self.assertEqual(validar_archivo("vacio.md", 0), "El archivo está vacío.")
+        self.assertEqual(validar_archivo("grande.txt", 11 * MB), "El archivo supera 10 MB.")
+
+    def test_temas_por_documento(self):
+        temas = [Tema(id_tema="a", nombre="Redes", documentos=["x.pdf"]),
+                 Tema(id_tema="b", nombre="Nube", documentos=["x.pdf", "y.md"])]
+        self.assertEqual(temas_por_documento(temas), {"x.pdf": ["Redes", "Nube"], "y.md": ["Nube"]})
+
+    def test_estados_con_etiqueta_y_color(self):
+        self.assertEqual(ESTADO_DOCUMENTO["indexado"], ("Indexado", "green"))
+        self.assertEqual(ESTADO_DOCUMENTO["error"], ("Con error", "red"))
+
+
+class PaginaDocumentos(unittest.TestCase):
+    def test_lista_con_estado_fragmentos_y_temas(self):
+        at = abrir_pagina(DOCUMENTOS, usuario="admin")
+        self.assertEqual(at.title[0].value, "Documentos")
+        markdown = textos(at.markdown)
+        self.assertIn("**oci_redes_vcn.pdf**", markdown)
+        self.assertEqual(markdown.count(":green-badge[Indexado]"), 3)
+        self.assertIn(":red-badge[Con error]", markdown)
+        self.assertIn("Redes en OCI", [t.value for t in at.text])
+        self.assertIn("Error: El PDF no tiene texto extraíble.", textos(at.caption))
+
+    def test_error_de_la_api_muestra_detalle_al_admin(self):
+        at = abrir_pagina(DOCUMENTOS, usuario="admin", cliente=ClienteQueFalla())
+        self.assertIn(ErrorCliente.MENSAJES["no_disponible"], textos(at.error))
+        self.assertEqual(at.expander[0].label, "Ver detalle")
+
+    def test_solo_para_admin(self):
+        at = abrir_pagina(DOCUMENTOS, usuario="laura")
+        self.assertIn("No tienes permiso para ver esta página.", textos(at.error))
+
+
+class PaginaConfiguracion(unittest.TestCase):
+    def test_guardar_el_sector(self):
+        cliente = ClienteMock()
+        at = abrir_pagina(CONFIGURACION, usuario="admin", cliente=cliente)
+        at = at.selectbox(key="sector").set_value("Salud").run()
+        at = at.button(key="guardar_sector").click().run()
+        self.assertIn("Sector guardado: Salud", textos(at.success))
+        self.assertEqual(cliente.obtener_configuracion().sector, "Salud")
+
+    def test_sin_api_muestra_el_error(self):
+        at = abrir_pagina(CONFIGURACION, usuario="admin", cliente=ClienteQueFalla())
+        self.assertIn(ErrorCliente.MENSAJES["no_disponible"], textos(at.error))
+
+
+class PaginaRevision(unittest.TestCase):
+    def test_lista_abrir_y_exportar(self):
+        at = abrir_pagina(REVISION, usuario="admin")
+        self.assertEqual(at.title[0].value, "Material en revisión")
+        at = at.button(key="abrir_ejemplo-005").click().run()
+        self.assertEqual(len(at.header), 1)
+        self.assertEqual(at.get("download_button")[0].proto.label, "Exportar JSON")
+
+    def test_solo_para_admin(self):
+        at = abrir_pagina(REVISION, usuario="laura")
+        self.assertIn("No tienes permiso para ver esta página.", textos(at.error))
+
+
+if __name__ == "__main__":
+    unittest.main()
