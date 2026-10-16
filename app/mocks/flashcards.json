@@ -21,33 +21,33 @@
     "nivel_detalle": "Didáctico"
   },
   "contenido_adaptado": {
-    "titulo": "Introduccion a la Arquitectura de Redes VCN en OCI",
-    "introduccion_contextualizada": "Aprende de forma sencilla y directa los conceptos fundamentales de las redes privadas en la nube de Oracle Cloud Infrastructure diseñados para principiantes.",
+    "titulo": "Introducción a la arquitectura de redes VCN en OCI",
+    "introduccion_contextualizada": "Aprende de forma sencilla y directa los conceptos fundamentales de las redes privadas en la nube de Oracle Cloud Infrastructure, pensados para principiantes.",
     "items": [
       {
-        "frente": "¿Que es una VCN?",
+        "frente": "¿Qué es una VCN?",
         "dorso": "Es una red privada y personalizable configurada en Oracle Cloud Infrastructure que ofrece control total sobre su entorno de red.",
-        "pista_didactica": "Piensa en ella como una red de centro de datos tradicional pero llevada a la nube."
+        "pista_didactica": "Piensa en ella como una red de centro de datos tradicional, pero llevada a la nube."
       },
       {
-        "frente": "¿Que son las Subredes o Subnets?",
-        "dorso": "Son divisiones de tu VCN que pueden ser publicas (accesibles desde internet) o privadas (aisladas del exterior).",
-        "pista_didactica": "Sirven para organizar tus recursos segun su nivel de exposicion."
+        "frente": "¿Qué son las subredes (subnets)?",
+        "dorso": "Son divisiones de tu VCN que pueden ser públicas (accesibles desde internet) o privadas (aisladas del exterior).",
+        "pista_didactica": "Sirven para organizar tus recursos según su nivel de exposición."
       },
       {
-        "frente": "¿Para que sirve el Internet Gateway?",
-        "dorso": "Permite el trafico bidireccional entre la VCN y el internet publico.",
+        "frente": "¿Para qué sirve el Internet Gateway?",
+        "dorso": "Permite el tráfico bidireccional entre la VCN e internet.",
         "pista_didactica": "Es la puerta principal para conectar tu red con el mundo exterior."
       },
       {
-        "frente": "¿Cual es la funcion del NAT Gateway?",
+        "frente": "¿Cuál es la función del NAT Gateway?",
         "dorso": "Permite que los recursos en una subred privada accedan a internet para actualizaciones, sin recibir conexiones entrantes.",
         "pista_didactica": "Funciona como una salida de solo ida para descargas o actualizaciones seguras."
       },
       {
-        "frente": "¿Que son las Security Lists y como funcionan?",
-        "dorso": "Actuan como un firewall virtual utilizando reglas de entrada (ingress) y salida (egress) para controlar exactamente que tipo de datos fluyen hacia y desde los recursos.",
-        "pista_didactica": "Cuidado con una mala configuracion en las reglas de ingress, ya que es la causa mas comun de vulnerabilidades."
+        "frente": "¿Qué son las Security Lists y cómo funcionan?",
+        "dorso": "Actúan como un firewall virtual utilizando reglas de entrada (ingress) y salida (egress) para controlar exactamente qué tipo de datos fluyen hacia y desde los recursos.",
+        "pista_didactica": "Cuidado con una mala configuración en las reglas de ingress, ya que es la causa más común de vulnerabilidades."
       }
     ]
   },

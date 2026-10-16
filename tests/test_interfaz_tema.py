@@ -128,6 +128,19 @@ class Logo(unittest.TestCase):
         self.assertFalse((marca.ASSETS / "logo_nuevamente_oscuro.svg").exists())
         self.assertFalse(hasattr(marca, "logo_para"))
 
+    def test_favicon_png_con_esquinas_transparentes(self):
+        # PNG y no SVG: Safari y otros navegadores no muestran favicons SVG
+        from PIL import Image
+        imagen = Image.open(marca.FAVICON)
+        self.assertEqual((imagen.format, imagen.mode), ("PNG", "RGBA"))
+        self.assertEqual(imagen.getpixel((0, 0))[3], 0)  # esquina transparente
+        self.assertEqual(imagen.getpixel((imagen.width // 2, imagen.height // 2))[3], 255)
+
+    def test_inicio_usa_el_favicon_png(self):
+        inicio = (RAIZ / "app" / "inicio.py").read_text(encoding="utf-8")
+        self.assertNotIn("page_icon=str(marca.ICONO)", inicio)
+        self.assertEqual(inicio.count("page_icon=str(marca.FAVICON)"), 2)
+
     def test_el_menu_usa_siempre_el_logo_del_menu(self):
         inicio = (RAIZ / "app" / "inicio.py").read_text(encoding="utf-8")
         self.assertIn("st.logo(str(marca.LOGO_MENU)", inicio)

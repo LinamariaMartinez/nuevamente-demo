@@ -6,20 +6,21 @@ AVISO_REVISION = ("Este material no superó la revisión automática de calidad 
                   "y está oculto para quienes estudian.")
 
 
-def mostrar_encabezado(paquete):
+def mostrar_encabezado(paquete, compacto=False):
+    """`compacto`: sin introducción ni conceptos clave, porque la vista del formato los muestra a su manera."""
     contenido = paquete.contenido_adaptado
     metadatos = paquete.metadatos
     calidad = paquete.evaluacion_calidad
     st.header(contenido.titulo)
     if calidad.requiere_revision_admin:
         st.warning(AVISO_REVISION)
-    if contenido.introduccion_contextualizada:
+    if contenido.introduccion_contextualizada and not compacto:
         st.write(contenido.introduccion_contextualizada)
     tiempo, anclaje, intentos = st.columns(3)
     tiempo.metric("Tiempo estimado", f"{metadatos.tiempo_estimado_estudio_minutos} min")
     anclaje.metric("Anclaje en fuentes", f"{calidad.anclaje_fuente_score:.0%}")
     intentos.metric("Intentos de revisión", calidad.intentos_revision)
-    if metadatos.conceptos_clave:
+    if metadatos.conceptos_clave and not compacto:
         st.markdown("**Conceptos clave:** " + " · ".join(metadatos.conceptos_clave))
     if metadatos.prerrequisitos:
         st.markdown("**Prerrequisitos:** " + " · ".join(metadatos.prerrequisitos))

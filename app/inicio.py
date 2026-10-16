@@ -23,7 +23,7 @@ from paginas import DESTINOS, acceso
 from paginas.admin import configuracion, documentos, revision, temas
 from paginas.estudiante import mis_temas, tema
 
-st.set_page_config(page_title="NuevaMente", page_icon=str(marca.ICONO), layout="centered")
+st.set_page_config(page_title="NuevaMente", page_icon=str(marca.FAVICON), layout="centered")
 # El menú es verde oscuro en los dos modos: el logo del menú es siempre la versión clara
 st.logo(str(marca.LOGO_MENU), size="large", icon_image=str(marca.ICONO))
 
@@ -73,6 +73,6 @@ elif usuario.debe_cambiar_contrasena:
 else:
     pagina = st.navigation(_paginas_del_rol(usuario.rol))
     # st.navigation usa el ícono de cada página como favicon: se vuelve a fijar el de NuevaMente
-    st.set_page_config(page_icon=str(marca.ICONO))
+    st.set_page_config(page_icon=str(marca.FAVICON))
     _mostrar_usuario(usuario)
     pagina.run()
