@@ -20,10 +20,8 @@ import marca
 from paginas import admin, estudiante, portada
 
 st.set_page_config(page_title="NuevaMente", page_icon=str(marca.ICONO), layout="centered")
-# El logo de la barra lateral cambia con el tema: el claro no se leería sobre el fondo oscuro.
-# Límite conocido: si se cambia el tema en ⋮ → Settings, Streamlit no vuelve a correr el script y el
-# logo anterior queda hasta el siguiente clic (aceptado el 14-oct).
-st.logo(str(marca.logo_para(st.context.theme.type)), size="large", icon_image=str(marca.ICONO))
+# El menú es verde oscuro en los dos modos: el logo del menú es siempre la versión clara
+st.logo(str(marca.LOGO_MENU), size="large", icon_image=str(marca.ICONO))
 
 pagina_estudiante = st.Page(estudiante.mostrar, title="Estudiante", url_path="estudiante", icon=":material/school:")
 pagina_admin = st.Page(admin.mostrar, title="Administración", url_path="admin",

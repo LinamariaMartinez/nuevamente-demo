@@ -29,15 +29,33 @@ redTextColor = "#B42318"
 blueTextColor = "#1D4ED8"
 
 [theme.dark]
-# Streamlit pone blanco el texto del botón primario: con #A9CDBD no se leería (1.73:1)
-primaryColor = "#2F7A70"
-backgroundColor = "#102522"
-secondaryBackgroundColor = "#1A3530"
-textColor = "#F1F6F3"
-linkColor = "#A9CDBD"
+# Paleta B (v2.1): fondo neutro como la referencia. Streamlit pone blanco el texto del botón
+# principal, por eso el verde claro #7DC1B0 va en enlaces y acentos, no en botones (2.07:1)
+primaryColor = "#3A8277"
+backgroundColor = "#14201E"
+secondaryBackgroundColor = "#1E2B28"
+textColor = "#EAF2EF"
+linkColor = "#7DC1B0"
 borderColor = "#6B8A81"
 codeBackgroundColor = "#24433C"
 greenTextColor = "#86E0AC"
 yellowTextColor = "#F5CD78"
 redTextColor = "#FF9D93"
 blueTextColor = "#8BC8F0"
+
+# Menú lateral verde oscuro en los dos modos (v2.1)
+[theme.light.sidebar]
+backgroundColor = "#205E58"
+secondaryBackgroundColor = "#2E6F66"
+textColor = "#EAF2EF"
+linkColor = "#A9CDBD"
+borderColor = "#A9CDBD"
+primaryColor = "#A9CDBD"
+
+[theme.dark.sidebar]
+backgroundColor = "#0E1715"
+secondaryBackgroundColor = "#2E6F66"
+textColor = "#EAF2EF"
+linkColor = "#7DC1B0"
+borderColor = "#6B8A81"
+primaryColor = "#7DC1B0"

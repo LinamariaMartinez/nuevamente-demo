@@ -1,6 +1,7 @@
 """Pruebas de la identidad visual "Bosque sereno": tema de Streamlit, contrastes y logo."""
 
 from pathlib import Path
+import re
 import sys
 import tomllib
 import unittest
@@ -32,7 +33,7 @@ class ConfigDelTema(unittest.TestCase):
     def test_todas_las_claves_existen_en_streamlit(self):
         """Streamlit ignora en silencio una clave mal escrita; esta prueba la detecta."""
         validas = config_streamlit._config_options_template
-        for seccion in ("server", "theme", "theme.light", "theme.dark"):
+        for seccion in ("server", "theme", "theme.light", "theme.dark", "theme.light.sidebar", "theme.dark.sidebar"):
             tabla = CONFIG
             for parte in seccion.split("."):
                 tabla = tabla[parte]
@@ -69,19 +70,67 @@ class Contrastes(unittest.TestCase):
     def test_tema_oscuro(self):
         self._revisar("dark")
 
+    def _revisar_menu(self, tema):
+        m = CONFIG["theme"][tema]["sidebar"]
+        casos = [
+            ("texto / fondo del menú", m["textColor"], m["backgroundColor"], 4.5),
+            ("texto / opción activa", m["textColor"], m["secondaryBackgroundColor"], 4.5),
+            ("borde / fondo del menú", m["borderColor"], m["backgroundColor"], 3),
+        ]
+        for nombre, primero, segundo, minimo in casos:
+            with self.subTest(tema=tema, par=nombre):
+                self.assertGreaterEqual(round(contraste(primero, segundo), 2), minimo)
+
+    def test_menu_claro(self):
+        self._revisar_menu("light")
+
+    def test_menu_oscuro(self):
+        self._revisar_menu("dark")
+
+    def test_oscuro_usa_la_paleta_b(self):
+        t = CONFIG["theme"]["dark"]
+        self.assertEqual((t["backgroundColor"], t["secondaryBackgroundColor"], t["primaryColor"]),
+                         ("#14201E", "#1E2B28", "#3A8277"))
+
+
+SVG = "{http://www.w3.org/2000/svg}"
+
 
 class Logo(unittest.TestCase):
     def test_los_svg_existen_y_tienen_titulo_accesible(self):
-        for ruta in (marca.LOGO_CLARO, marca.LOGO_OSCURO, marca.ICONO):
+        for ruta in (marca.LOGO, marca.LOGO_MENU, marca.ICONO):
             with self.subTest(archivo=ruta.name):
                 raiz = ET.parse(ruta).getroot()
                 self.assertTrue(raiz.tag.endswith("svg"))
-                self.assertIsNotNone(raiz.find("{http://www.w3.org/2000/svg}title"))
+                self.assertIsNotNone(raiz.find(f"{SVG}title"))
 
-    def test_el_logo_cambia_segun_el_tema(self):
-        self.assertEqual(marca.logo_para("dark"), marca.LOGO_OSCURO)
-        self.assertEqual(marca.logo_para("light"), marca.LOGO_CLARO)
-        self.assertEqual(marca.logo_para(None), marca.LOGO_CLARO)  # sin dato del navegador: claro
+    def test_hojas_sin_tallo(self):
+        # La versión 2.1 quita el tallo blanco: ningún trazo con stroke
+        for ruta in (marca.LOGO, marca.LOGO_MENU, marca.ICONO):
+            with self.subTest(archivo=ruta.name):
+                self.assertNotIn("stroke", ruta.read_text(encoding="utf-8"))
+
+    def test_color_del_texto_segun_el_fondo(self):
+        self.assertIn('fill="#205E58" d="M90.69', marca.LOGO.read_text(encoding="utf-8"))
+        self.assertIn('fill="#EAF2EF" d="M90.69', marca.LOGO_MENU.read_text(encoding="utf-8"))
+
+    def test_el_texto_ocupa_mas_de_la_mitad_del_alto(self):
+        # Streamlit limita st.logo a 32 px de alto: el texto tiene que llenar esa altura para leerse
+        alto_texto = 54.42 - 31.19  # alto de "NuevaMente" en las coordenadas del trazo
+        for ruta in (marca.LOGO, marca.LOGO_MENU):
+            with self.subTest(archivo=ruta.name):
+                raiz = ET.parse(ruta).getroot()
+                alto = float(raiz.get("viewBox").split()[3])
+                escala = float(re.search(r"scale\(([\d.]+)\)", raiz.find(f"{SVG}g[@id='texto']").get("transform")).group(1))
+                self.assertGreaterEqual(alto_texto * escala / alto, 0.5)
+
+    def test_ya_no_hay_logo_por_tema(self):
+        self.assertFalse((marca.ASSETS / "logo_nuevamente_oscuro.svg").exists())
+        self.assertFalse(hasattr(marca, "logo_para"))
+
+    def test_el_menu_usa_siempre_el_logo_del_menu(self):
+        inicio = (RAIZ / "app" / "inicio.py").read_text(encoding="utf-8")
+        self.assertIn("st.logo(str(marca.LOGO_MENU)", inicio)
 
 
 if __name__ == "__main__":
