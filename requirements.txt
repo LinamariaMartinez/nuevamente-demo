@@ -30,3 +30,12 @@ google-genai
 # Orquestación multiagente y validación estructurada (Hito 3)
 langgraph
 pydantic
+
+# API REST y autenticación - F08
+fastapi
+uvicorn[standard]
+pwdlib[argon2]
+
+# Pruebas de API
+httpx
+pytest
