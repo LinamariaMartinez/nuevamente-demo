@@ -33,7 +33,7 @@ class ConfigDelTema(unittest.TestCase):
     def test_todas_las_claves_existen_en_streamlit(self):
         """Streamlit ignora en silencio una clave mal escrita; esta prueba la detecta."""
         validas = config_streamlit._config_options_template
-        for seccion in ("server", "theme", "theme.light", "theme.dark", "theme.light.sidebar", "theme.dark.sidebar"):
+        for seccion in ("client", "server", "theme", "theme.light", "theme.dark", "theme.light.sidebar", "theme.dark.sidebar"):
             tabla = CONFIG
             for parte in seccion.split("."):
                 tabla = tabla[parte]
@@ -42,6 +42,11 @@ class ConfigDelTema(unittest.TestCase):
                     continue
                 with self.subTest(clave=f"{seccion}.{clave}"):
                     self.assertIn(f"{seccion}.{clave}", validas)
+
+    def test_no_se_muestran_errores_tecnicos_en_bruto(self):
+        # Spec §7: un error inesperado no debe mostrar el traceback a quien estudia
+        self.assertEqual(CONFIG["client"]["showErrorDetails"], "none")
+        self.assertIn("client.showErrorDetails", config_streamlit._config_options_template)
 
     def test_el_limite_de_subida_se_conserva(self):
         self.assertEqual(CONFIG["server"]["maxUploadSize"], 10)

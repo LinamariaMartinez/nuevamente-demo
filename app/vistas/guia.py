@@ -2,6 +2,8 @@
 
 import streamlit as st
 
+from vistas.generica import texto_seguro
+
 
 def mostrar(paquete, items):
     clave = f"guia_{paquete.id_paquete}"
@@ -11,8 +13,8 @@ def mostrar(paquete, items):
     st.caption(f"{hechos} de {len(pasos)} pasos completados")
     for i, paso in enumerate(pasos):
         with st.container(border=True):
-            st.markdown(f"**Paso {paso.paso}. {paso.titulo}**")
-            st.write(paso.explicacion)
+            st.markdown(f"**Paso {paso.paso}. {texto_seguro(paso.titulo)}**")
+            st.markdown(texto_seguro(paso.explicacion))
             if paso.ejemplo:
-                st.info(f"Ejemplo: {paso.ejemplo}")
+                st.info(f"Ejemplo: {texto_seguro(paso.ejemplo)}")
             st.checkbox("Hecho", key=f"{clave}_{i}")

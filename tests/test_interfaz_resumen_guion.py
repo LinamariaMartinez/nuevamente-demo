@@ -67,6 +67,24 @@ class Resumen(unittest.TestCase):
         self.assertIn("Este material no trae contenido.", [i.value for i in at.info])
 
 
+class TextoDelMaterial(unittest.TestCase):
+    def test_el_signo_pesos_no_se_vuelve_formula(self):
+        # Revisión final: con montos en COP, el texto entre dos "$" salía como LaTeX
+        for nombre in ("resumen.json", "guion.json"):
+            with self.subTest(mock=nombre):
+                datos = cargar(nombre)
+                datos["contenido_adaptado"]["items"][0]["contenido"] = "Cuesta $50.000 y luego $80.000."
+                self.assertIn("Cuesta \\$50.000 y luego \\$80.000.", markdown(correr(datos)))
+
+    def test_la_vista_generica_muestra_etiquetas_con_tilde(self):
+        datos = cargar("tutorial.json")
+        del datos["contenido_adaptado"]["items"][0]["paso"]  # item inválido: cae en la vista genérica
+        textos = " ".join(markdown(correr(datos)))
+        self.assertIn("*Explicación:*", textos)
+        self.assertIn("*Título:*", textos)
+        self.assertNotIn("*Explicacion:*", textos)
+
+
 class Guion(unittest.TestCase):
     def test_escenas_numeradas(self):
         datos = cargar("guion.json")

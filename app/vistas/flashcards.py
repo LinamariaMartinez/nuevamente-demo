@@ -129,12 +129,13 @@ pintar();
 def construir_html(items, oscuro=False):
     """HTML completo del componente. El texto va como JSON y se pone con textContent: nunca se interpreta como HTML."""
     datos = [{"frente": i.frente, "dorso": i.dorso, "pista": i.pista_didactica or ""} for i in items]
-    # "</" partiría el <script>: en JSON, "<\/" es el mismo texto
-    datos_json = json.dumps(datos, ensure_ascii=False).replace("</", "<\\/")
-    html = PLANTILLA.replace("__DATOS__", datos_json)
+    # Ningún "<" crudo dentro del <script> ("</script>" o "<!--" lo romperían): en JSON, "\u003c" es el mismo texto
+    datos_json = json.dumps(datos, ensure_ascii=False).replace("<", "\\u003c")
+    html = PLANTILLA
     for nombre, color in COLORES["dark" if oscuro else "light"].items():
         html = html.replace(f"__{nombre}__", color)
-    return html
+    # Los datos van al final: así un texto con "__texto__" no se cambia por un color
+    return html.replace("__DATOS__", datos_json)
 
 
 def mostrar(paquete, items):

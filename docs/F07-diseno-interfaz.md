@@ -365,6 +365,7 @@ conservan lo escrito; los errores se traducen en `cliente_api.py`.
 | Caso | Mensaje / comportamiento |
 |---|---|
 | 401 en `POST /sesion` | "No pudimos validar tus datos. Revisa tu usuario y contraseña e inténtalo de nuevo." (igual si la cuenta no existe o está desactivada) |
+| 401 en `PUT /sesion/contrasena` | "La contraseña actual no es correcta." (la sesión sigue abierta) |
 | 401 en otra ruta | Vuelve a Iniciar sesión: "Tu sesión terminó. Inicia sesión de nuevo." |
 | 403 | "No tienes permiso para esta acción." |
 | 404 | "No encontramos lo que buscabas. Es posible que se haya retirado." |
@@ -390,8 +391,8 @@ conservan lo escrito; los errores se traducen en `cliente_api.py`.
 - Token con vencimiento (por ejemplo, 8 horas).
 - Registro de quién da intentos extra, restablece contraseñas o publica exámenes.
 
-**Modo mock:** `app/mocks/usuarios.json` trae un estudiante (con dos temas) y un admin, con contraseñas de demostración
-anotadas en el README. Solo existen en modo mock.
+**Modo mock:** `app/mocks/institucion/usuarios.json` trae dos estudiantes (uno con contraseña temporal) y un admin, con
+contraseñas de demostración anotadas en el README. Solo existen en modo mock.
 
 ## 9. Estilo visual
 
@@ -399,8 +400,8 @@ Identidad **"Bosque sereno"** (documento de identidad visual, aprobado por el eq
 `.streamlit/config.toml`, logo e ícono en `assets/`, íconos de línea en el menú, componentes nativos de Streamlit y
 CSS mínimo. Contrastes según WCAG 2.2 AA, que se verifican con pruebas automáticas.
 
-**Ajustes de la versión 2.1.** Solo componentes nativos y `config.toml`, **sin CSS a mano**: el CSS depende de nombres
-internos de Streamlit que cambian entre versiones.
+**Ajustes de la versión 2.1.** Solo componentes nativos y `config.toml`, **sin CSS a mano** (salvo la única excepción de
+la v2.2, abajo): el CSS depende de nombres internos de Streamlit que cambian entre versiones.
 
 **Logo** (`assets/`): dos hojas redondeadas, sin tallo, y el texto "NuevaMente" convertido a trazos.
 
@@ -410,8 +411,9 @@ internos de Streamlit que cambian entre versiones.
 | `logo_nuevamente_menu.svg` | Hojas `#A9CDBD` y `#F5F7F5`; texto `#EAF2EF` | Menú lateral, en los dos modos (`st.logo`) |
 | `icono_nuevamente.svg` | Cuadro `#205E58` con las hojas claras | Pestaña del navegador y menú plegado |
 
-Como el menú es oscuro en los dos modos, el logo ya no depende del tema: `app/marca.py` deja de elegirlo y desaparece el
-límite conocido (el logo anterior quedaba hasta el siguiente clic). `logo_nuevamente_oscuro.svg` se borra.
+Como el menú es oscuro en los dos modos, el logo **del menú** ya no depende del tema. `logo_nuevamente_oscuro.svg` se borra.
+(En la v2.2, el logo grande de la landing y de Iniciar sesión sí depende del tema: `marca.logo_principal()` usa la versión
+clara en oscuro; al cambiar el tema en Settings se actualiza en el siguiente clic.)
 
 **Menú lateral** (`[theme.light.sidebar]` y `[theme.dark.sidebar]`):
 
@@ -440,7 +442,14 @@ El verde claro de la referencia (`#7DC1B0`) **no** se usa en botones: Streamlit 
 - **Única excepción de CSS:** `app/estilo.py` pega al fondo del menú lateral el bloque del usuario (nombre, rol y
   Cerrar sesión). Son unas pocas reglas y solo para ese bloque. Si una versión futura de Streamlit cambia su estructura
   interna, el bloque vuelve a quedar debajo del menú; nada más se rompe.
-- **Componente de flashcards:** HTML y CSS propios dentro de `st.components.v1.html`. Animación de 0.5 s; con
+- **Sin errores técnicos en el navegador:** `[client] showErrorDetails = "none"` en `config.toml` (§7); el detalle queda en
+  la terminal del servidor.
+- **Texto del material:** el signo `$` se escapa antes de dibujarlo (`texto_seguro`), para que los montos en pesos no se
+  muestren como fórmulas.
+- **Favicon en PNG** (`assets/icono_nuevamente.png`): Safari no muestra favicons SVG.
+- **Sin menú fuera de la app:** la landing y el acceso no llaman a `st.logo` y usan una sola página visible en
+  `st.navigation` (con `position="hidden"`, Streamlit dejaba la columna vacía del menú al cerrar sesión).
+- **Componente de flashcards:** HTML y CSS propios dentro de `st.iframe` (`st.components.v1.html` está obsoleto en Streamlit 1.65). Animación de 0.5 s; con
   `prefers-reduced-motion` la tarjeta cambia sin girar. Botones con texto (no solo íconos) y manejables con teclado.
 - **Maquetas aprobadas (v2.2):** landing ancha, dos columnas en Estudiar, flashcards con Lo sé / Repasar y resumen en tarjetas.
 

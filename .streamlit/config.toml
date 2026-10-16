@@ -1,3 +1,7 @@
+[client]
+# Spec §7: un error inesperado no muestra el traceback en el navegador (queda en la terminal del servidor)
+showErrorDetails = "none"
+
 [server]
 # Límite del selector de archivos del admin, en MB (cuida los 20 GB de Object Storage)
 maxUploadSize = 10

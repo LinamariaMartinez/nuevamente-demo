@@ -276,6 +276,9 @@ class ClienteHttp:
             raise ErrorCliente("no_disponible", str(error)) from error
         estado = respuesta.status_code
         if estado == 401:
+            if (metodo, ruta) == ("PUT", "/sesion/contrasena"):
+                # La contraseña actual no coincide: la sesión sigue viva y no hay que mandar a la persona al login
+                raise ErrorCliente("rechazado", respuesta.text, mensaje="La contraseña actual no es correcta.")
             tipo = "credenciales" if (metodo, ruta) == ("POST", "/sesion") else "sesion_vencida"
             raise ErrorCliente(tipo, respuesta.text)
         if estado == 403:

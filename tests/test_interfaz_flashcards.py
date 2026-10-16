@@ -37,7 +37,15 @@ class HtmlDelComponente(unittest.TestCase):
         raro = ItemFlashcard(frente='</script><b>"hola"</b>', dorso="a & b < c", pista_didactica=None)
         html = construir_html([raro])
         self.assertEqual(html.count("</script>"), 1)  # solo el cierre del script propio
-        self.assertIn("<\\/script>", html)
+        self.assertIn("\\u003c/script>", html)
+
+    def test_texto_con_marcadores_o_comentarios_no_se_altera_ni_rompe(self):
+        # Revisión final: "__texto__" se cambiaba por un color, y "<!-- <script" dejaba el componente en blanco
+        raro = ItemFlashcard(frente="usa __texto__ y __fondo__", dorso="<!-- <script> -->", pista_didactica=None)
+        html = construir_html([raro])
+        self.assertIn("usa __texto__ y __fondo__", html)
+        datos = html[html.index("const TARJETAS"):html.index("let actual")]
+        self.assertNotIn("<", datos)  # ningún "<" crudo dentro del script
 
     def test_colores_segun_el_modo(self):
         self.assertIn(COLORES["light"]["fondo"], construir_html(ITEMS))

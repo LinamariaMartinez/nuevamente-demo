@@ -266,6 +266,13 @@ class ModoHttp(unittest.TestCase):
         cliente.listar_temas()
         self.assertNotIn("Authorization", sesion.llamadas[2][2]["headers"])
 
+    def test_401_al_cambiar_la_contrasena_es_contrasena_actual_incorrecta(self):
+        # Revisión final: no debe cerrar la sesión de quien se equivocó al escribir su contraseña actual
+        cliente, _ = self.con_token(respuesta(status=401, texto="actual incorrecta"))
+        with self.assertRaises(ErrorCliente) as ctx:
+            cliente.cambiar_contrasena("mala", "nueva-1234")
+        self.assertEqual((ctx.exception.tipo, ctx.exception.mensaje), ("rechazado", "La contraseña actual no es correcta."))
+
     def test_cambiar_contrasena_envia_actual_y_nueva(self):
         cliente, sesion = self.con_token(respuesta(status=204, texto=""))
         self.assertIsNone(cliente.cambiar_contrasena("vieja-123", "nueva-1234"))
