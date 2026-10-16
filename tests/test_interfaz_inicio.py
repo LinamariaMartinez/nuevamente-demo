@@ -2,7 +2,7 @@
 
 import unittest
 
-from apoyo_interfaz import CUENTAS, RAIZ, textos
+from apoyo_interfaz import CUENTAS, RAIZ, abrir_pagina, textos
 
 from streamlit.testing.v1 import AppTest
 
@@ -63,6 +63,23 @@ class PuntoDeEntrada(unittest.TestCase):
         at = abrir("laura").sidebar.button(key="cerrar_sesion").click().run()
         self.assertNotIn("sesion", at.session_state)
         self.assertIsNotNone(at.text_input(key="acceso_usuario"))
+
+    def test_el_menu_se_contrae_con_el_material_y_vuelve_en_otra_pagina(self):
+        # AppTest no recuerda st.switch_page entre ejecuciones con páginas-función: el cambio de página se
+        # simula con la mini-app de pruebas, que aplica el estado del menú igual que inicio.py
+        at = abrir_pagina("paginas.estudiante.tema:mostrar", estado={"tema_elegido": "t-redes", "aplicar_menu": True})
+        self.assertEqual(at.session_state["menu_actual"], "auto")
+        at = at.button(key="generar").click().run()
+        self.assertEqual(at.session_state["menu_actual"], "collapsed")
+        self.assertNotIn("menu_pedido", at.session_state)  # ya se aplicó
+        at.session_state["pagina"] = "paginas.estudiante.mis_temas:mostrar"
+        at = at.run()
+        self.assertEqual(at.session_state["menu_actual"], "auto")
+
+    def test_inicio_aplica_el_estado_del_menu_al_final(self):
+        inicio = (RAIZ / "app" / "inicio.py").read_text(encoding="utf-8")
+        self.assertLess(inicio.index("pagina.run()"), inicio.index("aplicar_estado_menu()"))
+        self.assertEqual(abrir("laura").session_state["menu_actual"], "auto")
 
     def test_abrir_un_tema_lleva_a_su_pagina(self):
         at = abrir("laura").button(key="abrir_t-redes").click().run()

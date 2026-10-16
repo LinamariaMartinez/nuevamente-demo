@@ -19,11 +19,12 @@ import streamlit as st
 import marca
 import menu
 import sesion
-from paginas import DESTINOS, acceso
+from paginas import DESTINOS, acceso, aplicar_estado_menu
 from paginas.admin import configuracion, documentos, revision, temas
 from paginas.estudiante import mis_temas, tema
 
-st.set_page_config(page_title="NuevaMente", page_icon=str(marca.FAVICON), layout="centered")
+# Pantalla ancha (v2.2): las pantallas de acción usan dos columnas (spec §6.6)
+st.set_page_config(page_title="NuevaMente", page_icon=str(marca.FAVICON), layout="wide")
 # El menú es verde oscuro en los dos modos: el logo del menú es siempre la versión clara
 st.logo(str(marca.LOGO_MENU), size="large", icon_image=str(marca.ICONO))
 
@@ -76,3 +77,4 @@ else:
     st.set_page_config(page_icon=str(marca.FAVICON))
     _mostrar_usuario(usuario)
     pagina.run()
+    aplicar_estado_menu()  # al final: la página ya dijo si quiere el menú contraído

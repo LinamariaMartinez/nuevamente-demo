@@ -2,7 +2,7 @@
 
 import unittest
 
-from apoyo_interfaz import abrir_pagina, textos
+from apoyo_interfaz import abrir_pagina, columnas_principales, textos
 
 from cliente_api import ClienteMock, ErrorCliente
 from contrato import Tema
@@ -75,12 +75,30 @@ class PaginaConfiguracion(unittest.TestCase):
 
 
 class PaginaRevision(unittest.TestCase):
+    def test_lista_a_la_izquierda_y_material_a_la_derecha(self):
+        at = abrir_pagina(REVISION, usuario="admin")
+        izquierda, derecha = columnas_principales(at)
+        self.assertIn("abrir_ejemplo-005", [b.key for b in izquierda.button])
+        self.assertIn("Abre un material de la lista para verlo aquí.", [i.value for i in derecha.info])
+        at = at.button(key="abrir_ejemplo-005").click().run()
+        izquierda, derecha = columnas_principales(at)
+        self.assertEqual(len(derecha.header), 1)
+
     def test_lista_abrir_y_exportar(self):
         at = abrir_pagina(REVISION, usuario="admin")
         self.assertEqual(at.title[0].value, "Material en revisión")
         at = at.button(key="abrir_ejemplo-005").click().run()
         self.assertEqual(len(at.header), 1)
         self.assertEqual(at.get("download_button")[0].proto.label, "Exportar JSON")
+
+    def test_revision_pide_contraer_el_menu_al_abrir_un_material(self):
+        at = abrir_pagina(REVISION, usuario="admin")
+        self.assertNotIn("menu_pedido", at.session_state)
+        at = at.button(key="abrir_ejemplo-005").click().run()
+        self.assertEqual(at.session_state["menu_pedido"], "collapsed")
+
+    def test_documentos_no_pide_contraer_el_menu(self):
+        self.assertNotIn("menu_pedido", abrir_pagina(DOCUMENTOS, usuario="admin").session_state)
 
     def test_solo_para_admin(self):
         at = abrir_pagina(REVISION, usuario="laura")

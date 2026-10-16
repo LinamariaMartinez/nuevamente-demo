@@ -64,6 +64,9 @@ class PaginaMisTemas(unittest.TestCase):
                       textos(at.info))
         self.assertEqual(len(at.metric), 0)
 
+    def test_no_pide_contraer_el_menu(self):
+        self.assertNotIn("menu_pedido", abrir_pagina(MIS_TEMAS).session_state)
+
     def test_solo_para_estudiantes(self):
         at = abrir_pagina(MIS_TEMAS, usuario="admin")
         self.assertIn("No tienes permiso para ver esta página.", textos(at.error))

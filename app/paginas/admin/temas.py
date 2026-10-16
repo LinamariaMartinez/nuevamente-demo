@@ -6,11 +6,11 @@ from pydantic import ValidationError
 import sesion
 from cliente_api import ErrorCliente
 from contrato import LARGO_MAXIMO_DESCRIPCION, LARGO_MAXIMO_NOMBRE_TEMA, DatosTema
-from paginas import ir_a, mostrar_error, mostrar_modo_demo
+from paginas import contraer_menu, ir_a, mostrar_error, mostrar_modo_demo
 
 DATOS_INCOMPLETOS = "Escribe un nombre y elige al menos un documento."
 SIN_DOCUMENTOS = "Todavía no hay documentos indexados. Sube al menos uno para crear un tema."
-VACIO = "Todavía no hay temas. Crea el primero con el formulario de arriba."
+VACIO = "Todavía no hay temas. Crea el primero con el formulario de la izquierda."
 CLAVES_NUEVO = ("nuevo_nombre", "nuevo_descripcion", "nuevo_documentos")
 
 
@@ -118,6 +118,7 @@ def _tarjeta(cliente, tema, indexados):
 
 def mostrar():
     sesion.exigir_rol("admin")
+    contraer_menu()  # la lista de temas ocupa siempre la columna derecha
     cliente = sesion.cliente_de_sesion()
     st.title("Temas")
     st.caption("Agrupa documentos en temas. Quien estudia solo ve los temas que le asignan.")
@@ -132,10 +133,14 @@ def mostrar():
         mostrar_error(error)
         return
     indexados = [d.nombre for d in documentos if d.estado == "indexado"]
-    _crear(cliente, indexados)
-    st.subheader("Temas creados")
-    if not temas:
-        st.info(VACIO)
-        return
-    for tema in temas:
-        _tarjeta(cliente, tema, indexados)
+    # Dos columnas (spec §6.6): crear a la izquierda, la lista a la derecha
+    izquierda, derecha = st.columns([1, 2], gap="large")
+    with izquierda:
+        _crear(cliente, indexados)
+    with derecha:
+        st.subheader("Temas creados")
+        if not temas:
+            st.info(VACIO)
+            return
+        for tema in temas:
+            _tarjeta(cliente, tema, indexados)

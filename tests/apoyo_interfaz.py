@@ -31,3 +31,11 @@ def abrir_pagina(pagina, usuario="laura", cliente=None, estado=None):
 
 def textos(elementos):
     return [elemento.value for elemento in elementos]
+
+
+def columnas_principales(at):
+    """(izquierda, derecha) del diseño en dos columnas st.columns([1, 2])."""
+    columnas = list(at.columns)
+    j = next(i for i, c in enumerate(columnas) if abs(c.weight - 2 / 3) < 0.01)
+    izquierda = next(c for c in reversed(columnas[:j]) if abs(c.weight - 1 / 3) < 0.01)
+    return izquierda, columnas[j]

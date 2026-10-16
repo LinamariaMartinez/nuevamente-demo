@@ -350,6 +350,10 @@ Necesitas la nota mínima para aprobar." Una tarjeta por tema asignado, con nomb
   (1/3) y el resultado a la derecha (2/3): Estudiar, Crear tema, Material en revisión y, cuando se construyan, Exámenes
   (pieza 2) y Usuarios (pieza 3). No aplica a Documentos (su tabla necesita el ancho), Presentar evaluación, Mis temas,
   Evaluaciones, Progreso ni Configuración. En pantallas angostas las columnas se apilan solas.
+- **Menú contraído con contenido a la derecha (v2.2):** en Estudiar (al aparecer el material), Material en revisión (al
+  abrir un material) y Temas (al entrar), la página pide el menú contraído; en las demás vuelve a `auto`. `inicio.py` lo
+  aplica una vez al final de cada página y solo si cambió. Si la persona abrió o cerró el menú a mano, su navegador
+  guarda esa preferencia y Streamlit la respeta.
 - Las acciones sensibles se confirman con un segundo botón en la misma pantalla (sin ventanas emergentes).
 - `MODO_API=mock`: etiqueta visible "Modo demostración: datos de ejemplo".
 

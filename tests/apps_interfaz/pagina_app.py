@@ -15,5 +15,9 @@ for ruta in (RAIZ / "src", RAIZ / "app"):
 
 import streamlit as st
 
+from paginas import aplicar_estado_menu
+
 modulo, funcion = st.session_state.get("pagina", "paginas.acceso:mostrar_inicio").split(":")
 getattr(importlib.import_module(modulo), funcion)()
+if st.session_state.get("aplicar_menu"):  # imita a inicio.py al terminar la página
+    aplicar_estado_menu()

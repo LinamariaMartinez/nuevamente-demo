@@ -2,7 +2,7 @@
 
 import unittest
 
-from apoyo_interfaz import abrir_pagina, textos
+from apoyo_interfaz import RAIZ, abrir_pagina, columnas_principales, textos
 
 from cliente_api import ClienteMock, ErrorCliente
 
@@ -117,6 +117,28 @@ class PaginaDelTema(unittest.TestCase):
         self.assertIn("Este tema ya no está disponible. Vuelve a Mis temas para ver los que tienes asignados.",
                       textos(at.info))
         self.assertEqual(len(at.error), 0)
+
+    def test_formulario_a_la_izquierda_y_recuadro_reservado_a_la_derecha(self):
+        izquierda, derecha = columnas_principales(abrir())
+        self.assertIn("generar", [b.key for b in izquierda.button])
+        self.assertIn("Elige tu nivel y formato y pulsa Generar material. Aquí aparecerá tu material.",
+                      [i.value for i in derecha.info])
+
+    def test_el_material_aparece_a_la_derecha(self):
+        at = generar(abrir(), formato="Flashcards")
+        izquierda, derecha = columnas_principales(at)
+        self.assertEqual(len(derecha.header), 1)
+        self.assertNotIn("Elige tu nivel y formato y pulsa Generar material. Aquí aparecerá tu material.",
+                         [i.value for i in derecha.info])
+
+    def test_pide_contraer_el_menu_solo_cuando_hay_material(self):
+        at = abrir()
+        self.assertNotIn("menu_pedido", at.session_state)
+        at = generar(at, formato="Flashcards")
+        self.assertEqual(at.session_state["menu_pedido"], "collapsed")
+
+    def test_la_app_usa_pantalla_ancha(self):
+        self.assertIn('layout="wide"', (RAIZ / "app" / "inicio.py").read_text(encoding="utf-8"))
 
     def test_api_caida_avisa_pero_deja_el_formulario(self):
         at = abrir(ClienteCaido())

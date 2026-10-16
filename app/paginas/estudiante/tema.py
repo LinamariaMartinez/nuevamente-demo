@@ -5,7 +5,7 @@ import streamlit as st
 import sesion
 from cliente_api import ErrorCliente
 from contrato import FORMATOS, LARGO_MAXIMO_TEMA, PERFILES, SolicitudPaquete
-from paginas import ir_a, mostrar_error, mostrar_modo_demo
+from paginas import contraer_menu, ir_a, mostrar_error, mostrar_modo_demo
 from vistas import mostrar_paquete
 
 MENSAJES_POR_CODIGO = {
@@ -15,6 +15,7 @@ EN_REVISION = "Este material necesita una revisión adicional antes de estar dis
 AYUDA_NIVEL = "La dificultad cambia la profundidad de la explicación, no las fuentes utilizadas."
 PRACTICA = "Práctica: no cuenta para tu nota."
 TEMA_NO_DISPONIBLE = "Este tema ya no está disponible. Vuelve a Mis temas para ver los que tienes asignados."
+RESERVADO = "Elige tu nivel y formato y pulsa Generar material. Aquí aparecerá tu material."
 
 
 def _tema_elegido(cliente):
@@ -75,6 +76,7 @@ def _mostrar_resultado():
         return
     paquete = st.session_state.get("paquete")
     if paquete is None:
+        st.info(RESERVADO, icon=":material/auto_stories:")  # reserva el lugar: la pantalla no salta
         return
     if paquete.status == "error":
         st.error(MENSAJES_POR_CODIGO.get(paquete.codigo_error,
@@ -86,6 +88,7 @@ def _mostrar_resultado():
         st.info(EN_REVISION)
         _boton_reintentar("Generar otra versión")
         return
+    contraer_menu()  # hay material a la derecha: más espacio para leer
     if paquete.metadatos.formato_generado == "Quiz":
         st.caption(PRACTICA)
     mostrar_paquete(paquete)
@@ -116,16 +119,19 @@ def mostrar():
     if not disponible:
         st.warning("El servicio no está disponible en este momento. Inténtalo de nuevo más tarde.")
 
-    st.subheader("Estudiar")
-    st.selectbox("Tu nivel", PERFILES, key="perfil", help=AYUDA_NIVEL)
-    st.selectbox("Formato", FORMATOS, key="formato")
-    st.text_input("¿Algo en particular? (opcional)", key="pedido", max_chars=LARGO_MAXIMO_TEMA,
-                  placeholder="Ej.: reglas de seguridad")
-    if disponible:  # con la API caída, esta petición también fallaría y solo haría esperar
-        _mostrar_sector(cliente)
-    _quitar_material_si_cambio(tema.id_tema)
-
-    reintentar = st.session_state.pop("reintentar_pedido", False)
-    if st.button("Generar material", key="generar", type="primary") or reintentar:
-        _generar(cliente, tema)
-    _mostrar_resultado()
+    # Dos columnas (spec §6.6): el formulario a la izquierda, el material a la derecha
+    izquierda, derecha = st.columns([1, 2], gap="large")
+    with izquierda, st.container(border=True):
+        st.subheader("Estudiar")
+        st.selectbox("Tu nivel", PERFILES, key="perfil", help=AYUDA_NIVEL)
+        st.selectbox("Formato", FORMATOS, key="formato")
+        st.text_input("¿Algo en particular? (opcional)", key="pedido", max_chars=LARGO_MAXIMO_TEMA,
+                      placeholder="Ej.: reglas de seguridad")
+        if disponible:  # con la API caída, esta petición también fallaría y solo haría esperar
+            _mostrar_sector(cliente)
+        _quitar_material_si_cambio(tema.id_tema)
+        reintentar = st.session_state.pop("reintentar_pedido", False)
+        if st.button("Generar material", key="generar", type="primary") or reintentar:
+            _generar(cliente, tema)
+    with derecha:
+        _mostrar_resultado()

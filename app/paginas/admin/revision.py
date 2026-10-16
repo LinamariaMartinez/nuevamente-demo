@@ -4,19 +4,23 @@ import streamlit as st
 
 import sesion
 from cliente_api import ErrorCliente
-from paginas import mostrar_error, mostrar_modo_demo
+from paginas import contraer_menu, mostrar_error, mostrar_modo_demo
 from vistas import mostrar_paquete
+
+RESERVADO = "Abre un material de la lista para verlo aquí."
 
 
 def _paquete_abierto(cliente):
     elegido = st.session_state.get("paquete_admin")
     if not elegido:
+        st.info(RESERVADO, icon=":material/rate_review:")
         return
     try:
         paquete = cliente.obtener_paquete(elegido)
     except ErrorCliente as error:
         mostrar_error(error)
         return
+    contraer_menu()  # hay material a la derecha: más espacio para revisarlo
     mostrar_paquete(paquete)
     # El JSON es para integrarlo con otros sistemas de la institución (por ejemplo, su LMS)
     st.download_button(
@@ -43,11 +47,15 @@ def mostrar():
     if not resumenes:
         st.info("No hay material pendiente de revisión.")
         return
-    for resumen in resumenes:
-        with st.container(border=True):
-            info, accion = st.columns([8, 2], vertical_alignment="center")
-            info.markdown(f"**{resumen.tema}** · {resumen.formato} · anclaje {resumen.anclaje_fuente_score:.0%}"
-                          f" · {resumen.creado_en:%Y-%m-%d %H:%M}")
-            if accion.button("Abrir", key=f"abrir_{resumen.id_paquete}"):
-                st.session_state["paquete_admin"] = resumen.id_paquete
-    _paquete_abierto(cliente)
+    # Dos columnas (spec §6.6): la lista a la izquierda, el material abierto a la derecha
+    izquierda, derecha = st.columns([1, 2], gap="large")
+    with izquierda:
+        for resumen in resumenes:
+            with st.container(border=True):
+                st.markdown(f"**{resumen.tema}**")
+                st.caption(f"{resumen.formato} · anclaje {resumen.anclaje_fuente_score:.0%}"
+                           f" · {resumen.creado_en:%Y-%m-%d %H:%M}")
+                if st.button("Abrir", key=f"abrir_{resumen.id_paquete}"):
+                    st.session_state["paquete_admin"] = resumen.id_paquete
+    with derecha:
+        _paquete_abierto(cliente)

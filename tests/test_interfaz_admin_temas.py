@@ -2,7 +2,7 @@
 
 import unittest
 
-from apoyo_interfaz import abrir_pagina, textos
+from apoyo_interfaz import abrir_pagina, columnas_principales, textos
 
 from cliente_api import ClienteMock
 from contrato import Documento
@@ -74,6 +74,14 @@ class PaginaTemas(unittest.TestCase):
         at = abrir_pagina(TEMAS, usuario="admin", cliente=ClienteSinIndexados())
         self.assertIn("Todavía no hay documentos indexados. Sube al menos uno para crear un tema.", textos(at.info))
         self.assertEqual(at.button(key="ir_documentos").label, "Ir a Documentos")
+
+    def test_formulario_a_la_izquierda_y_lista_a_la_derecha(self):
+        izquierda, derecha = columnas_principales(abrir_pagina(TEMAS, usuario="admin"))
+        self.assertIn("nuevo_enviar", [b.key for b in izquierda.button])
+        self.assertIn("**Redes en OCI**", [m.value for m in derecha.markdown])
+
+    def test_temas_pide_contraer_el_menu_al_entrar(self):
+        self.assertEqual(abrir_pagina(TEMAS, usuario="admin").session_state["menu_pedido"], "collapsed")
 
     def test_solo_para_admin(self):
         at = abrir_pagina(TEMAS, usuario="laura")
