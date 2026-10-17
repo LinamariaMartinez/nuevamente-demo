@@ -18,8 +18,8 @@ def main():
     # Definir los parámetros de prueba iniciales
     inputs: AgentState = {
         "query": "¿Qué es una VCN y cuáles son sus componentes principales?",
-        "user_profile": "Estudiante de secundaria sin conocimientos técnicos previos",
-        "output_format": "Explicación sencilla con una analogía cotidiana y 3 flashcards finales",
+        "user_profile": "Principiante",
+        "output_format": "Flashcards",
         "retrieved_docs": [],
         "current_draft": "",
         "review_feedback": "",
@@ -56,7 +56,7 @@ def main():
     print("\n" + "=" * 50)
     print("🎉 CONTENIDO FINAL APROBADO")
     print("=" * 50)
-    print(final_state["final_content"])
+    print(final_state.get("final_json", final_state["final_content"]))
     print("\n" + "=" * 50)
     print(f"Score de Fidelidad: {final_state['source_anchoring_score']}")
     print(f"Calidad pedagógica: {final_state['pedagogical_score']}")

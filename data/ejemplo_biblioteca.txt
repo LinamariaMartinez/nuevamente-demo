@@ -1,0 +1,33 @@
+BIBLIOTECA DIGITAL LUMEN
+Documento ficticio de ejemplo para practicar la carga y generación de contenido.
+
+1. Objetivo
+La biblioteca digital Lumen permite que sus estudiantes consulten materiales de estudio y soliciten libros en préstamo. El catálogo muestra el título de cada libro, su autor y la cantidad de ejemplares disponibles.
+
+2. Préstamos
+Cada estudiante puede tener hasta tres libros prestados al mismo tiempo. El plazo de préstamo es de catorce días naturales. La fecha límite de devolución se muestra al confirmar cada préstamo.
+Solo se puede prestar un libro cuando hay al menos un ejemplar disponible. Si todos los ejemplares están prestados, el estudiante puede realizar una reserva.
+
+3. Renovaciones
+Un préstamo se puede renovar una sola vez y la renovación añade siete días naturales al plazo original. Para renovar, el estudiante debe solicitarlo antes de la fecha límite y el libro no debe tener reservas pendientes de otras personas.
+Si hay una reserva pendiente, el estudiante debe devolver el libro dentro del plazo original.
+
+4. Reservas
+Las reservas se atienden en el orden en que fueron solicitadas. Cuando hay un ejemplar disponible, la biblioteca avisa a la primera persona de la lista. Esa persona dispone de cuarenta y ocho horas para confirmar el préstamo.
+Si no confirma dentro de ese plazo, el ejemplar se ofrece a la siguiente persona de la lista.
+
+5. Devoluciones y retrasos
+Al devolver un libro, el préstamo se cierra y el ejemplar vuelve a estar disponible, salvo que deba asignarse a una reserva.
+Un estudiante con un préstamo vencido no puede solicitar nuevos préstamos hasta devolver el libro pendiente. En este ejemplo no se aplican multas económicas.
+
+6. Ejemplo práctico
+Ana tiene dos libros prestados y puede solicitar un tercero si está disponible. No puede solicitar un cuarto libro hasta devolver alguno de los tres.
+Si Ana quiere renovar un libro dentro del plazo y no hay reservas pendientes, puede obtener siete días adicionales. Si otra persona ya reservó ese libro, la renovación no está permitida.
+
+7. Conceptos del servicio
+Catálogo: listado de los libros y su disponibilidad.
+Préstamo: autorización temporal para utilizar un ejemplar.
+Renovación: ampliación del plazo de un préstamo.
+Reserva: solicitud para recibir un ejemplar cuando vuelva a estar disponible.
+Préstamo vencido: préstamo cuya fecha límite de devolución ya pasó.
+

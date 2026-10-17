@@ -35,7 +35,7 @@ def main():
     with patch.object(graph, 'writer_node', writer), patch.object(graph, 'reviewer_node', reviewer):
         result = graph.build_graph().invoke({
             'query': '¿Qué es una VCN y cuáles son sus componentes principales?',
-            'user_profile': 'Principiante', 'output_format': 'Resumen breve',
+            'user_profile': 'Principiante', 'output_format': 'Resumen',
             'review_feedback': '', 'revision_attempts': 0, 'final_content': '',
         })
     assert evaluations[0] < 0.8, 'Reviewer no rechazó el borrador falso'

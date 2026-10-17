@@ -7,6 +7,7 @@ from agents.writer import writer_node
 from agents.reviewer import reviewer_node
 
 from review_policy import MAX_REVISION_ATTEMPTS
+from output import finalize_node
 
 def check_score(state: AgentState) -> str:
     """
@@ -37,6 +38,7 @@ def build_graph():
     builder.add_node("researcher", researcher_node)
     builder.add_node("writer", writer_node)
     builder.add_node("reviewer", reviewer_node)
+    builder.add_node("finalize", finalize_node)
     
     # 3. Definimos el flujo principal (conexiones)
     builder.set_entry_point("researcher")
@@ -49,12 +51,14 @@ def build_graph():
         "reviewer",
         check_score,
         {
-            "approved": END,               # Si es aprobado, termina el grafo
+            "approved": "finalize",               # Si es aprobado, termina el grafo
             "needs_revision": "writer",    # Si es rechazado, vuelve al redactor
             "invalid_content": END,
-            "max_attempts_reached": END,    # Termina sin aprobar el borrador
+            "max_attempts_reached": "finalize",    # Termina sin aprobar el borrador
         }
     )
     
+    builder.add_edge("finalize", END)
+
     # 5. Compilamos y devolvemos
     return builder.compile()
