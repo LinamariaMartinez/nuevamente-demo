@@ -24,7 +24,11 @@ from api.contracts import (
     HealthResponse, Identifier, MAX_DOCUMENT_CHARACTERS, MAX_PDF_PAGES, MAX_UPLOAD_BYTES,
     TextDocumentRequest,
 )
+from api import database
 from api.database import Store
+from api.routes.sesion import router as sesion_router
+from api.routes.temas import router as temas_router
+from api.routes.usuarios import router as usuarios_router
 from api.documents import MIME_TYPES, extract_document
 from api.errors import ApiError
 from errors import ConfigurationError, NoContextError
@@ -36,6 +40,15 @@ from schemas import (
 ROOT = Path(__file__).resolve().parents[1]
 load_dotenv(ROOT / ".env")
 logger = logging.getLogger(__name__)
+
+
+HTTP_ERROR_CODES = {
+    400: "SOLICITUD_INVALIDA",
+    401: "AUTENTICACION_REQUERIDA",
+    403: "PERMISOS_INSUFICIENTES",
+    404: "RECURSO_NO_ENCONTRADO",
+    409: "CONFLICTO",
+}
 
 
 def get_store(request: Request) -> Store:
@@ -68,10 +81,10 @@ def require_content(store: Store, identifier: str) -> EducationalResponse:
 
 
 def create_app(db_path: str | Path | None = None) -> FastAPI:
-    path = Path(db_path or os.getenv("NUEVAMENTE_DB_PATH", "storage/nuevamente.sqlite3"))
-    if not path.is_absolute():
-        path = ROOT / path
-    store = Store(path)
+    # Sin ruta explícita, la base se resuelve al iniciar (database.DB_PATH), compartida con auth y temas.
+    if db_path is not None:
+        database.DB_PATH = database.resolve_db_path(db_path)
+    store = Store()
 
     @asynccontextmanager
     async def lifespan(application: FastAPI):
@@ -83,17 +96,17 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
         description=(
             "Documentos, generación e historial. Perfiles: Principiante, Intermedio, Avanzado. "
             "La respuesta educativa mantiene el contrato JSON del proyecto. "
-            "Esta entrega no incluye autenticación ni roles; historial compartido del backend local."
+            "Incluye sesiones, usuarios, roles y temas asignados (F08)."
         ),
         lifespan=lifespan,
-        responses={code: {"model": ErrorResponse} for code in (404, 413, 415, 422, 500, 502, 503)},
+        responses={code: {"model": ErrorResponse} for code in (401, 403, 404, 409, 413, 415, 422, 500, 502, 503)},
     )
     application.state.store = store
     origins = [origin.strip() for origin in os.getenv("NUEVAMENTE_CORS_ORIGINS", "").split(",") if origin.strip()]
     if origins:
         application.add_middleware(
-            CORSMiddleware, allow_origins=origins, allow_methods=["GET", "POST"],
-            allow_headers=["Content-Type"], expose_headers=["X-Contenido-ID", "Location", "Content-Disposition"],
+            CORSMiddleware, allow_origins=origins, allow_methods=["GET", "POST", "PUT", "DELETE"],
+            allow_headers=["Content-Type", "Authorization"], expose_headers=["X-Contenido-ID", "Location", "Content-Disposition"],
         )
 
     @application.exception_handler(ApiError)
@@ -108,7 +121,13 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
 
     @application.exception_handler(HTTPException)
     async def http_error_handler(request: Request, exc: HTTPException):
-        return error_response("ERROR_HTTP", "La ruta, el método o la solicitud no son válidos.", exc.status_code)
+        code = HTTP_ERROR_CODES.get(exc.status_code, "ERROR_HTTP")
+        message = exc.detail if isinstance(exc.detail, str) and exc.status_code in HTTP_ERROR_CODES else (
+            "La ruta, el método o la solicitud no son válidos."
+        )
+        response = error_response(code, message, exc.status_code)
+        response.headers.update(getattr(exc, "headers", None) or {})
+        return response
 
     @application.exception_handler(sqlite3.Error)
     async def database_error_handler(request: Request, exc: sqlite3.Error):
@@ -124,6 +143,11 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
     def health(db: Store = Depends(get_store)):
         db.ping()
         return HealthResponse()
+
+    @application.get("/salud", tags=["Sistema"], include_in_schema=False)
+    def salud(db: Store = Depends(get_store)):
+        db.ping()
+        return {"estado": "ok", "servicio": "NuevaMente API"}
 
     @application.get("/api/v1/catalogos", response_model=Catalogs, tags=["Sistema"])
     def catalogs():
@@ -238,6 +262,9 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
             headers={"Content-Disposition": f'attachment; filename="contenido-{contenido_id}.json"'},
         )
 
+    application.include_router(sesion_router)
+    application.include_router(temas_router)
+    application.include_router(usuarios_router)
     return application
 
 

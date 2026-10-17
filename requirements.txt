@@ -33,5 +33,12 @@ pydantic>=2.12,<3
 
 # Backend HTTP y subida de archivos; SQLite usa sqlite3 de Python.
 fastapi>=0.115,<1
-uvicorn>=0.30,<1
+uvicorn[standard]>=0.30,<1
 python-multipart>=0.0.20,<1
+
+# Autenticaci?n (F08): hash de contrase?as con Argon2
+pwdlib[argon2]
+
+# Pruebas de API
+httpx
+pytest
