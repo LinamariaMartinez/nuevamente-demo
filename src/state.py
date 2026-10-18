@@ -26,3 +26,4 @@ class AgentState(TypedDict, total=False):
     # --- Final Output ---
     final_content: str
     requires_admin_review: bool
+    almacenamiento_oci: dict

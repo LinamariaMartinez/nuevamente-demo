@@ -6,6 +6,8 @@ env/
 # Variables de entorno y secretos (API Keys y credenciales OCI)
 .env
 .env.local
+.oci/
+*.pem
 
 # Archivos compilados de Python
 __pycache__/
