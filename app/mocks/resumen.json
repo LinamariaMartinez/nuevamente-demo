@@ -1,0 +1,60 @@
+{
+  "id_paquete": "ejemplo-004",
+  "creado_en": "2026-10-14T15:30:00Z",
+  "status": "exito",
+  "codigo_error": null,
+  "mensaje_error": null,
+  "metadatos": {
+    "tema": "Redes VCN en OCI",
+    "tiempo_estimado_estudio_minutos": 3,
+    "conceptos_clave": [
+      "VCN",
+      "Subredes",
+      "Internet Gateway",
+      "NAT Gateway",
+      "Security Lists"
+    ],
+    "prerrequisitos": [],
+    "perfil_aplicado": "Principiante",
+    "formato_generado": "Resumen",
+    "nicho_sector": "General",
+    "nivel_detalle": "Didáctico"
+  },
+  "contenido_adaptado": {
+    "titulo": "Resumen ejecutivo: redes VCN en OCI",
+    "introduccion_contextualizada": "Lo esencial sobre cómo se protege y conecta la red de la empresa en la nube de Oracle.",
+    "items": [
+      {
+        "titulo": "Qué es",
+        "contenido": "Una VCN es la red privada de la empresa dentro de OCI, con control total sobre quién se conecta y cómo."
+      },
+      {
+        "titulo": "Por qué importa",
+        "contenido": "Permite separar lo público (por ejemplo, la web) de lo privado (por ejemplo, los datos) y controlar el tráfico entre ellos."
+      },
+      {
+        "titulo": "Riesgo principal",
+        "contenido": "Una mala configuración de las reglas de entrada es la causa más común de vulnerabilidades."
+      }
+    ]
+  },
+  "fuentes": [
+    {
+      "documento": "oci_redes_vcn.pdf",
+      "fragmento": 3,
+      "extracto": "Una VCN es una red privada y personalizable en Oracle Cloud Infrastructure..."
+    },
+    {
+      "documento": "oci_redes_vcn.pdf",
+      "fragmento": 7,
+      "extracto": "El NAT Gateway permite que los recursos de una subred privada accedan a internet..."
+    }
+  ],
+  "evaluacion_calidad": {
+    "anclaje_fuente_score": 1.0,
+    "claridad_pedagogica": "Alta",
+    "observaciones": "Fiel a la fuente y adecuado al perfil.",
+    "intentos_revision": 1,
+    "requiere_revision_admin": false
+  }
+}

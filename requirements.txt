@@ -30,3 +30,7 @@ google-genai
 # Orquestación multiagente y validación estructurada (Hito 3)
 langgraph
 pydantic
+
+# Interfaz (F07): app web y llamadas HTTP a la API del Backend
+streamlit>=1.40
+requests

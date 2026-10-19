@@ -26,3 +26,6 @@ Thumbs.db
 
 # Índice vectorial FAISS (se regenera a partir de los documentos)
 vectorstore/
+
+# Secretos de Streamlit (contraseña del admin)
+.streamlit/secrets.toml

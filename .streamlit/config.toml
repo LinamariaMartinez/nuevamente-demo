@@ -1,0 +1,43 @@
+[server]
+# Límite del selector de archivos del admin, en MB (cuida los 20 GB de Object Storage)
+maxUploadSize = 10
+
+# Identidad visual "Bosque sereno" (contexto/nuevamente_identidad_visual_streamlit.md).
+# El tema claro es el inicial; quien usa la app puede pasar a oscuro desde el menú ⋮ → Settings.
+# Los contrastes se comprueban en tests/test_interfaz_tema.py: si cambias un color, corre esa prueba.
+[theme]
+base = "light"
+font = "sans-serif"  # en Streamlit es Source Sans 3, la tipografía de la marca
+codeFont = "'JetBrains Mono':https://fonts.googleapis.com/css2?family=JetBrains+Mono&display=swap, monospace"
+baseRadius = "medium"
+buttonRadius = "medium"
+showWidgetBorder = true
+linkUnderline = false
+
+[theme.light]
+primaryColor = "#205E58"
+backgroundColor = "#F5F7F5"
+secondaryBackgroundColor = "#FFFFFF"
+textColor = "#142E2A"
+linkColor = "#205E58"
+# Más oscuro que el #D6E2DC del documento: los bordes de los campos necesitan 3:1
+borderColor = "#7D948B"
+codeBackgroundColor = "#E7EEE8"
+greenTextColor = "#166534"
+yellowTextColor = "#854D0E"
+redTextColor = "#B42318"
+blueTextColor = "#1D4ED8"
+
+[theme.dark]
+# Streamlit pone blanco el texto del botón primario: con #A9CDBD no se leería (1.73:1)
+primaryColor = "#2F7A70"
+backgroundColor = "#102522"
+secondaryBackgroundColor = "#1A3530"
+textColor = "#F1F6F3"
+linkColor = "#A9CDBD"
+borderColor = "#6B8A81"
+codeBackgroundColor = "#24433C"
+greenTextColor = "#86E0AC"
+yellowTextColor = "#F5CD78"
+redTextColor = "#FF9D93"
+blueTextColor = "#8BC8F0"
