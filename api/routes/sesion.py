@@ -1,12 +1,15 @@
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi.security import HTTPAuthorizationCredentials
 from pydantic import BaseModel, Field
 
-from api.auth import create_session, verify_password
-from api.database import get_connection
+from api.auth import bearer_scheme, create_session, dummy_hash, hash_password, require_user, revoke_session, verify_password
+from api.database import Store, get_connection
+from api.dependencies import get_store
+from api.login_throttle import LoginThrottle, client_ip, get_throttle
 
 
-router = APIRouter(tags=["Sesión"])
+router = APIRouter(prefix="/api/v1/sesion", tags=["Sesión"])
 
 
 class LoginRequest(BaseModel):
@@ -14,9 +17,17 @@ class LoginRequest(BaseModel):
     contrasena: str = Field(min_length=1)
 
 
-@router.post("/sesion")
-def iniciar_sesion(data: LoginRequest):
-    with get_connection() as connection:
+@router.post("")
+def iniciar_sesion(
+    data: LoginRequest,
+    request: Request,
+    db: Store = Depends(get_store),
+    throttle: LoginThrottle = Depends(get_throttle),
+):
+    ip = client_ip(request)
+    throttle.check(data.usuario, ip)
+
+    with db.connection() as connection:
         user = connection.execute(
             """
             SELECT *
@@ -26,14 +37,15 @@ def iniciar_sesion(data: LoginRequest):
             (data.usuario,),
         ).fetchone()
 
-    if user is None or not verify_password(
-        data.contrasena, user["contrasena_hash"]
-    ):
+    # Con usuario inexistente se verifica igual un hash falso, para no revelar por tiempo qué usuarios existen.
+    if not verify_password(data.contrasena, user["contrasena_hash"] if user else dummy_hash()) or user is None:
+        throttle.fail(data.usuario, ip)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Usuario o contraseña incorrectos",
         )
 
+    throttle.succeed(data.usuario, ip)
     token = create_session(user["id_usuario"])
 
     return {
@@ -49,13 +61,23 @@ def iniciar_sesion(data: LoginRequest):
         },
     }
 
-from fastapi import Depends
-from fastapi.security import HTTPAuthorizationCredentials
 
-from api.auth import bearer_scheme, require_user, revoke_session
+@router.get("")
+def sesion_actual(user: dict = Depends(require_user), db: Store = Depends(get_store)):
+    """Quién soy: permite al frontend restaurar la sesión al recargar la página."""
+    temas = [topic["id_tema"] for topic in db.list_topics_for(user)]
+
+    return {
+        "id_usuario": user["id_usuario"],
+        "nombre": user["nombre"],
+        "usuario": user["usuario"],
+        "rol": user["rol"],
+        "debe_cambiar_contrasena": bool(user["debe_cambiar_contrasena"]),
+        "temas": sorted(temas),
+    }
 
 
-@router.delete("/sesion")
+@router.delete("")
 def cerrar_sesion(
     credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
     user: dict = Depends(require_user),
@@ -64,17 +86,13 @@ def cerrar_sesion(
 
     return {"mensaje": "Sesión cerrada correctamente"}
 
-from fastapi import Depends
-
-from api.auth import hash_password, require_user
-
 
 class CambiarContrasenaRequest(BaseModel):
     contrasena_actual: str = Field(min_length=1)
     contrasena_nueva: str = Field(min_length=12)
 
 
-@router.put("/sesion/contrasena")
+@router.put("/contrasena")
 def cambiar_contrasena(
     data: CambiarContrasenaRequest,
     user: dict = Depends(require_user),

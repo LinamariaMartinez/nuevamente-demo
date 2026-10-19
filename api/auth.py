@@ -2,6 +2,7 @@
 import hashlib
 import secrets
 from datetime import datetime, timedelta, timezone
+from functools import lru_cache
 
 from fastapi import HTTPException, status
 from fastapi.security import HTTPBearer
@@ -22,6 +23,11 @@ def hash_password(password: str) -> str:
 
 def verify_password(password: str, hashed: str) -> bool:
     return password_hash.verify(password, hashed)
+
+
+@lru_cache(maxsize=1)
+def dummy_hash() -> str:
+    return password_hash.hash(secrets.token_urlsafe(16))
 
 
 def create_session(user_id: int) -> str:
