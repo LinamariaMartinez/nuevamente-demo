@@ -1,27 +1,27 @@
 # G-10-Latam-equipo30
 Hackathon ONE G10 - LATAM Equipo 30
 
-Backend de NuevaMente: documentos técnicos → RAG → agentes → contenido educativo JSON. La rama `Feature/F06-Output-Estructurado` incorpora **Structured Outputs, FastAPI y SQLite**. El frontend Streamlit se desarrolla por separado y consume HTTP; no necesita importar el grafo.
+Backend de NuevaMente: documentos técnicos → RAG → agentes → contenido educativo JSON. El backend integra F06 (**Structured Outputs, FastAPI y SQLite**) y F08 (**sesiones, usuarios, roles y temas asignados**). El frontend Streamlit se desarrolla por separado y consume HTTP; no necesita importar el grafo.
 
 ## Alcance y contrato
 
 - Perfiles permitidos: **Principiante, Intermedio y Avanzado**, con esas mayúsculas.
 - Formatos: **Flashcards, Resumen, Quiz, Tutorial y Guion**.
-- Carga de PDF, Markdown y TXT; generación por documento; historial persistente y descarga JSON.
+- Carga de PDF, Markdown y TXT; documentos asociados a temas; generación por tema asignado (`id_tema`) con fuentes citadas; historial persistente por usuario y descarga JSON.
 - El revisor conserva las tres evaluaciones del equipo: fidelidad >= 0.80, pedagogía >= 0.75 y formato >= 0.75. Deben cumplirse todas para aprobar.
 - Tras tres revisiones sin aprobación, el JSON indica `requiere_revision`.
 - Se conservan los campos principales del ejemplo del PDF: `status`, `metadatos`, `contenido_adaptado`, `evaluacion_calidad`. La evaluación también expone los dos puntajes de pedagogía y formato existentes en esta rama.
-- Esta entrega cubre documentos, generación e historial. Autenticación, usuarios, roles, temas asignados, exámenes, frontend y OCI no se implementan aquí. El historial de este backend local es compartido.
+- Roles `admin` y `estudiante` con token Bearer. El nicho y el nivel de detalle se configuran por tema. Los estudiantes solo generan sobre sus temas y no reciben material `requiere_revision` salvo que un admin lo apruebe. Exámenes, frontend y OCI no se implementan aquí.
 
-La tabla de responsabilidades recibida menciona `src/contrato.py`, pero ese archivo y `app/cliente_api.py` no están en esta rama. El contrato HTTP de esta entrega está en `api/contracts.py` y OpenAPI. El equipo deberá comparar sus rutas y campos con el contrato compartido antes de integrarlo; no se modificaron archivos del frontend ni sus mocks.
+Los endpoints están resumidos en [docs/uso_api.md](docs/uso_api.md); los modelos están en `api/contracts.py` y OpenAPI (`/docs`).
 
 ## Arquitectura
 
 ```mermaid
 flowchart LR
     S[Streamlit: cliente_api] --> A[FastAPI]
-    A <--> DB[(SQLite: documentos e historial)]
-    A --> R[FAISS en memoria: documento seleccionado]
+    A <--> DB[(SQLite: usuarios, temas, documentos e historial)]
+    A --> R[FAISS en memoria: documentos del tema]
     R --> W[Redactor: JSON tipado y ejemplos por perfil]
     W --> V[Revisor: tres puntajes]
     V -- Correcciones: máximo 3 revisiones --> W
@@ -30,7 +30,7 @@ flowchart LR
     J --> A
 ```
 
-SQLite guarda originales, texto extraído, solicitudes y respuestas. FAISS conserva su función de búsqueda semántica: la API crea un índice independiente en memoria por generación, utilizando únicamente el documento seleccionado. No altera el índice global `vectorstore/` del CLI. Los embeddings se recalculan en cada generación de la API.
+SQLite guarda originales, texto extraído, solicitudes y respuestas. FAISS conserva su función de búsqueda semántica: la API crea un índice independiente en memoria por generación, utilizando únicamente los documentos asociados al tema solicitado. No altera el índice global `vectorstore/` del CLI. Los embeddings se recalculan en cada generación de la API.
 
 ## Instalación
 
@@ -56,6 +56,12 @@ La carga Markdown de la API conserva el texto UTF-8 y no requiere ese paso. En L
 
 ## Iniciar la API
 
+Crea el primer administrador (una sola vez):
+
+```powershell
+.\.venv\Scripts\python.exe -m api.crear_admin
+```
+
 ```powershell
 .\.venv\Scripts\python.exe -m uvicorn api.main:app --reload --host 127.0.0.1 --port 8000
 ```
@@ -68,42 +74,44 @@ La base se crea al iniciar en `storage/nuevamente.sqlite3`. Originales y generac
 
 ## Endpoints para el equipo frontend
 
-| Método | Ruta | Resultado |
-| --- | --- | --- |
-| GET | `/health` | Salud de API y SQLite. |
-| GET | `/api/v1/catalogos` | Perfiles, formatos y límites de documentos. |
-| POST | `/api/v1/documentos` | Subir archivo multipart en el campo `archivo`; título opcional `documento_titulo`. |
-| POST | `/api/v1/documentos/texto` | Crear desde JSON con `documento_titulo` y `documento_contenido`. |
-| GET | `/api/v1/documentos` | Lista paginada. |
-| GET | `/api/v1/documentos/{id}` | Metadatos y texto extraído. |
-| GET | `/api/v1/documentos/{id}/original` | Descargar el original. |
-| POST | `/api/v1/contenidos` | Generar, validar y guardar el JSON educativo. |
-| GET | `/api/v1/contenidos` | Historial paginado; filtros `documento_id`, `perfil` y `status`. |
-| GET | `/api/v1/contenidos/{id}` | Recuperar el JSON educativo completo. |
-| GET | `/api/v1/contenidos/{id}/descarga` | Descargar ese JSON. |
+Todas las rutas, salvo `/health` y `POST /api/v1/sesion`, requieren `Authorization: Bearer <token>`.
 
-Las listas usan `limit` (1–100, por defecto 20) y `offset` (desde 0), y devuelven `items`, `total`, `limit` y `offset`. Los identificadores son cadenas de 32 caracteres hexadecimales generadas por el backend.
+| Método | Ruta | Rol | Resultado |
+| --- | --- | --- | --- |
+| GET | `/health` | público | Salud de API y SQLite. |
+| POST / GET / DELETE | `/api/v1/sesion` | público / autenticado | Iniciar sesión, ver quién soy (usuario, rol y temas) o cerrar sesión. |
+| PUT | `/api/v1/sesion/contrasena` | autenticado | Cambiar contraseña. |
+| GET / POST | `/api/v1/usuarios` | admin | Listar usuarios con sus temas o crear un estudiante con temas. |
+| PUT | `/api/v1/usuarios/{id_usuario}` | admin | Modificar a un estudiante: nombre, `activo` o contraseña temporal. |
+| POST | `/api/v1/usuarios/{id_usuario}/desbloqueo` | admin | Quita el bloqueo por intentos fallidos de login (204). |
 
-Carga un documento en Swagger o con:
+**Límite de intentos de login:** 5 fallos en 15 min por cuenta+IP y 20 por IP devuelven `429 DEMASIADOS_INTENTOS` con `Retry-After`; el bloqueo es progresivo (1, 5 y 15 min). Ajustable con `LOGIN_MAX_FAILS`, `LOGIN_MAX_FAILS_PER_IP` y `LOGIN_WINDOW_SECONDS`; con un proxy propio, `TRUST_PROXY=1` toma la IP de `X-Forwarded-For`.
+| GET / POST | `/api/v1/temas` | autenticado / admin | Listar (estudiante: solo asignados) o crear temas con nicho, nivel de detalle y documentos. |
+| GET / PATCH / DELETE | `/api/v1/temas/{id_tema}` | asignado / admin | Ver, configurar o borrar un tema (el historial se conserva). |
+| GET, PUT, DELETE | `/api/v1/temas/{id_tema}/documentos[/{documento_id}]` | asignado / admin | Documentos del tema. |
+| GET, PUT, DELETE | `/api/v1/temas/{id_tema}/estudiantes[/{id_usuario}]` | admin | Estudiantes asignados. |
+| GET | `/api/v1/catalogos` | autenticado | Perfiles, formatos, sectores y límites de documentos. |
+| POST | `/api/v1/documentos[/texto]` | admin | Subir archivo (`archivo`) o texto. |
+| GET | `/api/v1/documentos[/{id}[/original]]` | admin | Lista, texto extraído y original. |
+| POST | `/api/v1/contenidos` | autenticado | Generar por `id_tema`, validar y guardar. |
+| GET | `/api/v1/contenidos` | autenticado | Historial propio (admin: todo); filtros `id_tema`, `documento_id`, `perfil`, `status` y (admin) `pendiente`. |
+| GET | `/api/v1/contenidos/{id}[/descarga]` | dueño / admin | JSON educativo completo o descarga. |
+| POST | `/api/v1/contenidos/{id}/aprobar` \| `/rechazar` | admin | Revisión manual del material `requiere_revision`. |
 
-```powershell
-curl.exe -X POST http://127.0.0.1:8000/api/v1/documentos -F "archivo=@data/arquitectura_redes_vcn_oci.md"
-```
+Las listas usan `limit` (1–100, por defecto 20) y `offset` (desde 0), y devuelven `items`, `total`, `limit` y `offset`.
 
-Copia su `id` en esta solicitud a `POST /api/v1/contenidos`:
+Solicitud a `POST /api/v1/contenidos` (el nicho y el nivel salen del tema):
 
 ```json
 {
-  "documento_id": "REEMPLAZAR_CON_EL_ID_RECIBIDO",
+  "id_tema": "redes-oci",
   "tema": "¿Qué es una VCN y cuáles son sus componentes?",
   "perfil_destinatario": "Intermedio",
-  "formato_salida": "Flashcards",
-  "nicho_sector": "General",
-  "nivel_detalle": "Didáctico"
+  "formato_salida": "Flashcards"
 }
 ```
 
-La respuesta de creación usa HTTP **201** y su cuerpo es directamente el objeto educativo, sin envolverlo en otro objeto. Lee el identificador de la cabecera **`X-Contenido-ID`** y la ruta del recurso en **`Location`**. HTTP 201 significa que se creó el registro; revisa también `status`, que puede ser `exito` o `requiere_revision`.
+La respuesta **201** es el objeto educativo más `id`, `creado_en`, `id_tema` y `fuentes` (documento, fragmento, página y extracto). Si un estudiante obtiene material `requiere_revision`, recibe **202** sin contenido. Revisa siempre `status`. Flujo completo en [docs/uso_api.md](docs/uso_api.md).
 
 Ejemplo ilustrativo completo: [examples/respuesta_flashcards.json](examples/respuesta_flashcards.json). Los minutos son una estimación de estudio, no el tiempo de ejecución. El score es una evaluación del LLM, no una garantía absoluta de exactitud.
 
@@ -125,7 +133,7 @@ Pydantic rechaza campos extra, tipos incompatibles, textos vacíos, minutos meno
 
 Sigue la [guía de uso paso a paso](docs/uso_api.md): incluye Swagger, comandos PowerShell completos, carga de archivos o texto, generación, consulta del historial, descarga y manejo de errores.
 
-El flujo es: cargar documento → copiar su ID → generar → leer `X-Contenido-ID` → consultar o descargar el resultado. En `/docs` puedes completar todo el flujo sin crear un frontend.
+El flujo es: admin inicia sesión → crea el tema con su nicho → sube documentos y los asocia al tema → asigna estudiantes → el estudiante genera con `id_tema` → consulta o descarga su historial. En `/docs` (botón **Authorize**) puedes completar todo el flujo sin crear un frontend.
 
 
 ## CLI existente
@@ -146,14 +154,17 @@ Los errores HTTP usan el mismo sobre: `{"status":"error","error":{"codigo":"..."
 
 | HTTP | Casos principales |
 | --- | --- |
-| 404 | Documento o contenido inexistente. |
+| 401 | Falta el token, expiró o las credenciales no coinciden (`AUTENTICACION_REQUERIDA`). |
+| 403 | Acción solo de admin, contraseña temporal pendiente o tema no asignado (`TEMA_NO_ASIGNADO`). |
+| 404 | Tema, documento o contenido inexistente (o ajeno, para estudiantes). |
+| 409 | Usuario o tema duplicado. |
 | 413 | Más de 10 MiB, 100 páginas PDF o 250000 caracteres extraídos. |
 | 415 | Extensión no soportada. |
-| 422 | Perfil/entrada inválida, PDF inválido/protegido, texto insuficiente o tema sin contexto. |
+| 422 | Entrada inválida, PDF inválido/protegido, texto insuficiente, tema sin documentos (`SIN_DOCUMENTOS_ASOCIADOS`) o sin contexto. |
 | 502 | Fallo del proveedor o salida incompatible con el contrato. |
 | 503 | Clave sin configurar o persistencia SQLite no disponible. |
 
-PDF escaneado requiere OCR previo; MD/TXT requieren UTF-8. Las respuestas inválidas no se guardan como generaciones. `requiere_revision` sí se conserva y puede filtrarse para revisión posterior. No se mantiene una transacción SQLite abierta mientras responde Gemini.
+PDF escaneado requiere OCR previo; MD/TXT requieren UTF-8. Las respuestas inválidas no se guardan como generaciones. `requiere_revision` sí se conserva: el admin lo lista con `?pendiente=true` y lo aprueba o rechaza. No se mantiene una transacción SQLite abierta mientras responde Gemini.
 
 ## Documentación
 

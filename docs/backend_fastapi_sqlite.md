@@ -1,5 +1,7 @@
 # F06: salida estructurada, FastAPI y SQLite
 
+> **Integración F06 + F08:** este documento describe las decisiones originales de F06. El backend integrado agrega sesiones, roles, temas, generación por `id_tema`, fuentes e historial por usuario; ver [uso_api.md](uso_api.md); ver [uso_api.md](uso_api.md).
+
 Fecha: 15 de octubre de 2026. Repositorio: G-10-Latam-equipo30. Rama: Feature/F06-Output-Estructurado.
 
 ## Requisitos y alcance acordado
@@ -109,7 +111,7 @@ La comprobación de dependencias con `pip check` no encontró incompatibilidades
 | src/generation.py, src/errors.py | Servicio de generación y errores de configuración/contexto. |
 | src/the_keys.py | Carga el .env de este repositorio, independientemente del directorio de ejecución. |
 | src/generate.py | CLI de JSON para el índice global. |
-| api/main.py, api/contracts.py | Endpoints, validaciones, OpenAPI, cabeceras y errores. |
+| api/main.py, api/routes/documentos.py, api/routes/contenidos.py, api/contracts.py | App y errores; endpoints de documentos y contenidos; validaciones, OpenAPI y cabeceras. |
 | api/database.py, api/documents.py, api/errors.py | SQLite, extracción segura desde bytes y errores HTTP. |
 | tests/test_review_flow.py, tests/test_writer_prompt.py, tests/test_fase3.py, tests/validate_live_review.py | Ajustes de compatibilidad en las pruebas ya existentes del equipo. |
 | requirements.txt, .env.example, .gitignore | Dependencias, configuración y exclusión de datos locales. |

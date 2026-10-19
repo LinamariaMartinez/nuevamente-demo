@@ -1,6 +1,6 @@
 # Cómo usar la API de NuevaMente
 
-Esta guía corresponde a **G-10-Latam-equipo30**, rama **Feature/F06-Output-Estructurado**. La URL local por defecto es `http://127.0.0.1:8000`.
+Guía del backend integrado (F06 + F08): documentos, temas, generación estructurada, historial, sesiones y roles. La URL local por defecto es `http://127.0.0.1:8000`. Los endpoints para el frontend están resumidos en la sección 5.
 
 ## 1. Preparar e iniciar el backend
 
@@ -12,176 +12,173 @@ python -m venv .venv
 if (-not (Test-Path .env)) { Copy-Item .env.example .env }
 ```
 
-Edita `.env` y sustituye `tu_clave_aqui` por tu clave en `GEMINI_API_KEY`. El backend lee el archivo de este repositorio. La clave se queda en el backend.
+Edita `.env` y configura `GEMINI_API_KEY`. La clave se queda en el backend.
+
+Crea el primer administrador (interactivo):
+
+```powershell
+.\.venv\Scripts\python.exe -m api.crear_admin
+```
+
+Inicia el servidor:
 
 ```powershell
 .\.venv\Scripts\python.exe -m uvicorn api.main:app --reload --host 127.0.0.1 --port 8000
 ```
 
-Mantén esa terminal abierta. SQLite se crea automáticamente en `storage/nuevamente.sqlite3`; puedes cambiar la ruta con `NUEVAMENTE_DB_PATH`. No necesitas instalar un servidor de base de datos ni ejecutar `src/main.py` para usar la API. Ctrl+C detiene el servidor.
+SQLite se crea automáticamente en `storage/nuevamente.sqlite3` (cambia la ruta con `NUEVAMENTE_DB_PATH`). Una base creada con versiones anteriores de F06 se migra sola al iniciar. Generar contenido requiere Gemini; el resto de operaciones no.
 
-Puedes cargar y consultar documentos sin clave; **generar contenido sí requiere Gemini**. El contenido guardado se puede consultar sin volver a llamar al modelo.
+## 2. Autenticación y roles
 
-## 2. Usarlo desde Swagger
+Todas las rutas, salvo `GET /health` y `POST /api/v1/sesion`, requieren la cabecera `Authorization: Bearer <token>`. El token se obtiene con `POST /api/v1/sesion` y dura 8 horas.
 
-Abre **http://127.0.0.1:8000/docs**. En cada operación pulsa **Try it out** y luego **Execute**:
+| Rol | Puede |
+| --- | --- |
+| `admin` | Subir y consultar documentos; crear temas y configurar su nicho y nivel de detalle; asociar documentos a temas; crear estudiantes y asignarles temas; generar sobre cualquier tema o documento; ver todo el historial, incluido el material `requiere_revision`, y aprobarlo o rechazarlo. |
+| `estudiante` | Ver sus temas asignados y los títulos de sus documentos; generar solo sobre temas asignados; ver únicamente su propio historial aprobado (`exito`). |
 
-1. `GET /health`: debe responder `{"status":"ok","base_datos":"sqlite"}`.
-2. `GET /api/v1/catalogos`: muestra los perfiles, formatos y límites aceptados.
-3. `POST /api/v1/documentos`: selecciona un archivo PDF, MD o TXT en `archivo`. `documento_titulo` es opcional; si no lo necesitas, no envíes un valor vacío. Copia el `id` del documento creado.
-4. `POST /api/v1/contenidos`: completa el cuerpo de abajo con ese ID. Espera a que terminen recuperación, redacción y revisión.
-5. Lee `status` y los cuatro bloques del resultado. La cabecera `X-Contenido-ID` identifica el contenido creado.
-6. `GET /api/v1/contenidos`: muestra el historial y sus IDs. Recupera el paquete completo por ID o descárgalo con `GET /api/v1/contenidos/{contenido_id}/descarga`.
+Un usuario con contraseña temporal debe cambiarla (`PUT /api/v1/sesion/contrasena`) antes de usar el resto de rutas.
 
-Cuerpo de generación; reemplaza el ID de ejemplo por el recibido al cargar:
-
-```json
-{
-  "documento_id": "REEMPLAZAR_CON_EL_ID_RECIBIDO",
-  "tema": "¿Qué es una VCN y cuáles son sus componentes?",
-  "perfil_destinatario": "Intermedio",
-  "formato_salida": "Flashcards",
-  "nicho_sector": "General",
-  "nivel_detalle": "Didáctico"
-}
-```
-
-Campos obligatorios: `documento_id`, `tema`, `perfil_destinatario` y `formato_salida`. Los otros dos toman los valores mostrados si se omiten. No se aceptan campos adicionales.
-
-- Perfiles exactos: **Principiante**, **Intermedio**, **Avanzado**.
-- Formatos exactos: **Flashcards**, **Resumen**, **Quiz**, **Tutorial**, **Guion**.
-- IDs: 32 caracteres hexadecimales generados por el servidor.
-
-## 3. Ejemplo completo desde PowerShell
-
-Con el servidor iniciado, abre una segunda terminal en el repositorio. Estos comandos cargan el Markdown incluido, generan contenido y consultan el resultado. La generación consume la API de Gemini.
+## 3. Flujo completo desde PowerShell
 
 ```powershell
 $base = "http://127.0.0.1:8000"
+$json = "application/json; charset=utf-8"
 
-# Comprobar servicio y opciones disponibles.
-Invoke-RestMethod "$base/health"
-Invoke-RestMethod "$base/api/v1/catalogos"
+# Administrador: iniciar sesión.
+$login = @{ usuario = "admin"; contrasena = "TU_CONTRASENA" } | ConvertTo-Json
+$admin = @{ Authorization = "Bearer " + (Invoke-RestMethod -Method Post -Uri "$base/api/v1/sesion" -ContentType $json -Body $login).token }
 
-# Cargar un archivo. Es multipart: el campo se llama archivo.
-$documento = curl.exe --silent --show-error --fail-with-body -X POST "$base/api/v1/documentos" -F "archivo=@data/arquitectura_redes_vcn_oci.md" | ConvertFrom-Json
-$documento.id
+# Administrador: crear el tema con su nicho y asociarle un documento.
+$tema = @{ id_tema = "redes-oci"; nombre = "Redes en OCI"; nicho_sector = "Cloud"; nivel_detalle = "Práctico" } | ConvertTo-Json
+Invoke-RestMethod -Method Post -Uri "$base/api/v1/temas" -Headers $admin -ContentType $json -Body ([System.Text.Encoding]::UTF8.GetBytes($tema))
+$documento = curl.exe --silent --show-error --fail-with-body -X POST "$base/api/v1/documentos" -H "Authorization: $($admin.Authorization)" -F "archivo=@data/arquitectura_redes_vcn_oci.md" | ConvertFrom-Json
+Invoke-RestMethod -Method Put -Uri "$base/api/v1/temas/redes-oci/documentos/$($documento.id)" -Headers $admin
 
-# Consultar los documentos y el texto extraído.
-Invoke-RestMethod "$base/api/v1/documentos?limit=20&offset=0"
-Invoke-RestMethod "$base/api/v1/documentos/$($documento.id)"
+# Administrador: crear un estudiante con el tema asignado.
+$alumno = @{ nombre = "Ana"; usuario = "ana"; contrasena_temporal = "temporal-123456"; temas = @("redes-oci") } | ConvertTo-Json
+Invoke-RestMethod -Method Post -Uri "$base/api/v1/usuarios" -Headers $admin -ContentType $json -Body $alumno
 
-# Generar contenido para ese documento.
+# Estudiante: la contraseña temporal debe cambiarse antes de usar el resto de rutas.
+$login = @{ usuario = "ana"; contrasena = "temporal-123456" } | ConvertTo-Json
+$temporal = @{ Authorization = "Bearer " + (Invoke-RestMethod -Method Post -Uri "$base/api/v1/sesion" -ContentType $json -Body $login).token }
+$cambio = @{ contrasena_actual = "temporal-123456"; contrasena_nueva = "definitiva-123456" } | ConvertTo-Json
+Invoke-RestMethod -Method Put -Uri "$base/api/v1/sesion/contrasena" -Headers $temporal -ContentType $json -Body $cambio
+$login = @{ usuario = "ana"; contrasena = "definitiva-123456" } | ConvertTo-Json
+$ana = @{ Authorization = "Bearer " + (Invoke-RestMethod -Method Post -Uri "$base/api/v1/sesion" -ContentType $json -Body $login).token }
+
+# Estudiante: ver sus temas y generar contenido sobre uno asignado.
+Invoke-RestMethod -Uri "$base/api/v1/temas" -Headers $ana
 $solicitud = @{
-    documento_id = $documento.id
+    id_tema = "redes-oci"
     tema = "¿Qué es una VCN y cuáles son sus componentes?"
     perfil_destinatario = "Intermedio"
     formato_salida = "Flashcards"
-    nicho_sector = "General"
-    nivel_detalle = "Didáctico"
 } | ConvertTo-Json
-
-$respuesta = Invoke-WebRequest -UseBasicParsing -Method Post -Uri "$base/api/v1/contenidos" -ContentType "application/json; charset=utf-8" -Body ([System.Text.Encoding]::UTF8.GetBytes($solicitud)) -TimeoutSec 300
+$respuesta = Invoke-WebRequest -UseBasicParsing -Method Post -Uri "$base/api/v1/contenidos" -Headers $ana -ContentType $json -Body ([System.Text.Encoding]::UTF8.GetBytes($solicitud)) -TimeoutSec 300
 $paquete = $respuesta.Content | ConvertFrom-Json
-$contenidoId = $respuesta.Headers["X-Contenido-ID"]
-$paquete | ConvertTo-Json -Depth 20
+$paquete.id; $paquete.fuentes
 
-# Consultar el paquete guardado y el historial.
-Invoke-RestMethod "$base/api/v1/contenidos/$contenidoId"
-Invoke-RestMethod "$base/api/v1/contenidos?perfil=Intermedio&limit=20&offset=0"
-Invoke-RestMethod "$base/api/v1/contenidos?status=requiere_revision"
-
-# Descargar el JSON y el documento original.
+# Historial propio y descarga.
+Invoke-RestMethod -Uri "$base/api/v1/contenidos?limit=20&offset=0" -Headers $ana
 New-Item -ItemType Directory -Force -Path output | Out-Null
-Invoke-WebRequest -UseBasicParsing "$base/api/v1/contenidos/$contenidoId/descarga" -OutFile "output/contenido.json"
-Invoke-WebRequest -UseBasicParsing "$base/api/v1/documentos/$($documento.id)/original" -OutFile "output/documento-original.md"
+Invoke-WebRequest -UseBasicParsing -Uri "$base/api/v1/contenidos/$($paquete.id)/descarga" -Headers $ana -OutFile "output/contenido.json"
 ```
 
-Si prefieres enviar texto en lugar de un archivo, usa este endpoint; los pasos de generación son los mismos:
+Revisa en `/docs` (Swagger) el cuerpo exacto de cada operación; el botón **Authorize** acepta el token.
 
-```powershell
-$texto = @{
-    documento_titulo = "Introducción a VCN"
-    documento_contenido = "Una VCN es una red privada y personalizable en Oracle Cloud Infrastructure."
-} | ConvertTo-Json
+## 4. Generación
 
-$documento = Invoke-RestMethod -Method Post -Uri "$base/api/v1/documentos/texto" -ContentType "application/json; charset=utf-8" -Body ([System.Text.Encoding]::UTF8.GetBytes($texto))
-$documento.id
-```
-
-Cada POST crea un registro nuevo. La generación es síncrona y su duración depende del proveedor, los embeddings y las revisiones. Si vence el timeout del cliente, consulta el historial antes de repetir el POST: el servidor puede seguir trabajando.
-
-## 4. Qué recibe el frontend
-
-La creación devuelve HTTP **201** y directamente un objeto con:
-
-| Campo | Significado |
-| --- | --- |
-| `status` | `exito` o `requiere_revision`. |
-| `metadatos` | Perfil, formato, sector, detalle, minutos estimados de estudio, conceptos clave y prerrequisitos. |
-| `contenido_adaptado` | Título, introducción e items según el formato. |
-| `evaluacion_calidad` | Puntajes de fidelidad, pedagogía y formato; claridad, observaciones e intentos de revisión. |
-
-Ejemplo completo: [respuesta_flashcards.json](../examples/respuesta_flashcards.json). Es ilustrativo.
-
-HTTP 201 confirma que el resultado se guardó. **No equivale a aprobación educativa**: revisa `status`. La aprobación exige fidelidad >= 0.80, pedagogía >= 0.75 y formato >= 0.75. Si no se alcanzan después de tres revisiones, se guarda como `requiere_revision`.
-
-El cuerpo mantiene el paquete educativo. Sus datos de persistencia se obtienen de:
-
-- `X-Contenido-ID`: ID del contenido creado.
-- `Location`: ruta para recuperarlo.
-- Historial: ID, documento asociado, tema, título, perfil, formato, estado, score de fidelidad y fecha UTC.
-
-Los listados devuelven `items`, `total`, `limit` y `offset`. `limit` permite 1–100 y vale 20 por defecto; `offset` empieza en 0. El historial acepta filtros opcionales `documento_id`, `perfil` y `status`.
-
-## 5. Mapa de rutas
-
-| Método | Ruta | Entrada / respuesta |
-| --- | --- | --- |
-| GET | `/health` | Estado de API y SQLite. |
-| GET | `/api/v1/catalogos` | Perfiles, formatos, extensiones y límites. |
-| POST | `/api/v1/documentos` | Multipart: `archivo`, título opcional. Devuelve metadatos e ID del documento (201). |
-| POST | `/api/v1/documentos/texto` | JSON: `documento_titulo`, `documento_contenido`. Devuelve metadatos e ID (201). |
-| GET | `/api/v1/documentos` | Lista paginada de documentos. |
-| GET | `/api/v1/documentos/{documento_id}` | Metadatos y `documento_contenido` extraído. |
-| GET | `/api/v1/documentos/{documento_id}/original` | Bytes del archivo original como adjunto. |
-| POST | `/api/v1/contenidos` | Solicitud de generación; devuelve paquete educativo (201). |
-| GET | `/api/v1/contenidos` | Historial paginado y filtrable. |
-| GET | `/api/v1/contenidos/{contenido_id}` | Paquete educativo completo. |
-| GET | `/api/v1/contenidos/{contenido_id}/descarga` | El paquete como archivo JSON adjunto. |
-
-El esquema legible por herramientas está en **http://127.0.0.1:8000/openapi.json**.
-
-## 6. Errores y límites
-
-Los errores tienen un formato uniforme:
+`POST /api/v1/contenidos`:
 
 ```json
 {
-  "status": "error",
-  "error": {
-    "codigo": "CONFIGURACION_INCOMPLETA",
-    "mensaje": "Configura GEMINI_API_KEY en el backend para generar contenido."
-  }
+  "id_tema": "redes-oci",
+  "tema": "¿Qué es una VCN y cuáles son sus componentes?",
+  "perfil_destinatario": "Intermedio",
+  "formato_salida": "Flashcards"
 }
 ```
 
-| HTTP | Qué revisar |
+- `tema` es la consulta concreta y es opcional con `id_tema`: si se omite, se genera sobre el tema completo (se usa su nombre). Con `documento_id` es obligatorio. `id_tema` identifica el tema asignado cuyos documentos se usan como fuente.
+- El **nicho** y el **nivel de detalle** salen de la configuración del tema (`PATCH /api/v1/temas/{id_tema}`); no se aceptan en la petición con `id_tema`.
+- Alternativa solo para administradores: `documento_id` en lugar de `id_tema`, con `nicho_sector` y `nivel_detalle` opcionales (por defecto `General` y `Didáctico`).
+- Perfiles: **Principiante**, **Intermedio**, **Avanzado**. Formatos: **Flashcards**, **Resumen**, **Quiz**, **Tutorial**, **Guion**.
+- En Quiz, `respuesta_correcta` es el **texto exacto** de una de las `opciones`.
+
+Respuestas:
+
+| HTTP | Cuándo | Cuerpo |
+| --- | --- | --- |
+| 201 | Material generado (admin: siempre; estudiante: solo si `status` es `exito`). | Paquete educativo + `id`, `creado_en`, `id_tema`, `fuentes`. |
+| 202 | Estudiante cuyo material quedó `requiere_revision`. | `{id, creado_en, status: "requiere_revision", mensaje}`; sin contenido. |
+
+Cada elemento de `fuentes` indica de dónde sale el contenido: `documento_id`, `documento` (título), `fragmento` (posición entre los recuperados), `pagina` (PDF, o `null`) y `extracto` (hasta 300 caracteres).
+
+La generación es síncrona. Si vence el timeout del cliente, consulta el historial antes de repetir el POST.
+
+## 5. Mapa de rutas
+
+| Método | Ruta | Rol | Descripción |
+| --- | --- | --- | --- |
+| GET | `/health` | público | Estado de API y SQLite. |
+| POST | `/api/v1/sesion` | público | Login; devuelve `token` y datos del usuario. |
+| GET | `/api/v1/sesion` | autenticado | Quién soy: usuario, rol, `debe_cambiar_contrasena` y temas (admin: todos). |
+| DELETE | `/api/v1/sesion` | autenticado | Cierra la sesión. |
+| PUT | `/api/v1/sesion/contrasena` | autenticado | Cambia la contraseña y revoca las sesiones. |
+| GET | `/api/v1/usuarios` | admin | Lista usuarios con sus temas asignados. |
+| POST | `/api/v1/usuarios` | admin | Crea un estudiante con contraseña temporal y temas. |
+| PUT | `/api/v1/usuarios/{id_usuario}` | admin | Modifica un estudiante: `nombre`, `activo` o `contrasena_temporal` (desactivar o resetear revoca sus sesiones). |
+| POST | `/api/v1/usuarios/{id_usuario}/desbloqueo` | admin | Quita el bloqueo de login por intentos fallidos (204). El login devuelve `429 DEMASIADOS_INTENTOS` con `Retry-After` tras 5 fallos. |
+| GET | `/api/v1/temas` | autenticado | Admin: todos; estudiante: sus temas asignados. |
+| POST | `/api/v1/temas` | admin | Crea un tema (`nicho_sector`, `nivel_detalle` y `documentos` opcionales). |
+| GET | `/api/v1/temas/{id_tema}` | asignado/admin | Detalle y configuración del tema. |
+| PATCH | `/api/v1/temas/{id_tema}` | admin | Cambia nombre, descripción, nicho o nivel de detalle. |
+| DELETE | `/api/v1/temas/{id_tema}` | admin | Borra el tema y sus asociaciones; el historial se conserva. |
+| GET | `/api/v1/temas/{id_tema}/documentos` | asignado/admin | Documentos asociados (metadatos). |
+| PUT / DELETE | `/api/v1/temas/{id_tema}/documentos/{documento_id}` | admin | Asocia o desasocia un documento. |
+| GET | `/api/v1/temas/{id_tema}/estudiantes` | admin | Estudiantes asignados. |
+| PUT / DELETE | `/api/v1/temas/{id_tema}/estudiantes/{id_usuario}` | admin | Asigna o retira el tema a un estudiante. |
+| GET | `/api/v1/catalogos` | autenticado | Perfiles, formatos, sectores y límites. |
+| POST | `/api/v1/documentos` | admin | Multipart: `archivo`, `documento_titulo` opcional. |
+| POST | `/api/v1/documentos/texto` | admin | JSON: `documento_titulo`, `documento_contenido`. |
+| GET | `/api/v1/documentos[/{id}[/original]]` | admin | Lista, detalle con texto y original. |
+| POST | `/api/v1/contenidos` | autenticado | Generación (sección 4). |
+| GET | `/api/v1/contenidos` | autenticado | Historial paginado; filtros `id_tema`, `documento_id`, `perfil`, `status` y (admin) `id_usuario`, `pendiente`. |
+| GET | `/api/v1/contenidos/{id}[/descarga]` | dueño/admin | Paquete completo o descarga JSON. |
+| POST | `/api/v1/contenidos/{id}/aprobar` | admin | Aprueba material pendiente: pasa a ser visible para el estudiante (`aprobado_en`). |
+| POST | `/api/v1/contenidos/{id}/rechazar` | admin | Elimina material pendiente; el estudiante puede volver a generarlo. |
+
+Los listados devuelven `items`, `total`, `limit` (1–100, por defecto 20) y `offset`.
+
+## 6. Errores
+
+Todos los errores usan el mismo sobre:
+
+```json
+{ "status": "error", "error": { "codigo": "TEMA_NO_ASIGNADO", "mensaje": "No tienes asignado este tema." } }
+```
+
+| HTTP | Códigos |
 | --- | --- |
-| 404 | El documento o contenido no existe. |
-| 413 | Archivo mayor de 10 MiB, PDF de más de 100 páginas o texto de más de 250000 caracteres. |
-| 415 | Solo se aceptan PDF, MD y TXT. |
-| 422 | Campos inválidos, perfil fuera de catálogo, PDF protegido/ilegible, texto insuficiente o consulta sin contexto recuperable. |
-| 502 | Fallo de Gemini o respuesta del modelo incompatible con el esquema. |
-| 503 | Clave sin configurar o SQLite no disponible. |
-| 500 | Error interno inesperado. |
+| 401 | `AUTENTICACION_REQUERIDA`: falta el token, es inválido, expiró o las credenciales no coinciden. |
+| 403 | `PERMISOS_INSUFICIENTES` (acción de admin o contraseña temporal pendiente), `TEMA_NO_ASIGNADO`. |
+| 404 | `TEMA_NO_ENCONTRADO`, `DOCUMENTO_NO_ENCONTRADO`, `CONTENIDO_NO_ENCONTRADO`, `ESTUDIANTE_NO_ENCONTRADO`, `ASOCIACION_NO_ENCONTRADA`, `ASIGNACION_NO_ENCONTRADA`, `RECURSO_NO_ENCONTRADO`. |
+| 409 | `CONFLICTO`: usuario o tema duplicado. `CONTENIDO_NO_PENDIENTE`: se intenta aprobar o rechazar material que no está en revisión. |
+| 413 / 415 | Archivo demasiado grande o tipo no admitido (PDF, MD, TXT). |
+| 422 | `ENTRADA_INVALIDA`, `SIN_DOCUMENTOS_ASOCIADOS`, `SIN_CONTEXTO` y errores de lectura del documento. |
+| 502 | `GENERACION_FALLIDA`, `SALIDA_INVALIDA`. |
+| 503 | `CONFIGURACION_INCOMPLETA` (falta `GEMINI_API_KEY`), `BASE_DATOS_NO_DISPONIBLE`. |
+| 500 | `ERROR_INTERNO`. |
 
-MD y TXT deben estar en UTF-8. Los PDF deben contener texto seleccionable; los escaneados necesitan OCR previo. Solo se guarda contenido después de validar la respuesta completa. Si falla la generación, el documento cargado sigue disponible.
+Un estudiante que pide un contenido ajeno o pendiente de revisión recibe 404, para no revelar qué identificadores existen.
 
-## 7. Conexión con Streamlit
+## 7. Pruebas
 
-El servidor Streamlit llama a estas rutas desde `app/cliente_api.py`. Las pantallas reciben el JSON validado y no acceden directamente al grafo ni a SQLite.
+```powershell
+.\.venv\Scripts\python.exe -m pytest tests -q --ignore=tests/validate_live_review.py --ignore=tests/check_models.py
+```
 
-Hay que comparar esta propuesta de rutas y campos con el contenido real de `src/contrato.py` y con el cliente del equipo, que no están en esta rama. La imagen de responsabilidades no define esos campos. Esta entrega no modifica el frontend ni su contrato compartido.
+`tests/test_api_integracion.py` cubre autorización por tema, generación por `id_tema`, fuentes, material en revisión con aprobación y rechazo, aislamiento del historial y migración de la base; usa un generador simulado y no llama a Gemini.
 
-Este backend cubre documentos, generación e historial compartido. No recibe tokens ni implementa sesiones o roles. Si en el futuro un navegador llama directamente a la API, `NUEVAMENTE_CORS_ORIGINS` permite declarar sus orígenes; las llamadas desde el servidor de Streamlit no necesitan CORS.
+Si un navegador llama directamente a la API, declara sus orígenes en `NUEVAMENTE_CORS_ORIGINS` (se admite la cabecera `Authorization`).
