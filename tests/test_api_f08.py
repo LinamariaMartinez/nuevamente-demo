@@ -47,7 +47,7 @@ def crear_usuario(nombre, usuario, password, rol, cambiar=False):
 
 def iniciar_sesion(client, usuario, password):
     response = client.post(
-        "/sesion",
+        "/api/v1/sesion",
         json={
             "usuario": usuario,
             "contrasena": password,
@@ -59,10 +59,10 @@ def iniciar_sesion(client, usuario, password):
 
 
 def test_salud(client):
-    response = client.get("/salud")
+    response = client.get("/health")
 
     assert response.status_code == 200
-    assert response.json()["estado"] == "ok"
+    assert response.json()["status"] == "ok"
 
 
 def test_login_correcto(client):
@@ -74,7 +74,7 @@ def test_login_correcto(client):
     )
 
     response = client.post(
-        "/sesion",
+        "/api/v1/sesion",
         json={
             "usuario": "admin_test",
             "contrasena": "ContrasenaSegura123!",
@@ -95,7 +95,7 @@ def test_login_incorrecto(client):
     )
 
     response = client.post(
-        "/sesion",
+        "/api/v1/sesion",
         json={
             "usuario": "admin_test",
             "contrasena": "incorrecta",
@@ -106,7 +106,7 @@ def test_login_incorrecto(client):
 
 
 def test_temas_sin_sesion(client):
-    response = client.get("/temas")
+    response = client.get("/api/v1/temas")
 
     assert response.status_code == 401
 
@@ -128,7 +128,7 @@ def test_admin_puede_crear_tema(client):
     headers = {"Authorization": f"Bearer {token}"}
 
     response = client.post(
-        "/temas",
+        "/api/v1/temas",
         headers=headers,
         json={
             "id_tema": "t-python",
@@ -139,7 +139,7 @@ def test_admin_puede_crear_tema(client):
 
     assert response.status_code == 201
 
-    listado = client.get("/temas", headers=headers)
+    listado = client.get("/api/v1/temas", headers=headers)
 
     assert listado.status_code == 200
     assert len(listado.json()) == 1
@@ -161,7 +161,7 @@ def test_estudiante_no_puede_crear_tema(client):
     )
 
     response = client.post(
-        "/temas",
+        "/api/v1/temas",
         headers={"Authorization": f"Bearer {token}"},
         json={
             "id_tema": "t-python",
@@ -188,7 +188,7 @@ def test_contrasena_temporal_bloquea_temas(client):
     )
 
     response = client.get(
-        "/temas",
+        "/api/v1/temas",
         headers={"Authorization": f"Bearer {token}"},
     )
 
@@ -211,11 +211,11 @@ def test_logout_revoca_token(client):
 
     headers = {"Authorization": f"Bearer {token}"}
 
-    logout = client.delete("/sesion", headers=headers)
+    logout = client.delete("/api/v1/sesion", headers=headers)
 
     assert logout.status_code == 200
 
-    response = client.get("/temas", headers=headers)
+    response = client.get("/api/v1/temas", headers=headers)
 
     assert response.status_code == 401
 
@@ -254,7 +254,7 @@ def test_estudiante_solo_ve_temas_asignados(client):
     )
 
     response = client.get(
-        "/temas",
+        "/api/v1/temas",
         headers={"Authorization": f"Bearer {token}"},
     )
 
@@ -279,7 +279,7 @@ def test_cambio_contrasena_revoca_sesiones(client):
     )
 
     response = client.put(
-        "/sesion/contrasena",
+        "/api/v1/sesion/contrasena",
         headers={"Authorization": f"Bearer {token1}"},
         json={
             "contrasena_actual": "ContrasenaSegura123!",
@@ -291,7 +291,7 @@ def test_cambio_contrasena_revoca_sesiones(client):
 
     for token in (token1, token2):
         result = client.get(
-            "/temas",
+            "/api/v1/temas",
             headers={"Authorization": f"Bearer {token}"},
         )
         assert result.status_code == 401
@@ -315,7 +315,7 @@ def test_estudiante_no_puede_crear_usuarios(client):
     )
 
     response = client.post(
-        "/usuarios",
+        "/api/v1/usuarios",
         headers={"Authorization": f"Bearer {token}"},
         json={
             "nombre": "Otro Estudiante",
