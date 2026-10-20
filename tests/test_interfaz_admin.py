@@ -97,7 +97,8 @@ class AprobarYRechazar(unittest.TestCase):
     def test_aprobar_lo_saca_de_la_lista(self):
         cliente = ClienteMock()
         at = abrir_guion(cliente).button(key=f"aprobar_{ID_GUION}").click().run()
-        self.assertIn("Material aprobado: ya lo pueden ver.", textos(at.success))
+        # Revisión final: todavía no hay una pantalla donde quien estudia vea el material aprobado
+        self.assertIn("Material aprobado.", textos(at.success))
         self.assertIn("No hay material pendiente de revisión.", textos(at.info))
         self.assertEqual(cliente.listar_paquetes_revision(), [])
 

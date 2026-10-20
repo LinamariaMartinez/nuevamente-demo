@@ -54,7 +54,7 @@ class ErrorCliente(Exception):
     }
 
     def __init__(self, tipo, detalle="", mensaje=None):
-        # `mensaje` reemplaza el texto por defecto: lo usa el mensaje de Backend en 400, 409 y 422
+        # `mensaje` reemplaza el texto por defecto: lo usa el mensaje de Backend en 400, 409, 413, 415 y 422
         self.tipo = tipo
         self.mensaje = mensaje or self.MENSAJES[tipo]
         self.detalle = detalle
@@ -379,7 +379,7 @@ class ClienteHttp:
             return ErrorCliente("sin_contexto", detalle)
         if codigo == "SIN_DOCUMENTOS_ASOCIADOS":
             return ErrorCliente("sin_documentos", detalle)
-        if estado in (400, 409, 422):
+        if estado in (400, 409, 413, 415, 422):  # 413/415: archivo muy grande o de un tipo que no se acepta
             # "Revisa los campos: body.x" es técnico: se muestra el mensaje general y el detalle queda para el admin
             return ErrorCliente("rechazado", detalle, mensaje=None if codigo == "ENTRADA_INVALIDA" else mensaje)
         if estado == 502:

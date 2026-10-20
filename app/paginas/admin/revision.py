@@ -8,7 +8,7 @@ from paginas import contraer_menu, mostrar_error, mostrar_modo_demo
 from vistas import mostrar_paquete
 
 RESERVADO = "Abre un material de la lista para verlo aquí."
-APROBADO = "Material aprobado: ya lo pueden ver."
+APROBADO = "Material aprobado."  # todavía no hay pantalla donde quien estudia vea su material aprobado
 RECHAZADO = "Material rechazado: se eliminó y se puede generar de nuevo."
 
 

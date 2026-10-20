@@ -582,6 +582,14 @@ class ModoHttp(unittest.TestCase):
         self.assertEqual(fallo.mensaje, ErrorCliente.MENSAJES["rechazado"])
         self.assertIn("body.nombre", fallo.detalle)
 
+    def test_413_y_415_usan_el_mensaje_del_backend(self):
+        # Revisión final: "inténtalo de nuevo" no sirve si el PDF tiene demasiadas páginas
+        for estado, codigo, mensaje in ((413, "DEMASIADAS_PAGINAS", "El PDF supera las 100 páginas."),
+                                        (415, "TIPO_NO_SOPORTADO", "Solo se aceptan PDF, Markdown o TXT.")):
+            with self.subTest(estado=estado):
+                fallo = self.error_de(lambda c: c.subir_documento("a.pdf", b"%PDF"), error(estado, codigo, mensaje))
+                self.assertEqual((fallo.tipo, fallo.mensaje), ("rechazado", mensaje))
+
     def test_listado_que_no_es_listado_es_respuesta_invalida(self):
         for cuerpo in ({"documentos": []}, [DOCUMENTO_JSON]):
             with self.subTest(cuerpo=cuerpo):
