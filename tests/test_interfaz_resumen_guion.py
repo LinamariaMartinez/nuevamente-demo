@@ -43,8 +43,9 @@ class Resumen(unittest.TestCase):
     def test_cada_seccion_es_una_tarjeta_con_su_titulo(self):
         textos = markdown(self.at)
         for item in self.datos["contenido_adaptado"]["items"]:
-            with self.subTest(seccion=item["titulo"]):
-                self.assertIn(f"**{item['titulo']}**", textos)
+            with self.subTest(seccion=item["subtitulo"]):
+                self.assertIn(f"**{item['subtitulo']}**", textos)
+                self.assertIn(item["texto"], textos)
         self.assertFalse(any("*Titulo:*" in t for t in textos))  # ya no es la vista genérica
 
     def test_conceptos_clave_al_final_como_etiquetas(self):
@@ -55,7 +56,7 @@ class Resumen(unittest.TestCase):
 
     def test_mas_de_tres_secciones_pasan_a_otra_fila(self):
         datos = json.loads(json.dumps(self.datos))
-        datos["contenido_adaptado"]["items"].append({"titulo": "Cuarta", "contenido": "Otra idea."})
+        datos["contenido_adaptado"]["items"].append({"subtitulo": "Cuarta", "texto": "Otra idea."})
         at = correr(datos)
         self.assertEqual(len(at.exception), 0)
         self.assertIn("**Cuarta**", markdown(at))
@@ -70,19 +71,23 @@ class Resumen(unittest.TestCase):
 class TextoDelMaterial(unittest.TestCase):
     def test_el_signo_pesos_no_se_vuelve_formula(self):
         # Revisión final: con montos en COP, el texto entre dos "$" salía como LaTeX
-        for nombre in ("resumen.json", "guion.json"):
+        for nombre, campo in (("resumen.json", "texto"), ("guion.json", "narracion")):
             with self.subTest(mock=nombre):
                 datos = cargar(nombre)
-                datos["contenido_adaptado"]["items"][0]["contenido"] = "Cuesta $50.000 y luego $80.000."
+                datos["contenido_adaptado"]["items"][0][campo] = "Cuesta $50.000 y luego $80.000."
                 self.assertIn("Cuesta \\$50.000 y luego \\$80.000.", markdown(correr(datos)))
 
     def test_la_vista_generica_muestra_etiquetas_con_tilde(self):
-        datos = cargar("tutorial.json")
-        del datos["contenido_adaptado"]["items"][0]["paso"]  # item inválido: cae en la vista genérica
-        textos = " ".join(markdown(correr(datos)))
-        self.assertIn("*Explicación:*", textos)
-        self.assertIn("*Título:*", textos)
-        self.assertNotIn("*Explicacion:*", textos)
+        # Items inválidos: caen en la vista genérica
+        resumen = cargar("resumen.json")
+        del resumen["contenido_adaptado"]["items"][0]["texto"]
+        self.assertIn("*Subtítulo:*", " ".join(markdown(correr(resumen))))
+        guion = cargar("guion.json")
+        del guion["contenido_adaptado"]["items"][0]["titulo"]
+        self.assertIn("*Narración:*", " ".join(markdown(correr(guion))))
+        tutorial = cargar("tutorial.json")
+        del tutorial["contenido_adaptado"]["items"][0]["instrucciones"]
+        self.assertIn("*Título:*", " ".join(markdown(correr(tutorial))))
 
 
 class Guion(unittest.TestCase):
@@ -93,6 +98,13 @@ class Guion(unittest.TestCase):
             with self.subTest(escena=numero):
                 self.assertIn(f"**Escena {numero} · {item['titulo']}**", textos)
         self.assertFalse(any("*Titulo:*" in t for t in textos))
+
+    def test_guion_muestra_narracion(self):
+        datos = cargar("guion.json")
+        textos = markdown(correr(datos))
+        for item in datos["contenido_adaptado"]["items"]:
+            with self.subTest(escena=item["titulo"]):
+                self.assertIn(item["narracion"], textos)
 
 
 if __name__ == "__main__":

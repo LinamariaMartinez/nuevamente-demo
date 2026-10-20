@@ -6,7 +6,7 @@ from vistas.generica import texto_seguro
 
 
 def mostrar(paquete, items):
-    clave = f"quiz_{paquete.id_paquete}"
+    clave = f"quiz_{paquete.id}"
     for numero, pregunta in enumerate(items, start=1):
         st.markdown(f"**{numero}. {texto_seguro(pregunta.pregunta)}**")
         # format_func solo cambia lo que se ve: la respuesta guardada sigue siendo el texto original
@@ -19,7 +19,7 @@ def mostrar(paquete, items):
     aciertos = 0
     for numero, pregunta in enumerate(items, start=1):
         elegida = st.session_state.get(f"{clave}_{numero}")
-        correcta = pregunta.opciones[pregunta.respuesta_correcta]
+        correcta = pregunta.respuesta_correcta  # el texto de la opción correcta
         mostrada, justificacion = texto_seguro(correcta), texto_seguro(pregunta.justificacion)
         if elegida == correcta:
             aciertos += 1

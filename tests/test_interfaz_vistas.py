@@ -62,11 +62,18 @@ class VistaGenerica(unittest.TestCase):
         self.assertEqual(len(at.exception), 0)
         self.assertIn("Qué es", textos(at))
 
-    def test_paquete_con_error_muestra_el_mensaje_sin_romperse(self):
-        datos = cargar("error_sin_contexto.json")
-        at = correr(datos)
-        self.assertEqual(len(at.exception), 0)
-        self.assertIn(datos["mensaje_error"], [e.value for e in at.error])
+    def test_fuente_con_pagina(self):
+        datos = cargar("resumen.json")
+        fuente = datos["fuentes"][0]
+        fuente["pagina"] = 5
+        esperado = f"- **{fuente['documento']}**, fragmento {fuente['fragmento']}, página 5: {fuente['extracto']}"
+        self.assertIn(esperado, textos(correr(datos)))
+
+    def test_fuente_sin_pagina(self):
+        datos = cargar("resumen.json")
+        fuente = datos["fuentes"][0]
+        esperado = f"- **{fuente['documento']}**, fragmento {fuente['fragmento']}: {fuente['extracto']}"
+        self.assertIn(esperado, textos(correr(datos)))
 
     def test_paquete_sin_items_avisa_que_no_hay_contenido(self):
         datos = cargar("resumen.json")

@@ -17,8 +17,8 @@ def mostrar(paquete, items):
         # Siempre POR_FILA columnas: las tarjetas miden lo mismo aunque la última fila quede incompleta
         for columna, item in zip(st.columns(POR_FILA), items[inicio:inicio + POR_FILA]):
             with columna.container(border=True):
-                st.markdown(f"**{texto_seguro(item.titulo)}**")
-                st.markdown(texto_seguro(item.contenido))
+                st.markdown(f"**{texto_seguro(item.subtitulo)}**")
+                st.markdown(texto_seguro(item.texto))
     conceptos = paquete.metadatos.conceptos_clave
     if conceptos:
         st.markdown("**Conceptos clave:** " + " ".join(f":gray-badge[{texto_seguro(c)}]" for c in conceptos))

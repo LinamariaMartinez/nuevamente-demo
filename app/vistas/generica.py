@@ -8,8 +8,8 @@ AVISO_REVISION = ("Este material no superó la revisión automática de calidad 
 ETIQUETAS = {
     "frente": "Frente", "dorso": "Dorso", "pista_didactica": "Pista didáctica",
     "pregunta": "Pregunta", "opciones": "Opciones", "respuesta_correcta": "Respuesta correcta",
-    "justificacion": "Justificación", "paso": "Paso", "titulo": "Título", "explicacion": "Explicación",
-    "ejemplo": "Ejemplo", "contenido": "Contenido",
+    "justificacion": "Justificación", "titulo": "Título", "instrucciones": "Instrucciones",
+    "subtitulo": "Subtítulo", "texto": "Texto", "narracion": "Narración",
 }
 
 
@@ -24,7 +24,7 @@ def mostrar_encabezado(paquete, compacto=False):
     metadatos = paquete.metadatos
     calidad = paquete.evaluacion_calidad
     st.header(texto_seguro(contenido.titulo))
-    if calidad.requiere_revision_admin:
+    if paquete.status == "requiere_revision":
         st.warning(AVISO_REVISION)
     if contenido.introduccion_contextualizada and not compacto:
         st.markdown(texto_seguro(contenido.introduccion_contextualizada))
@@ -63,4 +63,6 @@ def mostrar_pie(paquete):
         with st.expander(f"Fuentes ({len(paquete.fuentes)})"):
             st.caption("Consulta los documentos utilizados para preparar este material.")
             for fuente in paquete.fuentes:
-                st.markdown(f"- **{fuente.documento}**, fragmento {fuente.fragmento}: {texto_seguro(fuente.extracto)}")
+                pagina = f", página {fuente.pagina}" if fuente.pagina else ""
+                st.markdown(f"- **{fuente.documento}**, fragmento {fuente.fragmento}{pagina}: "
+                            f"{texto_seguro(fuente.extracto)}")

@@ -9,4 +9,4 @@ def mostrar(paquete, items):
     for numero, item in enumerate(items, start=1):
         with st.container(border=True):
             st.markdown(f"**Escena {numero} · {texto_seguro(item.titulo)}**")
-            st.markdown(texto_seguro(item.contenido))
+            st.markdown(texto_seguro(item.narracion))

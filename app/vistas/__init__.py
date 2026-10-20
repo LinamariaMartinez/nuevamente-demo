@@ -23,9 +23,6 @@ COMPACTOS = {"Resumen"}
 
 
 def mostrar_paquete(paquete):
-    if paquete.status == "error":  # un paquete de error no trae contenido que dibujar
-        st.error(paquete.mensaje_error or "No se pudo generar este material. Inténtalo de nuevo.")
-        return
     formato = paquete.metadatos.formato_generado
     vista = VISTAS.get(formato)
     items = None

@@ -13,7 +13,7 @@ from streamlit.testing.v1 import AppTest
 
 APP_VISTA = str(RAIZ / "tests" / "apps_interfaz" / "vista_app.py")
 DATOS = json.loads((RAIZ / "app" / "mocks" / "tutorial.json").read_text(encoding="utf-8"))
-CLAVE = "guia_ejemplo-003"
+CLAVE = f"guia_{DATOS['id']}"
 
 
 def correr(datos=DATOS):
@@ -33,14 +33,13 @@ class VistaGuia(unittest.TestCase):
         at = at.checkbox(key=f"{CLAVE}_0").check().run()
         self.assertIn("1 de 5 pasos completados", [c.value for c in at.caption])
 
-    def test_pasos_desordenados_se_muestran_en_orden_y_numeros_repetidos_no_rompen(self):
-        datos = json.loads(json.dumps(DATOS))
-        items = datos["contenido_adaptado"]["items"]
-        items.reverse()
-        items[0]["paso"] = items[1]["paso"]  # dos pasos con el mismo número
-        at = correr(datos)
-        self.assertEqual(len(at.exception), 0)
-        self.assertEqual(len(at.checkbox), 5)
+    def test_guia_numera_por_orden(self):
+        # El número del paso es su orden en la lista, desde 1
+        textos = [m.value for m in correr().markdown]
+        for numero, item in enumerate(DATOS["contenido_adaptado"]["items"], start=1):
+            with self.subTest(paso=numero):
+                self.assertIn(f"**Paso {numero}. {item['titulo']}**", textos)
+                self.assertIn(item["instrucciones"], textos)
 
 
 if __name__ == "__main__":
