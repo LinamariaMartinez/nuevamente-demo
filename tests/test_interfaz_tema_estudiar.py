@@ -58,6 +58,23 @@ class PaginaDelTema(unittest.TestCase):
     def test_muestra_el_sector_del_tema(self):
         self.assertIn("Sector: Salud", textos(abrir(tema="t-seguridad").caption))
 
+    def test_mi_material_vacio(self):
+        izquierda, _ = columnas_principales(abrir())
+        self.assertIn("Aquí aparecerá el material que generes.", [i.value for i in izquierda.info])
+
+    def test_lo_generado_aparece_en_mi_material_y_se_puede_abrir(self):
+        cliente = ClienteMock()
+        at = generar(abrir(cliente), formato="Flashcards")
+        titulo = at.session_state["paquete"].contenido_adaptado.titulo
+        id_paquete = at.session_state["paquete"].id
+        izquierda, _ = columnas_principales(at)
+        self.assertIn(f"**{titulo}**", [m.value for m in izquierda.markdown])
+        at = at.selectbox(key="formato").set_value("Resumen").run()  # cambia el formato: el material se quita
+        self.assertEqual(len(at.header), 0)
+        at = at.button(key=f"abrir_material_{id_paquete}").click().run()
+        _, derecha = columnas_principales(at)
+        self.assertEqual(derecha.header[0].value, titulo)
+
     def test_solo_para_estudiantes(self):
         at = abrir(usuario="admin")
         self.assertIn("No tienes permiso para ver esta página.", textos(at.error))

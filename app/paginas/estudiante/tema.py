@@ -13,6 +13,7 @@ AYUDA_NIVEL = "La dificultad cambia la profundidad de la explicación, no las fu
 PRACTICA = "Práctica: no cuenta para tu nota."
 TEMA_NO_DISPONIBLE = "Este tema ya no está disponible. Vuelve a Mis temas para ver los que tienes asignados."
 RESERVADO = "Elige tu nivel y formato y pulsa Generar material. Aquí aparecerá tu material."
+SIN_MATERIAL = "Aquí aparecerá el material que generes."
 
 
 def _tema_elegido(cliente):
@@ -49,6 +50,37 @@ def _generar(cliente, tema):
         if error.tipo == "sesion_vencida":
             mostrar_error(error)  # vuelve a Iniciar sesión
         st.session_state["error_generacion"] = error
+
+
+def _mi_material(cliente, tema):
+    """Lo que la persona generó en este tema y lo que el admin le aprobó; Abrir lo muestra a la derecha."""
+    with st.container(border=True):
+        st.subheader("Mi material")
+        try:
+            materiales = cliente.listar_mi_material(tema.id_tema)
+        except ErrorCliente as error:
+            mostrar_error(error)
+            return
+        if not materiales:
+            st.info(SIN_MATERIAL)
+            return
+        for material in sorted(materiales, key=lambda m: m.creado_en, reverse=True):
+            info, accion = st.columns([3, 1], vertical_alignment="center")
+            info.markdown(f"**{material.titulo or material.tema}**")
+            info.caption(f"{material.formato} · {material.creado_en:%Y-%m-%d %H:%M}")
+            if accion.button("Abrir", key=f"abrir_material_{material.id}"):
+                _abrir(cliente, tema, material.id)
+
+
+def _abrir(cliente, tema, id_paquete):
+    try:
+        st.session_state["paquete"] = cliente.obtener_paquete(id_paquete)
+    except ErrorCliente as error:
+        mostrar_error(error)
+        return
+    st.session_state.pop("error_generacion", None)
+    # Queda abierto hasta que la persona cambie el nivel o el formato
+    st.session_state["material_de"] = (tema.id_tema, st.session_state.get("perfil"), st.session_state.get("formato"))
 
 
 def _boton_reintentar(etiqueta="Reintentar"):
@@ -105,16 +137,18 @@ def mostrar():
 
     # Dos columnas (spec §6.6): el formulario a la izquierda, el material a la derecha
     izquierda, derecha = st.columns([1, 2], gap="large")
-    with izquierda, st.container(border=True):
-        st.subheader("Estudiar")
-        st.selectbox("Tu nivel", PERFILES, key="perfil", help=AYUDA_NIVEL)
-        st.selectbox("Formato", FORMATOS, key="formato")
-        st.text_input("¿Algo en particular? (opcional)", key="pedido", max_chars=LARGO_MAXIMO_TEMA,
-                      placeholder="Ej.: reglas de seguridad")
-        st.caption(f"Sector: {tema.nicho_sector}")  # lo elige el admin en el tema
-        _quitar_material_si_cambio(tema.id_tema)
-        reintentar = st.session_state.pop("reintentar_pedido", False)
-        if st.button("Generar material", key="generar", type="primary") or reintentar:
-            _generar(cliente, tema)
+    with izquierda:
+        with st.container(border=True):
+            st.subheader("Estudiar")
+            st.selectbox("Tu nivel", PERFILES, key="perfil", help=AYUDA_NIVEL)
+            st.selectbox("Formato", FORMATOS, key="formato")
+            st.text_input("¿Algo en particular? (opcional)", key="pedido", max_chars=LARGO_MAXIMO_TEMA,
+                          placeholder="Ej.: reglas de seguridad")
+            st.caption(f"Sector: {tema.nicho_sector}")  # lo elige el admin en el tema
+            _quitar_material_si_cambio(tema.id_tema)
+            reintentar = st.session_state.pop("reintentar_pedido", False)
+            if st.button("Generar material", key="generar", type="primary") or reintentar:
+                _generar(cliente, tema)
+        _mi_material(cliente, tema)  # después de generar: así ya aparece lo nuevo
     with derecha:
         _mostrar_resultado()

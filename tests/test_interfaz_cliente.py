@@ -301,6 +301,47 @@ class ModoMock(unittest.TestCase):
         cliente.generar_paquete(solicitud(formato_salida="Guion"))
         self.assertEqual(cliente.generar_paquete(solicitud(formato_salida="Guion")).status, "exito")
 
+    # --- Mi material ---
+    def test_mi_material_lista_lo_que_genero_en_el_tema(self):
+        cliente = con_sesion("laura")
+        primero = cliente.generar_paquete(solicitud(formato_salida="Quiz"))
+        cliente.generar_paquete(solicitud(formato_salida="Resumen", id_tema="t-seguridad"))
+        material = cliente.listar_mi_material("t-redes")
+        self.assertEqual([(m.id, m.formato, m.titulo) for m in material],
+                         [(primero.id, "Quiz", primero.contenido_adaptado.titulo)])
+        self.assertEqual(cliente.obtener_paquete(primero.id).id, primero.id)  # puede abrir lo suyo
+
+    def test_mi_material_sin_lo_pendiente_hasta_que_se_aprueba(self):
+        cliente = con_sesion("laura")
+        pendiente = cliente.generar_paquete(solicitud(formato_salida="Guion"))
+        self.assertEqual(cliente.listar_mi_material("t-redes"), [])
+        cliente.cerrar_sesion()
+        cliente.iniciar_sesion("admin", "demo-admin")
+        cliente.aprobar_paquete(pendiente.id)
+        cliente.cerrar_sesion()
+        cliente.iniciar_sesion("laura", "demo-estudiante")
+        self.assertEqual([m.id for m in cliente.listar_mi_material("t-redes")], [pendiente.id])
+
+    def test_mi_material_sin_lo_rechazado(self):
+        cliente = con_sesion("laura")
+        pendiente = cliente.generar_paquete(solicitud(formato_salida="Guion"))
+        cliente.cerrar_sesion()
+        cliente.iniciar_sesion("admin", "demo-admin")
+        cliente.rechazar_paquete(pendiente.id)
+        cliente.cerrar_sesion()
+        cliente.iniciar_sesion("laura", "demo-estudiante")
+        self.assertEqual(cliente.listar_mi_material("t-redes"), [])
+
+    def test_mi_material_no_muestra_lo_ajeno(self):
+        cliente = con_sesion("laura")
+        de_laura = cliente.generar_paquete(solicitud(formato_salida="Quiz"))
+        cliente.cerrar_sesion()
+        cliente.iniciar_sesion("mateo", "temporal-123")
+        self.assertEqual(cliente.listar_mi_material("t-redes"), [])
+        with self.assertRaises(ErrorCliente) as ctx:
+            cliente.obtener_paquete(de_laura.id)
+        self.assertEqual(ctx.exception.tipo, "no_encontrado")
+
     # --- Admin ---
     def test_lista_de_revision_trae_solo_el_guion(self):
         self.assertEqual([r.formato for r in con_sesion("admin").listar_paquetes_revision()], ["Guion"])
@@ -610,6 +651,13 @@ class ModoHttp(unittest.TestCase):
         self.assertEqual(self.rutas(sesion), [
             ("GET", "/api/v1/contenidos"), ("GET", f"/api/v1/contenidos/{'c' * 32}"),
             ("POST", f"/api/v1/contenidos/{'c' * 32}/aprobar"), ("POST", f"/api/v1/contenidos/{'c' * 32}/rechazar")])
+
+    def test_mi_material(self):
+        cliente, sesion = self.con_token(respuesta(cuerpo=listado({**CONTENIDO_JSON, "status": "exito"})))
+        material = cliente.listar_mi_material("t-redes")
+        self.assertEqual(self.rutas(sesion), [("GET", "/api/v1/contenidos")])
+        self.assertEqual(sesion.llamadas[1][2]["params"], {"id_tema": "t-redes", "limit": 100})
+        self.assertEqual([(m.titulo, m.formato) for m in material], [("Guion", "Guion")])
 
     # --- Documentos y configuración ---
     def test_documentos_subir_y_listar(self):

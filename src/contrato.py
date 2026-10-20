@@ -174,6 +174,7 @@ class Configuracion(BaseModel):
 
 class ResumenPaquete(BaseModel):
     id: str
+    titulo: str = ""
     creado_en: datetime
     tema: str
     formato: str

@@ -95,6 +95,7 @@ class ClienteMock:
         self._pendientes = {guion.id: (guion, "Redes en OCI")}
         self._aprobados = {}
         self._eliminados = set()  # rechazados: ya no existen
+        self._generados = {}  # id → (paquete, usuario que lo pidió, lo que pidió): para "Mi material"
         self._usuario = None  # quien inició sesión en este cliente
 
     # --- Ayudas internas ---
@@ -250,18 +251,45 @@ class ClienteMock:
         # interactivas heredan el estado del paquete anterior (quiz ya calificado, etc.)
         paquete = paquete.model_copy(update={"metadatos": metadatos, "id": uuid4().hex, "id_tema": tema.id_tema,
                                              "creado_en": datetime.now(timezone.utc)})
+        pedido = solicitud.tema or tema.nombre
         if solicitud.formato_salida != "Guion":
+            self._generados[paquete.id] = (paquete, usuario.usuario, pedido)
             return paquete
         # Para la demo: un guion sí y otro no cae en revisión, así se ven los dos casos
         self._guiones_generados += 1
         if self._guiones_generados % 2 == 1:
-            self._pendientes[paquete.id] = (paquete, solicitud.tema or tema.nombre)
+            self._pendientes[paquete.id] = (paquete, pedido)
+            self._generados[paquete.id] = (paquete, usuario.usuario, pedido)
             return MaterialEnRevision(id=paquete.id, creado_en=paquete.creado_en)  # como el 202 de la API
         calidad = paquete.evaluacion_calidad.model_copy(update={"anclaje_fuente_score": 0.9})
-        return paquete.model_copy(update={"status": "exito", "evaluacion_calidad": calidad})
+        paquete = paquete.model_copy(update={"status": "exito", "evaluacion_calidad": calidad})
+        self._generados[paquete.id] = (paquete, usuario.usuario, pedido)
+        return paquete
+
+    def _visible_para(self, id_paquete, usuario):
+        """Como Backend: quien estudia ve solo lo suyo, sin lo pendiente ni lo rechazado."""
+        paquete, dueno, _ = self._generados[id_paquete]
+        return (dueno == usuario.usuario and id_paquete not in self._pendientes
+                and id_paquete not in self._eliminados)
+
+    def listar_mi_material(self, id_tema):
+        usuario = self._exigir("estudiante")
+        return [
+            ResumenPaquete(id=p.id, titulo=p.contenido_adaptado.titulo, creado_en=p.creado_en, tema=pedido,
+                           formato=p.metadatos.formato_generado,
+                           anclaje_fuente_score=p.evaluacion_calidad.anclaje_fuente_score)
+            for id_paquete, (p, _, pedido) in self._generados.items()
+            if p.id_tema == id_tema and self._visible_para(id_paquete, usuario)
+        ]
 
     def obtener_paquete(self, id_paquete):
-        self._exigir("admin")
+        usuario = self._exigir()
+        if usuario.rol == "estudiante":
+            if id_paquete in self._generados and self._visible_para(id_paquete, usuario):
+                return self._generados[id_paquete][0]
+            raise ErrorCliente("no_encontrado", f"No existe el paquete {id_paquete}")
+        if id_paquete in self._generados and id_paquete not in self._eliminados:
+            return self._generados[id_paquete][0]
         if id_paquete in self._pendientes:
             return self._pendientes[id_paquete][0]
         if id_paquete in self._aprobados:
@@ -553,10 +581,16 @@ class ClienteHttp:
     def obtener_paquete(self, id_paquete):
         return self._validar(Paquete, self._pedir("GET", f"/api/v1/contenidos/{_en_ruta(id_paquete)}"))
 
-    def listar_paquetes_revision(self):
-        items = self._items(self._pedir("GET", "/api/v1/contenidos", params={"pendiente": "true", "limit": 100}))
+    def _resumenes(self, datos):
         return [self._validar(ResumenPaquete, {**item, "formato": item.get("formato_generado")}
-                              if isinstance(item, dict) else item) for item in items]
+                              if isinstance(item, dict) else item) for item in self._items(datos)]
+
+    def listar_paquetes_revision(self):
+        return self._resumenes(self._pedir("GET", "/api/v1/contenidos", params={"pendiente": "true", "limit": 100}))
+
+    def listar_mi_material(self, id_tema):
+        # Para quien estudia, Backend devuelve solo lo suyo y visible
+        return self._resumenes(self._pedir("GET", "/api/v1/contenidos", params={"id_tema": id_tema, "limit": 100}))
 
     def aprobar_paquete(self, id_paquete):
         return self._validar(Paquete, self._pedir("POST", f"/api/v1/contenidos/{_en_ruta(id_paquete)}/aprobar"))
