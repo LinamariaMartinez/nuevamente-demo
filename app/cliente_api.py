@@ -17,12 +17,12 @@ import requests
 from dotenv import load_dotenv
 from pydantic import ValidationError
 
-from contrato import (Configuracion, Documento, DocumentoTema, Paquete, ResumenPaquete, Sesion, Tema, Usuario,
-                      id_tema_desde_nombre)
+from contrato import (Configuracion, Documento, DocumentoTema, MaterialEnRevision, Paquete, ResumenPaquete, Sesion,
+                      Tema, Usuario, id_tema_desde_nombre)
 
 CARPETA_MOCKS = Path(__file__).resolve().parent / "mocks"
 CARPETA_INSTITUCION = CARPETA_MOCKS / "institucion"  # cuentas y temas de demostración
-TEMA_SIN_CONTEXTO_MOCK = "tema inexistente"  # en modo mock, este tema devuelve el error sin_contexto
+TEMA_SIN_CONTEXTO_MOCK = "tema inexistente"  # en modo mock, este pedido lanza el error sin_contexto
 TIEMPO_SALUD_SEGUNDOS = 5
 TIEMPO_CORTO_SEGUNDOS = 10  # rutas que no generan ni indexan: no esperar el tiempo máximo
 MOCK_POR_FORMATO = {
@@ -46,6 +46,8 @@ class ErrorCliente(Exception):
         "tiempo_agotado": "La generación está tardando más de lo normal. Inténtalo de nuevo en unos minutos.",
         "respuesta_invalida": "Hubo un problema con el material generado. Inténtalo de nuevo.",
         "rechazado": "El servicio no pudo atender la petición. Inténtalo de nuevo.",
+        "sin_contexto": "No encontramos ese tema en los documentos cargados. Prueba con otras palabras.",
+        "sin_documentos": "Este tema todavía no tiene documentos. Avísale a quien administra la plataforma.",
     }
 
     def __init__(self, tipo, detalle="", mensaje=None):
@@ -86,6 +88,11 @@ class ClienteMock:
         ]
         self._configuracion = Configuracion()
         self._guiones_generados = 0
+        # Material en revisión: id → (paquete, lo que se pidió). Arranca con el guion de ejemplo.
+        guion = self._leer(MOCK_POR_FORMATO["Guion"])
+        self._pendientes = {guion.id: (guion, "Redes en OCI")}
+        self._aprobados = {}
+        self._eliminados = set()  # rechazados: ya no existen
         self._usuario = None  # quien inició sesión en este cliente
 
     # --- Ayudas internas ---
@@ -186,29 +193,34 @@ class ClienteMock:
             raise ErrorCliente("sin_permiso", f"El tema {solicitud.id_tema} no está asignado a {usuario.usuario}.")
         tema = self._temas[self._indice_tema(solicitud.id_tema)]
         if solicitud.tema.lower() == TEMA_SIN_CONTEXTO_MOCK:
-            return self._leer("error_sin_contexto.json")
-        paquete = self._leer(MOCK_POR_FORMATO[solicitud.formato])
+            raise ErrorCliente("sin_contexto", "422 SIN_CONTEXTO (simulado)")
+        paquete = self._leer(MOCK_POR_FORMATO[solicitud.formato_salida])
         metadatos = paquete.metadatos.model_copy(update={
-            "tema": solicitud.tema or tema.nombre,
-            "perfil_aplicado": solicitud.perfil,
+            "perfil_aplicado": solicitud.perfil_destinatario,
             "nicho_sector": self._configuracion.sector,
         })
-        # Id nuevo en cada generación, como hará la API: si se repite, las vistas
+        # Id nuevo en cada generación, como la API: si se repite, las vistas
         # interactivas heredan el estado del paquete anterior (quiz ya calificado, etc.)
-        id_nuevo = f"{paquete.id_paquete}-{uuid4().hex[:8]}"
-        cambios = {"metadatos": metadatos, "id_paquete": id_nuevo}
-        if solicitud.formato == "Guion":
-            # Para la demo: un guion sí y otro no cae en revisión, así se ven los dos casos
-            self._guiones_generados += 1
-            if self._guiones_generados % 2 == 0:
-                cambios["evaluacion_calidad"] = paquete.evaluacion_calidad.model_copy(
-                    update={"requiere_revision_admin": False})
-        return paquete.model_copy(update=cambios)
+        paquete = paquete.model_copy(update={"metadatos": metadatos, "id": uuid4().hex, "id_tema": tema.id_tema,
+                                             "creado_en": datetime.now(timezone.utc)})
+        if solicitud.formato_salida != "Guion":
+            return paquete
+        # Para la demo: un guion sí y otro no cae en revisión, así se ven los dos casos
+        self._guiones_generados += 1
+        if self._guiones_generados % 2 == 1:
+            self._pendientes[paquete.id] = (paquete, solicitud.tema or tema.nombre)
+            return MaterialEnRevision(id=paquete.id, creado_en=paquete.creado_en)  # como el 202 de la API
+        calidad = paquete.evaluacion_calidad.model_copy(update={"anclaje_fuente_score": 0.9})
+        return paquete.model_copy(update={"status": "exito", "evaluacion_calidad": calidad})
 
     def obtener_paquete(self, id_paquete):
         self._exigir("admin")
+        if id_paquete in self._pendientes:
+            return self._pendientes[id_paquete][0]
+        if id_paquete in self._aprobados:
+            return self._aprobados[id_paquete]
         for paquete in self._todos():
-            if paquete.id_paquete == id_paquete:
+            if paquete.id == id_paquete and id_paquete not in self._eliminados:
                 return paquete
         raise ErrorCliente("no_encontrado", f"No existe el paquete {id_paquete}")
 
@@ -216,15 +228,32 @@ class ClienteMock:
         self._exigir("admin")
         return [
             ResumenPaquete(
-                id_paquete=p.id_paquete,
+                id=p.id,
                 creado_en=p.creado_en,
-                tema=p.metadatos.tema,
+                tema=pedido,
                 formato=p.metadatos.formato_generado,
                 anclaje_fuente_score=p.evaluacion_calidad.anclaje_fuente_score,
             )
-            for p in self._todos()
-            if p.status == "exito" and p.evaluacion_calidad.requiere_revision_admin
+            for p, pedido in self._pendientes.values()
         ]
+
+    def _sacar_de_pendientes(self, id_paquete):
+        self._exigir("admin")
+        if id_paquete not in self._pendientes:
+            raise ErrorCliente("rechazado", f"{id_paquete} no está pendiente",
+                               mensaje="El material ya no está pendiente de revisión.")
+        return self._pendientes.pop(id_paquete)[0]
+
+    def aprobar_paquete(self, id_paquete):
+        """El material queda visible para quien lo pidió."""
+        paquete = self._sacar_de_pendientes(id_paquete)
+        self._aprobados[id_paquete] = paquete
+        return paquete
+
+    def rechazar_paquete(self, id_paquete):
+        """El material se elimina; quien lo pidió puede generar otro."""
+        self._sacar_de_pendientes(id_paquete)
+        self._eliminados.add(id_paquete)
 
     # --- Documentos y configuración ---
     def subir_documento(self, nombre, contenido):

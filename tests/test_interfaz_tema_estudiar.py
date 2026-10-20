@@ -62,7 +62,7 @@ class PaginaDelTema(unittest.TestCase):
     def test_genera_y_muestra_el_material(self):
         at = generar(abrir(), formato="Flashcards")
         self.assertEqual(len(at.header), 1)
-        self.assertEqual(at.session_state["paquete"].metadatos.tema, "Redes en OCI")  # pedido vacío = todo el tema
+        self.assertEqual(at.session_state["paquete"].id_tema, "t-redes")
 
     def test_quiz_de_estudio_avisa_que_es_practica(self):
         at = generar(abrir(), formato="Quiz")
@@ -88,8 +88,13 @@ class PaginaDelTema(unittest.TestCase):
         at = generar(abrir(), formato="Guion")
         self.assertIn("Este material necesita una revisión adicional antes de estar disponible.", textos(at.info))
         self.assertEqual(len(at.header), 0)
+        self.assertEqual(at.button(key="reintentar").label, "Generar otra versión")
         at = at.button(key="reintentar").click().run()
         self.assertEqual(len(at.header), 1)
+
+    def test_sin_contexto_ofrece_reintentar(self):
+        at = generar(abrir(), pedido="tema inexistente")
+        self.assertEqual(at.button(key="reintentar").label, "Reintentar")
 
     def test_cambiar_el_formato_quita_el_material_anterior(self):
         at = generar(abrir(), formato="Flashcards")

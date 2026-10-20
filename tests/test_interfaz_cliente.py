@@ -14,13 +14,13 @@ sys.path.insert(0, str(RAIZ / "app"))
 import requests
 
 from cliente_api import TIEMPO_CORTO_SEGUNDOS, ClienteHttp, ClienteMock, ErrorCliente, obtener_cliente
-from contrato import FORMATOS, PERFILES, DatosTema, SolicitudPaquete
+from contrato import FORMATOS, PERFILES, DatosTema, MaterialEnRevision, SolicitudPaquete
 
 MOCKS = RAIZ / "app" / "mocks"
 
 
 def solicitud(**cambios):
-    datos = {"id_tema": "t-redes", "tema": "Redes VCN", "perfil": PERFILES[1], "formato": "Quiz"}
+    datos = {"id_tema": "t-redes", "tema": "Redes VCN", "perfil_destinatario": PERFILES[1], "formato_salida": "Quiz"}
     datos.update(cambios)
     return SolicitudPaquete(**datos)
 
@@ -163,17 +163,14 @@ class ModoMock(unittest.TestCase):
         cliente.guardar_configuracion("Fintech")
         cliente.cerrar_sesion()
         cliente.iniciar_sesion("laura", "demo-estudiante")
-        for formato in FORMATOS:
+        for formato in ("Tutorial", "Flashcards", "Quiz", "Resumen"):
             with self.subTest(formato=formato):
-                paquete = cliente.generar_paquete(solicitud(formato=formato))
+                paquete = cliente.generar_paquete(solicitud(formato_salida=formato))
                 self.assertEqual(paquete.metadatos.formato_generado, formato)
-                self.assertEqual(paquete.metadatos.tema, "Redes VCN")
+                self.assertEqual(paquete.id_tema, "t-redes")
+                self.assertEqual(paquete.status, "exito")
                 self.assertEqual(paquete.metadatos.perfil_aplicado, PERFILES[1])
                 self.assertEqual(paquete.metadatos.nicho_sector, "Fintech")
-
-    def test_pedido_vacio_usa_el_nombre_del_tema(self):
-        paquete = con_sesion("laura").generar_paquete(solicitud(tema=""))
-        self.assertEqual(paquete.metadatos.tema, "Redes en OCI")
 
     def test_tema_no_asignado_no_genera(self):
         with self.assertRaises(ErrorCliente) as ctx:
@@ -183,29 +180,78 @@ class ModoMock(unittest.TestCase):
     def test_cada_generacion_tiene_un_id_nuevo(self):
         # Si dos paquetes comparten id, sus vistas interactivas comparten estado (quiz ya calificado, etc.)
         cliente = con_sesion("laura")
-        primero = cliente.generar_paquete(solicitud(formato="Quiz"))
-        segundo = cliente.generar_paquete(solicitud(formato="Quiz"))
-        self.assertNotEqual(primero.id_paquete, segundo.id_paquete)
-        self.assertTrue(primero.id_paquete.startswith("ejemplo-002"))
+        primero = cliente.generar_paquete(solicitud(formato_salida="Quiz"))
+        segundo = cliente.generar_paquete(solicitud(formato_salida="Quiz"))
+        self.assertNotEqual(primero.id, segundo.id)
+        self.assertEqual(len(primero.id), 32)  # como los ids del backend
 
-    def test_pedido_inexistente_devuelve_error_sin_contexto(self):
-        paquete = con_sesion("laura").generar_paquete(solicitud(tema="Tema inexistente"))
-        self.assertEqual((paquete.status, paquete.codigo_error), ("error", "sin_contexto"))
+    def test_tema_inexistente_lanza_sin_contexto(self):
+        with self.assertRaises(ErrorCliente) as ctx:
+            con_sesion("laura").generar_paquete(solicitud(tema="Tema inexistente"))
+        self.assertEqual(ctx.exception.tipo, "sin_contexto")
+        self.assertEqual(ctx.exception.mensaje,
+                         "No encontramos ese tema en los documentos cargados. Prueba con otras palabras.")
 
-    def test_el_guion_alterna_entre_en_revision_y_aprobado(self):
+    def test_guion_en_revision_devuelve_material_en_revision(self):
         # Para la demo: el primer guion cae en revisión y "Generar otra versión" trae uno aprobado
         cliente = con_sesion("laura")
-        revisiones = [cliente.generar_paquete(solicitud(formato="Guion")).evaluacion_calidad.requiere_revision_admin
-                      for _ in range(3)]
-        self.assertEqual(revisiones, [True, False, True])
+        en_revision = [isinstance(cliente.generar_paquete(solicitud(formato_salida="Guion")), MaterialEnRevision)
+                       for _ in range(3)]
+        self.assertEqual(en_revision, [True, False, True])
+
+    def test_guion_aprobado_trae_status_exito(self):
+        cliente = con_sesion("laura")
+        cliente.generar_paquete(solicitud(formato_salida="Guion"))
+        self.assertEqual(cliente.generar_paquete(solicitud(formato_salida="Guion")).status, "exito")
 
     # --- Admin ---
     def test_lista_de_revision_trae_solo_el_guion(self):
         self.assertEqual([r.formato for r in con_sesion("admin").listar_paquetes_revision()], ["Guion"])
 
+    def test_guion_en_revision_aparece_en_la_lista_del_admin(self):
+        cliente = con_sesion("laura")
+        material = cliente.generar_paquete(solicitud(formato_salida="Guion", tema="subredes"))
+        cliente.cerrar_sesion()
+        cliente.iniciar_sesion("admin", "demo-admin")
+        resumenes = cliente.listar_paquetes_revision()
+        self.assertEqual(len(resumenes), 2)
+        self.assertIn((material.id, "subredes"), [(r.id, r.tema) for r in resumenes])
+        self.assertEqual(cliente.obtener_paquete(material.id).status, "requiere_revision")
+
+    def test_aprobar_saca_de_pendientes(self):
+        cliente = con_sesion("admin")
+        id_guion = paquete_json("guion.json")["id"]
+        self.assertEqual(cliente.aprobar_paquete(id_guion).id, id_guion)
+        self.assertEqual(cliente.listar_paquetes_revision(), [])
+
+    def test_rechazar_saca_de_pendientes(self):
+        cliente = con_sesion("admin")
+        id_guion = paquete_json("guion.json")["id"]
+        self.assertIsNone(cliente.rechazar_paquete(id_guion))
+        self.assertEqual(cliente.listar_paquetes_revision(), [])
+        with self.assertRaises(ErrorCliente) as ctx:
+            cliente.obtener_paquete(id_guion)  # rechazado = eliminado
+        self.assertEqual(ctx.exception.tipo, "no_encontrado")
+
+    def test_aprobar_no_pendiente_rechazado(self):
+        cliente = con_sesion("admin")
+        for accion in (cliente.aprobar_paquete, cliente.rechazar_paquete):
+            with self.subTest(accion=accion.__name__), self.assertRaises(ErrorCliente) as ctx:
+                accion(paquete_json("quiz.json")["id"])
+            self.assertEqual((ctx.exception.tipo, ctx.exception.mensaje),
+                             ("rechazado", "El material ya no está pendiente de revisión."))
+
+    def test_estudiante_no_puede_aprobar(self):
+        cliente = con_sesion("laura")
+        id_guion = paquete_json("guion.json")["id"]
+        for accion in (cliente.aprobar_paquete, cliente.rechazar_paquete):
+            with self.subTest(accion=accion.__name__), self.assertRaises(ErrorCliente) as ctx:
+                accion(id_guion)
+            self.assertEqual(ctx.exception.tipo, "sin_permiso")
+
     def test_obtener_paquete_existente_y_no_existente(self):
         cliente = con_sesion("admin")
-        self.assertEqual(cliente.obtener_paquete("ejemplo-002").metadatos.formato_generado, "Quiz")
+        self.assertEqual(cliente.obtener_paquete(paquete_json("quiz.json")["id"]).metadatos.formato_generado, "Quiz")
         with self.assertRaises(ErrorCliente) as ctx:
             cliente.obtener_paquete("no-existe")
         self.assertEqual(ctx.exception.tipo, "no_encontrado")

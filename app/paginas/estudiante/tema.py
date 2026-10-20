@@ -4,13 +4,10 @@ import streamlit as st
 
 import sesion
 from cliente_api import ErrorCliente
-from contrato import FORMATOS, LARGO_MAXIMO_TEMA, PERFILES, SolicitudPaquete
+from contrato import FORMATOS, LARGO_MAXIMO_TEMA, PERFILES, MaterialEnRevision, SolicitudPaquete
 from paginas import contraer_menu, ir_a, mostrar_error, mostrar_modo_demo
 from vistas import mostrar_paquete
 
-MENSAJES_POR_CODIGO = {
-    "sin_contexto": "No encontramos ese tema en los documentos cargados. Prueba con otras palabras.",
-}
 EN_REVISION = "Este material necesita una revisión adicional antes de estar disponible."
 AYUDA_NIVEL = "La dificultad cambia la profundidad de la explicación, no las fuentes utilizadas."
 PRACTICA = "Práctica: no cuenta para tu nota."
@@ -39,12 +36,12 @@ def _generar(cliente, tema):
     solicitud = SolicitudPaquete(
         id_tema=tema.id_tema,
         tema=st.session_state.get("pedido", ""),
-        perfil=st.session_state["perfil"],
-        formato=st.session_state["formato"],
+        perfil_destinatario=st.session_state["perfil"],
+        formato_salida=st.session_state["formato"],
     )
     st.session_state.pop("error_generacion", None)
     st.session_state.pop("paquete", None)
-    st.session_state["material_de"] = (tema.id_tema, solicitud.perfil, solicitud.formato)
+    st.session_state["material_de"] = (tema.id_tema, solicitud.perfil_destinatario, solicitud.formato_salida)
     try:
         with st.spinner("Estamos preparando el material a partir de los documentos de tu institución."):
             st.session_state["paquete"] = cliente.generar_paquete(solicitud)
@@ -78,12 +75,7 @@ def _mostrar_resultado():
     if paquete is None:
         st.info(RESERVADO, icon=":material/auto_stories:")  # reserva el lugar: la pantalla no salta
         return
-    if paquete.status == "error":
-        st.error(MENSAJES_POR_CODIGO.get(paquete.codigo_error,
-                                         paquete.mensaje_error or "No se pudo generar el material."))
-        _boton_reintentar()
-        return
-    if paquete.evaluacion_calidad.requiere_revision_admin:
+    if isinstance(paquete, MaterialEnRevision):
         # No superó la revisión automática: no se muestra hasta que lo revise un administrador
         st.info(EN_REVISION)
         _boton_reintentar("Generar otra versión")

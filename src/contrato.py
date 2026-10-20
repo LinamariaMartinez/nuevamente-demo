@@ -138,8 +138,8 @@ def items_validos(paquete):
 class SolicitudPaquete(BaseModel):
     id_tema: str = Field(min_length=1)  # Backend busca solo en los documentos de este tema
     tema: str = ""  # "¿Algo en particular?": vacío = todo el tema
-    perfil: str
-    formato: str
+    perfil_destinatario: str
+    formato_salida: str
     # Sin nicho: el sector lo define el admin para toda la institución (ver Configuracion)
 
     @field_validator("tema")
@@ -152,7 +152,7 @@ class SolicitudPaquete(BaseModel):
 
     @model_validator(mode="after")
     def valores_permitidos(self):
-        for campo, permitidos in (("perfil", PERFILES), ("formato", FORMATOS)):
+        for campo, permitidos in (("perfil_destinatario", PERFILES), ("formato_salida", FORMATOS)):
             if getattr(self, campo) not in permitidos:
                 raise ValueError(f"{campo} no permitido: {getattr(self, campo)!r}")
         return self

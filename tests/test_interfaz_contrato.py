@@ -109,7 +109,7 @@ class ListasFijas(unittest.TestCase):
 
 class ReglasDeLaSolicitud(unittest.TestCase):
     def base(self, **cambios):
-        datos = {"id_tema": "t-redes", "tema": "", "perfil": PERFILES[0], "formato": "Quiz"}
+        datos = {"id_tema": "t-redes", "tema": "", "perfil_destinatario": PERFILES[0], "formato_salida": "Quiz"}
         datos.update(cambios)
         return datos
 
@@ -126,7 +126,7 @@ class ReglasDeLaSolicitud(unittest.TestCase):
             SolicitudPaquete(**self.base(tema="a" * 301))
 
     def test_valores_fuera_de_las_listas_fallan(self):
-        for campo, valor in (("perfil", "Experto"), ("formato", "Podcast")):
+        for campo, valor in (("perfil_destinatario", "Experto"), ("formato_salida", "Podcast")):
             with self.subTest(campo=campo), self.assertRaises(ValueError):
                 SolicitudPaquete(**self.base(**{campo: valor}))
 

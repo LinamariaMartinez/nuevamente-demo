@@ -26,9 +26,9 @@ def _paquete_abierto(cliente):
     st.download_button(
         "Exportar JSON",
         data=paquete.model_dump_json(indent=2),
-        file_name=f"{paquete.id_paquete}.json",
+        file_name=f"{paquete.id}.json",
         mime="application/json",
-        key=f"exportar_{paquete.id_paquete}",
+        key=f"exportar_{paquete.id}",
         icon=":material/download:",
     )
 
@@ -55,7 +55,7 @@ def mostrar():
                 st.markdown(f"**{resumen.tema}**")
                 st.caption(f"{resumen.formato} · anclaje {resumen.anclaje_fuente_score:.0%}"
                            f" · {resumen.creado_en:%Y-%m-%d %H:%M}")
-                if st.button("Abrir", key=f"abrir_{resumen.id_paquete}"):
-                    st.session_state["paquete_admin"] = resumen.id_paquete
+                if st.button("Abrir", key=f"abrir_{resumen.id}"):
+                    st.session_state["paquete_admin"] = resumen.id
     with derecha:
         _paquete_abierto(cliente)
