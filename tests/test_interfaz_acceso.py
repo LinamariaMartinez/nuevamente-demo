@@ -8,9 +8,26 @@ from apoyo_interfaz import abrir_pagina, textos
 
 from cliente_api import ClienteMock, ErrorCliente
 from paginas.acceso import LARGO_MINIMO_CONTRASENA, validar_contrasena_nueva
+from paginas.landing import SIN_CUENTAS_DEMO
 
 INICIO = "paginas.acceso:mostrar_inicio"
 CAMBIO = "paginas.acceso:mostrar_cambio"
+
+
+class ClienteReal(ClienteMock):
+    es_mock = False
+
+
+def _html(at):
+    return " ".join(elemento.proto.body for elemento in at.get("html"))
+
+
+def _en_orden(nodo):
+    """Tipos de los elementos en el orden en que se dibujan (recorre contenedores y columnas)."""
+    hijos = getattr(nodo, "children", None)
+    if hijos is None:
+        return [nodo.type]
+    return [tipo for clave in sorted(hijos) for tipo in _en_orden(hijos[clave])]
 
 
 class ClienteQueCuenta(ClienteMock):
@@ -51,8 +68,34 @@ def entrar(at, usuario, contrasena):
 class IniciarSesion(unittest.TestCase):
     def test_muestra_el_lema_y_el_formulario(self):
         at = abrir_pagina(INICIO, usuario=None)
-        self.assertIn("**Aprender hoy, construir mañana.**", textos(at.markdown))
+        html = _html(at)
+        for texto in ("Aprender hoy,", "construir mañana.", "Consulta tus temas", "Inicia sesión"):
+            with self.subTest(texto=texto):
+                self.assertIn(texto, html)
         self.assertEqual(at.text_input(key="acceso_contrasena").proto.type, TextInput.PASSWORD)
+
+    def test_tarjeta_con_panel_oscuro_y_formulario(self):
+        at = abrir_pagina(INICIO, usuario=None)
+        html = _html(at)
+        # st.html quita los <svg>: el logo y los íconos van como <img> con el SVG en data:
+        self.assertNotIn("<svg", html)
+        self.assertIn('src="data:image/svg+xml;base64,', html)
+        self.assertIn(".st-key-acceso_tarjeta", html)  # el CSS de la tarjeta
+        self.assertEqual(at.button(key="volver_landing").proto.type, "tertiary")  # enlace, no botón con borde
+
+    def test_cuentas_de_demostracion_solo_en_modo_mock(self):
+        html = _html(abrir_pagina(INICIO, usuario=None))
+        for texto in ("laura", "demo-estudiante", "mateo", "temporal-123", "admin", "demo-admin"):
+            with self.subTest(texto=texto):
+                self.assertIn(texto, html)
+        html = _html(abrir_pagina(INICIO, usuario=None, cliente=ClienteReal()))
+        self.assertNotIn("demo-estudiante", html)
+        self.assertIn(SIN_CUENTAS_DEMO, html)
+
+    def test_los_avisos_van_arriba_de_los_campos(self):
+        at = entrar(abrir_pagina(INICIO, usuario=None), "   ", "")
+        orden = _en_orden(at.main)
+        self.assertLess(orden.index("warning"), orden.index("text_input"))
 
     def test_inicio_correcto_guarda_la_sesion(self):
         at = entrar(abrir_pagina(INICIO, usuario=None), "laura", "demo-estudiante")
@@ -128,6 +171,14 @@ class CambiarContrasena(unittest.TestCase):
         at = self.cambiar("temporal-123", "nueva-clave-12", "otra-clave-123")
         self.assertIn("Las contraseñas no coinciden.", textos(at.warning))
         self.assertTrue(at.session_state["sesion"].usuario.debe_cambiar_contrasena)
+
+    def test_misma_tarjeta_con_el_saludo(self):
+        at = abrir_pagina(CAMBIO, usuario="mateo")
+        html = _html(at)
+        self.assertIn(".st-key-acceso_tarjeta", html)
+        self.assertIn("Hola, Mateo", html)
+        self.assertIn("Cambia tu contraseña", html)
+        self.assertEqual(at.button(key="salir_cambio").proto.type, "tertiary")
 
     def test_salir_cierra_la_sesion(self):
         at = abrir_pagina(CAMBIO, usuario="mateo").button(key="salir_cambio").click().run()

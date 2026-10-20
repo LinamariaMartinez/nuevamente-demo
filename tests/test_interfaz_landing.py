@@ -1,11 +1,12 @@
-"""Pruebas de la landing (v2.2): qué es NuevaMente, cómo funciona y acceso a la demo."""
+"""Pruebas de la landing (v2.4): HTML y CSS con st.html, sin JavaScript, y el botón real de Iniciar sesión."""
 
+import re
 import unittest
 
-from apoyo_interfaz import abrir_pagina, textos
+from apoyo_interfaz import RAIZ, abrir_pagina
 
 from cliente_api import ClienteMock
-from paginas.landing import TITULAR
+from paginas import landing
 
 LANDING = "paginas.landing:mostrar"
 
@@ -16,28 +17,84 @@ class ClienteReal(ClienteMock):
     es_mock = False
 
 
-class PaginaLanding(unittest.TestCase):
-    def test_mensaje_principal_y_boton_de_entrada(self):
-        at = abrir_pagina(LANDING, usuario=None)
-        self.assertEqual(at.title[0].value, TITULAR)
-        self.assertEqual(at.button(key="ir_acceso").label, "Iniciar sesión")
-        self.assertIn("[Ver cómo funciona](#como-funciona)", textos(at.markdown))
+def _html(at):
+    return " ".join(elemento.proto.body for elemento in at.get("html"))
 
-    def test_como_funciona_y_por_dentro(self):
+
+def _texto(html):
+    """Texto visible aproximado: sin etiquetas y con espacios normales (sin espacio antes de coma o punto)."""
+    return re.sub(r"\s+([,.;])", r"\1", re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", html)))
+
+
+class HtmlLanding(unittest.TestCase):
+    def setUp(self):
+        self.html = landing.html_principal()
+
+    def test_plantilla_completa_y_sin_lo_que_st_html_quitaria(self):
+        self.assertNotIn("${", self.html)
+        # st.html limpia el HTML: quita <script> y <svg>. Los íconos van como <img> con el SVG en data:
+        for etiqueta in ("<script", "<svg", "<iframe"):
+            with self.subTest(etiqueta=etiqueta):
+                self.assertNotIn(etiqueta, self.html + landing.html_pie())
+        self.assertIn('src="data:image/svg+xml;base64,', self.html)
+
+    def test_titular_y_explicacion(self):
+        texto = _texto(self.html)
+        self.assertIn(landing.TITULAR, texto)
+        self.assertIn(landing.EXPLICACION, texto)
+
+    def test_secciones_pasos_pilares_y_oci(self):
+        texto = _texto(self.html)
+        for nombre, _ in landing.PASOS:
+            self.assertIn(nombre, texto)
+        for nombre, _, explicacion, _, _ in landing.POR_DENTRO:
+            self.assertIn(nombre, texto)
+            self.assertIn(explicacion, texto)
+        for frase in ("VM Ampere A1", "OCI Object Storage", "Always Free", "API de Gemini"):
+            with self.subTest(frase=frase):
+                self.assertIn(frase, texto)
+
+    def test_cada_enlace_interno_tiene_su_destino(self):
+        for ancla in set(re.findall(r'href="#([\w-]+)"', self.html)):
+            with self.subTest(ancla=ancla):
+                self.assertIn(f'id="{ancla}"', self.html)
+
+    def test_iniciar_sesion_del_menu_abre_la_pagina_de_acceso(self):
+        # st.html no puede usar st.switch_page: el enlace va a la dirección de la página (url_path="acceso")
+        self.assertRegex(self.html, r'<a href="acceso"[^>]*>Iniciar sesión</a>')
+        self.assertIn('url_path="acceso"', (RAIZ / "app" / "inicio.py").read_text(encoding="utf-8"))
+
+    def test_cada_etiqueta_tiene_su_control(self):
+        """Lo interactivo es CSS: cada <label for> necesita su radio o casilla."""
+        controles = set(re.findall(r'<input[^>]*id="([\w-]+)"', self.html))
+        etiquetas = set(re.findall(r'<label[^>]*for="([\w-]+)"', self.html))
+        self.assertEqual(etiquetas, controles)
+        self.assertEqual(len(controles), 3 + len(landing.FORMATOS) + 1 + 3 + len(landing.POR_DENTRO))
+
+    def test_flechas_entre_agentes_se_ocultan_en_el_celular(self):
+        # .nm-conector se oculta en pantallas angostas; sin la clase, la flecha queda apuntando al vacío
+        agentes = landing._agentes()
+        self.assertEqual(agentes.count("nm-flujo-punto"), len(landing.AGENTES) - 1)
+        self.assertEqual(agentes.count('class="nm-conector"'), len(landing.AGENTES) - 1)
+
+    def test_tema_oscuro(self):
+        self.assertIn('class="nm"', self.html)
+        oscuro = landing.html_principal(tema_oscuro=True)
+        self.assertIn('class="nm nm-oscuro"', oscuro)
+
+
+class PaginaLanding(unittest.TestCase):
+    def test_boton_de_entrada(self):
         at = abrir_pagina(LANDING, usuario=None)
-        self.assertEqual([s.value for s in at.subheader], ["Cómo funciona", "Por dentro"])
-        markdown = textos(at.markdown)
-        for texto in ("**1. Sube documentos**", "**2. Tres agentes**", "**3. Estudia y evalúa**",
-                      "**Fiel a las fuentes**", "**Calidad revisada**", "**Listo para integrar**"):
-            with self.subTest(texto=texto):
-                self.assertIn(texto, markdown)
+        self.assertEqual(at.button(key="ir_acceso").label, "Iniciar sesión")
+        self.assertIn(landing.CIERRE_TITULO, _html(at))
 
     def test_cuentas_de_demostracion_solo_en_modo_mock(self):
-        markdown = " ".join(textos(abrir_pagina(LANDING, usuario=None).markdown))
-        self.assertIn("`laura` / `demo-estudiante`", markdown)
-        at = abrir_pagina(LANDING, usuario=None, cliente=ClienteReal())
-        self.assertNotIn("`laura`", " ".join(textos(at.markdown)))
-        self.assertIn("Pide tu usuario a quien administra la plataforma.", textos(at.caption))
+        html = _html(abrir_pagina(LANDING, usuario=None))
+        self.assertIn("laura / demo-estudiante", html)
+        html = _html(abrir_pagina(LANDING, usuario=None, cliente=ClienteReal()))
+        self.assertNotIn("laura", html)
+        self.assertIn(landing.SIN_CUENTAS_DEMO, html)
 
 
 if __name__ == "__main__":

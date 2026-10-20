@@ -146,16 +146,11 @@ class Logo(unittest.TestCase):
         self.assertNotIn("page_icon=str(marca.ICONO)", inicio)
         self.assertEqual(inicio.count("page_icon=str(marca.FAVICON)"), 2)
 
-    def test_logo_principal_segun_el_modo(self):
-        # Landing e Iniciar sesión: el texto verde #205E58 no se lee sobre el fondo oscuro
-        self.assertEqual(marca.logo_principal("dark"), marca.LOGO_MENU)
-        self.assertEqual(marca.logo_principal("light"), marca.LOGO)
-        self.assertEqual(marca.logo_principal(None), marca.LOGO)
-        for pagina in ("landing.py", "acceso.py"):
-            with self.subTest(pagina=pagina):
-                codigo = (RAIZ / "app" / "paginas" / pagina).read_text(encoding="utf-8")
-                self.assertIn("marca.logo_principal(st.context.theme.type)", codigo)
-                self.assertNotIn("str(marca.LOGO)", codigo)
+    def test_acceso_usa_el_logo_claro_en_su_panel_oscuro(self):
+        # v2.4: Iniciar sesión lleva el logo en un panel oscuro en los dos modos (como la landing): siempre la versión clara
+        codigo = (RAIZ / "app" / "paginas" / "acceso.py").read_text(encoding="utf-8")
+        self.assertIn("marca.LOGO_MENU", codigo)
+        self.assertNotIn("marca.LOGO.", codigo)
 
     def test_el_menu_usa_siempre_el_logo_del_menu(self):
         inicio = (RAIZ / "app" / "inicio.py").read_text(encoding="utf-8")

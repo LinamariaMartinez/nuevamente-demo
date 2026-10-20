@@ -8,7 +8,6 @@ from streamlit.testing.v1 import AppTest
 
 import menu
 import paginas
-from paginas.landing import TITULAR
 from cliente_api import ClienteMock
 
 INICIO = str(RAIZ / "app" / "inicio.py")
@@ -41,7 +40,7 @@ class MenuPorRol(unittest.TestCase):
 class PuntoDeEntrada(unittest.TestCase):
     def test_sin_sesion_abre_la_landing(self):
         at = abrir()
-        self.assertEqual(at.title[0].value, TITULAR)
+        self.assertEqual(at.button(key="ir_acceso").label, "Iniciar sesión")  # la landing
         self.assertEqual([b.key for b in at.sidebar.button], [])
         self.assertEqual(set(paginas.DESTINOS), {"landing", "acceso"})
 
@@ -49,7 +48,7 @@ class PuntoDeEntrada(unittest.TestCase):
         at = abrir().button(key="ir_acceso").click().run()
         self.assertEqual(at.text_input(key="acceso_usuario").label, "Usuario")
         at = at.button(key="volver_landing").click().run()
-        self.assertEqual(at.title[0].value, TITULAR)
+        self.assertEqual(at.button(key="ir_acceso").label, "Iniciar sesión")  # la landing
 
     def test_sesion_vencida_va_directo_a_iniciar_sesion_con_el_aviso(self):
         at = AppTest.from_file(INICIO, default_timeout=10)
@@ -61,7 +60,7 @@ class PuntoDeEntrada(unittest.TestCase):
     def test_cerrar_sesion_vuelve_a_la_landing(self):
         at = abrir("laura").sidebar.button(key="cerrar_sesion").click().run()
         self.assertNotIn("sesion", at.session_state)
-        self.assertEqual(at.title[0].value, TITULAR)
+        self.assertEqual(at.button(key="ir_acceso").label, "Iniciar sesión")  # la landing
 
     def test_el_logo_del_menu_solo_aparece_dentro_de_la_app(self):
         # st.logo hace aparecer la barra lateral: en la landing y en Iniciar sesión no debe haber menú
@@ -79,7 +78,7 @@ class PuntoDeEntrada(unittest.TestCase):
 
     def test_contrasena_temporal_obliga_a_cambiarla(self):
         at = abrir("mateo")
-        self.assertEqual(at.title[0].value, "Cambia tu contraseña")
+        self.assertEqual(at.text_input(key="cambio_actual").label, "Contraseña actual")
 
     def test_estudiante_entra_a_mis_temas_y_ve_su_nombre(self):
         at = abrir("laura")
