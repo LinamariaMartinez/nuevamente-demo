@@ -1,11 +1,9 @@
 {
-  "id_paquete": "ejemplo-002",
+  "id": "6eb688901e42c729e4a1d4c07f1c55ca",
   "creado_en": "2026-10-14T15:30:00Z",
+  "id_tema": "t-redes",
   "status": "exito",
-  "codigo_error": null,
-  "mensaje_error": null,
   "metadatos": {
-    "tema": "Redes VCN en OCI",
     "tiempo_estimado_estudio_minutos": 8,
     "conceptos_clave": [
       "VCN",
@@ -31,7 +29,7 @@
           "Una red privada y personalizable en OCI",
           "Un tipo de base de datos"
         ],
-        "respuesta_correcta": 1,
+        "respuesta_correcta": "Una red privada y personalizable en OCI",
         "justificacion": "La VCN es una red privada configurada en OCI que da control total sobre el entorno de red."
       },
       {
@@ -41,7 +39,7 @@
           "Que una subred privada salga a internet sin recibir conexiones entrantes",
           "Dividir la VCN en subredes"
         ],
-        "respuesta_correcta": 1,
+        "respuesta_correcta": "Que una subred privada salga a internet sin recibir conexiones entrantes",
         "justificacion": "Sirve para actualizaciones o descargas desde recursos privados, sin exponerlos a conexiones entrantes."
       },
       {
@@ -51,28 +49,33 @@
           "Tener demasiadas subredes",
           "Usar un Internet Gateway"
         ],
-        "respuesta_correcta": 0,
+        "respuesta_correcta": "Una mala configuración de las reglas de ingress",
         "justificacion": "Las reglas de entrada (ingress) mal configuradas dejan pasar tráfico que no debería llegar a los recursos."
       }
     ]
   },
+  "evaluacion_calidad": {
+    "anclaje_fuente_score": 1.0,
+    "calidad_pedagogica_score": 0.9,
+    "cumplimiento_formato_score": 0.95,
+    "claridad_pedagogica": "Alta",
+    "observaciones": "Fiel a la fuente y adecuado al perfil.",
+    "intentos_revision": 1
+  },
   "fuentes": [
     {
-      "documento": "oci_redes_vcn.pdf",
+      "documento_id": "86e838846a8d9e9895fc51f7941647c3",
+      "documento": "Redes VCN en OCI",
       "fragmento": 3,
+      "pagina": null,
       "extracto": "Una VCN es una red privada y personalizable en Oracle Cloud Infrastructure..."
     },
     {
-      "documento": "oci_redes_vcn.pdf",
+      "documento_id": "86e838846a8d9e9895fc51f7941647c3",
+      "documento": "Redes VCN en OCI",
       "fragmento": 7,
+      "pagina": null,
       "extracto": "El NAT Gateway permite que los recursos de una subred privada accedan a internet..."
     }
-  ],
-  "evaluacion_calidad": {
-    "anclaje_fuente_score": 1.0,
-    "claridad_pedagogica": "Alta",
-    "observaciones": "Fiel a la fuente y adecuado al perfil.",
-    "intentos_revision": 1,
-    "requiere_revision_admin": false
-  }
+  ]
 }

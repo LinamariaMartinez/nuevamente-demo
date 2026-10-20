@@ -10,8 +10,8 @@ sys.path.insert(0, str(RAIZ / "src"))
 
 from pydantic import ValidationError
 
-from contrato import (FORMATOS, NICHOS, PERFILES, Configuracion, DatosTema, Paquete, Sesion, SolicitudPaquete,
-                      Tema, Usuario, items_validos)
+from contrato import (FORMATOS, NICHOS, PERFILES, Configuracion, DatosTema, Fuente, MaterialEnRevision, Paquete,
+                      ResumenPaquete, Sesion, SolicitudPaquete, Tema, Usuario, items_validos)
 
 MOCKS = RAIZ / "app" / "mocks"
 
@@ -21,51 +21,48 @@ def cargar(nombre):
 
 
 class MocksCumplenContrato(unittest.TestCase):
-    def test_hay_un_mock_por_formato_y_uno_de_error(self):
+    def test_hay_un_mock_por_formato(self):
         nombres = {ruta.name for ruta in MOCKS.glob("*.json")}
-        self.assertEqual(nombres, {"flashcards.json", "quiz.json", "tutorial.json",
-                                   "resumen.json", "guion.json", "error_sin_contexto.json"})
+        self.assertEqual(nombres, {"flashcards.json", "quiz.json", "tutorial.json", "resumen.json", "guion.json"})
 
-    def test_cada_mock_es_un_paquete_valido(self):
+    def test_cada_mock_es_un_paquete_valido_con_items_validos(self):
         for ruta in MOCKS.glob("*.json"):
             with self.subTest(mock=ruta.name):
-                Paquete.model_validate(cargar(ruta.name))
-
-    def test_items_de_cada_mock_de_exito_cumplen_su_formato(self):
-        for ruta in MOCKS.glob("*.json"):
-            paquete = Paquete.model_validate(cargar(ruta.name))
-            if paquete.status == "exito":
-                with self.subTest(mock=ruta.name):
-                    self.assertGreater(len(items_validos(paquete)), 0)
+                paquete = Paquete.model_validate(cargar(ruta.name))
+                self.assertGreater(len(items_validos(paquete)), 0)
 
     def test_valores_de_los_mocks_estan_en_las_listas_fijas(self):
         for ruta in MOCKS.glob("*.json"):
             paquete = Paquete.model_validate(cargar(ruta.name))
-            if paquete.status == "exito":
-                with self.subTest(mock=ruta.name):
-                    self.assertIn(paquete.metadatos.perfil_aplicado, PERFILES)
-                    self.assertIn(paquete.metadatos.formato_generado, FORMATOS)
-                    self.assertIn(paquete.metadatos.nicho_sector, NICHOS)
+            with self.subTest(mock=ruta.name):
+                self.assertIn(paquete.metadatos.perfil_aplicado, PERFILES)
+                self.assertIn(paquete.metadatos.formato_generado, FORMATOS)
+                self.assertIn(paquete.metadatos.nicho_sector, NICHOS)
+
+    def test_el_guion_de_ejemplo_queda_en_revision(self):
+        # Es el material que el admin ve en "Material en revisión" en el modo de demostración
+        self.assertEqual(Paquete.model_validate(cargar("guion.json")).status, "requiere_revision")
 
 
 class ReglasDelPaquete(unittest.TestCase):
-    def test_exito_sin_contenido_no_es_valido(self):
+    def test_paquete_sin_contenido_no_es_valido(self):
         datos = cargar("quiz.json")
         datos["contenido_adaptado"] = None
         with self.assertRaises(ValidationError):
             Paquete.model_validate(datos)
 
-    def test_error_sin_codigo_no_es_valido(self):
-        datos = cargar("error_sin_contexto.json")
-        datos["codigo_error"] = None
+    def test_paquete_status_error_ya_no_existe(self):
+        # En el backend integrado los errores llegan como respuesta HTTP, no como paquete
+        datos = cargar("quiz.json")
+        datos["status"] = "error"
         with self.assertRaises(ValidationError):
             Paquete.model_validate(datos)
 
-    def test_codigo_error_desconocido_no_es_valido(self):
-        datos = cargar("error_sin_contexto.json")
-        datos["codigo_error"] = "otro_codigo"
-        with self.assertRaises(ValidationError):
-            Paquete.model_validate(datos)
+    def test_paquete_ignora_campos_extra(self):
+        datos = cargar("quiz.json")
+        datos["aprobado_en"] = None
+        datos["almacenamiento_oci"] = {"bucket": "b", "objeto_id": "o", "status_upload": "completado"}
+        self.assertEqual(Paquete.model_validate(datos).id, datos["id"])
 
     def test_puntaje_fuera_de_0_a_1_no_es_valido(self):
         datos = cargar("quiz.json")
@@ -73,18 +70,35 @@ class ReglasDelPaquete(unittest.TestCase):
         with self.assertRaises(ValidationError):
             Paquete.model_validate(datos)
 
-    def test_quiz_con_respuesta_fuera_de_rango_falla_solo_en_los_items(self):
+    def test_quiz_respuesta_es_texto_de_una_opcion(self):
         datos = cargar("quiz.json")
-        datos["contenido_adaptado"]["items"][0]["respuesta_correcta"] = 9
+        item = datos["contenido_adaptado"]["items"][0]
+        item.update(opciones=["A", "B"], respuesta_correcta="B")
+        self.assertEqual(items_validos(Paquete.model_validate(datos))[0].respuesta_correcta, "B")
+        item["respuesta_correcta"] = "C"
         paquete = Paquete.model_validate(datos)  # el paquete sigue siendo válido
         with self.assertRaises(ValidationError):
             items_validos(paquete)
 
     def test_quiz_con_opciones_repetidas_falla_en_los_items(self):
         datos = cargar("quiz.json")
-        datos["contenido_adaptado"]["items"][0]["opciones"] = ["A", "A", "B"]
+        datos["contenido_adaptado"]["items"][0].update(opciones=["A", "A", "B"], respuesta_correcta="A")
         with self.assertRaises(ValidationError):
             items_validos(Paquete.model_validate(datos))
+
+    def test_fuente_con_pagina_opcional(self):
+        base = {"documento_id": "d" * 32, "documento": "redes.pdf", "fragmento": 1, "extracto": "Una VCN…"}
+        self.assertIsNone(Fuente(**base).pagina)
+        self.assertEqual(Fuente(**base, pagina=5).pagina, 5)
+
+    def test_material_en_revision_lleva_id_y_fecha(self):
+        material = MaterialEnRevision(id="a" * 32, creado_en="2026-10-19T15:00:00Z")
+        self.assertEqual(material.id, "a" * 32)
+
+    def test_resumen_del_paquete_usa_id(self):
+        resumen = ResumenPaquete(id="a" * 32, creado_en="2026-10-19T15:00:00Z", tema="Redes",
+                                 formato="Guion", anclaje_fuente_score=0.6)
+        self.assertEqual(resumen.id, "a" * 32)
 
 
 class ListasFijas(unittest.TestCase):

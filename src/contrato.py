@@ -17,59 +17,63 @@ NICHOS = ("Fintech", "Salud", "E-commerce", "General")
 LARGO_MAXIMO_TEMA = 300
 
 
-# --- Items: su forma cambia según el formato ---
+# --- Items: su forma cambia según el formato (la de F06, que produce el Redactor) ---
 class ItemFlashcard(BaseModel):
     frente: str
     dorso: str
-    pista_didactica: Optional[str] = None
+    pista_didactica: str
 
 
 class ItemQuiz(BaseModel):
     pregunta: str
     opciones: list[str] = Field(min_length=2)
-    respuesta_correcta: int = Field(ge=0)  # posición dentro de opciones, empezando en 0
+    respuesta_correcta: str  # el texto exacto de una de las opciones
     justificacion: str
 
     @model_validator(mode="after")
     def opciones_coherentes(self):
         if len(set(self.opciones)) != len(self.opciones):
             raise ValueError("las opciones no pueden repetirse")
-        if self.respuesta_correcta >= len(self.opciones):
-            raise ValueError("respuesta_correcta apunta a una opción que no existe")
+        if self.respuesta_correcta not in self.opciones:
+            raise ValueError("respuesta_correcta no es ninguna de las opciones")
         return self
 
 
 class ItemPaso(BaseModel):
-    paso: int = Field(ge=1)
+    # El número del paso es su orden en la lista, desde 1
     titulo: str
-    explicacion: str
-    ejemplo: Optional[str] = None
+    instrucciones: str
 
 
-class ItemSeccion(BaseModel):
+class ItemResumen(BaseModel):
+    subtitulo: str
+    texto: str
+
+
+class ItemEscena(BaseModel):
     titulo: str
-    contenido: str
+    narracion: str
 
 
 MODELO_ITEM = {
     "Flashcards": ItemFlashcard,
     "Quiz": ItemQuiz,
     "Tutorial": ItemPaso,
-    "Resumen": ItemSeccion,
-    "Guion": ItemSeccion,
+    "Resumen": ItemResumen,
+    "Guion": ItemEscena,
 }
 
 
 # --- Partes del paquete ---
+# Los modelos de respuesta ignoran los campos que la interfaz no usa (aprobado_en, almacenamiento_oci…)
 class Metadatos(BaseModel):
-    tema: str
     tiempo_estimado_estudio_minutos: int = Field(ge=0)
     conceptos_clave: list[str] = []
     prerrequisitos: list[str] = []
     perfil_aplicado: str
     formato_generado: str
     nicho_sector: str
-    nivel_detalle: Optional[str] = None
+    nivel_detalle: str
 
 
 class ContenidoAdaptado(BaseModel):
@@ -81,40 +85,41 @@ class ContenidoAdaptado(BaseModel):
 
 
 class Fuente(BaseModel):
-    documento: str
-    fragmento: int
+    documento_id: str
+    documento: str  # título del documento de origen
+    fragmento: int = Field(ge=1)
+    pagina: Optional[int] = None
     extracto: str
 
 
 class EvaluacionCalidad(BaseModel):
     anclaje_fuente_score: float = Field(ge=0, le=1)
+    calidad_pedagogica_score: float = Field(ge=0, le=1)
+    cumplimiento_formato_score: float = Field(ge=0, le=1)
     claridad_pedagogica: str
     observaciones: str = ""
     intentos_revision: int = Field(ge=0)
-    requiere_revision_admin: bool = False
 
 
 class Paquete(BaseModel):
-    id_paquete: str
-    creado_en: datetime
-    status: Literal["exito", "error"]
-    codigo_error: Optional[Literal["sin_contexto", "contenido_vacio", "error_interno"]] = None
-    mensaje_error: Optional[str] = None
-    metadatos: Optional[Metadatos] = None
-    contenido_adaptado: Optional[ContenidoAdaptado] = None
-    fuentes: list[Fuente] = []
-    evaluacion_calidad: Optional[EvaluacionCalidad] = None
+    """El material generado. Si falla la generación, la API responde un error HTTP, no un paquete."""
 
-    @model_validator(mode="after")
-    def partes_segun_status(self):
-        if self.status == "exito":
-            faltan = [nombre for nombre in ("metadatos", "contenido_adaptado", "evaluacion_calidad")
-                      if getattr(self, nombre) is None]
-            if faltan:
-                raise ValueError(f"un paquete con status 'exito' necesita: {', '.join(faltan)}")
-        elif self.codigo_error is None:
-            raise ValueError("un paquete con status 'error' necesita codigo_error")
-        return self
+    id: str
+    creado_en: datetime
+    id_tema: Optional[str] = None
+    # requiere_revision: no pasó la revisión de calidad; el estudiante no lo ve hasta que el admin lo apruebe
+    status: Literal["exito", "requiere_revision"]
+    metadatos: Metadatos
+    contenido_adaptado: ContenidoAdaptado
+    evaluacion_calidad: EvaluacionCalidad
+    fuentes: list[Fuente] = []
+
+
+class MaterialEnRevision(BaseModel):
+    """Lo que recibe el estudiante (202) cuando su material queda pendiente de revisión."""
+
+    id: str
+    creado_en: datetime
 
 
 def items_validos(paquete):
@@ -164,7 +169,7 @@ class Configuracion(BaseModel):
 
 
 class ResumenPaquete(BaseModel):
-    id_paquete: str
+    id: str
     creado_en: datetime
     tema: str
     formato: str

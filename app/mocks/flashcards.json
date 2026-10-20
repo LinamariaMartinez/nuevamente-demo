@@ -1,11 +1,9 @@
 {
-  "id_paquete": "ejemplo-001",
+  "id": "5b3d5abbf1fada307d2cd9cb31fdf729",
   "creado_en": "2026-10-14T15:30:00Z",
+  "id_tema": "t-redes",
   "status": "exito",
-  "codigo_error": null,
-  "mensaje_error": null,
   "metadatos": {
-    "tema": "Redes VCN en OCI",
     "tiempo_estimado_estudio_minutos": 5,
     "conceptos_clave": [
       "VCN",
@@ -51,23 +49,28 @@
       }
     ]
   },
+  "evaluacion_calidad": {
+    "anclaje_fuente_score": 1.0,
+    "calidad_pedagogica_score": 0.9,
+    "cumplimiento_formato_score": 0.95,
+    "claridad_pedagogica": "Alta",
+    "observaciones": "El borrador es completamente fiel al contexto técnico original, sin alucinaciones ni omisiones críticas. La adaptación en formato de flashcards es excelente para el perfil de principiante, manteniendo los conceptos clave, la advertencia sobre las reglas de ingress y un nivel didáctico muy adecuado.",
+    "intentos_revision": 1
+  },
   "fuentes": [
     {
-      "documento": "oci_redes_vcn.pdf",
+      "documento_id": "86e838846a8d9e9895fc51f7941647c3",
+      "documento": "Redes VCN en OCI",
       "fragmento": 3,
+      "pagina": null,
       "extracto": "Una VCN es una red privada y personalizable en Oracle Cloud Infrastructure..."
     },
     {
-      "documento": "oci_redes_vcn.pdf",
+      "documento_id": "86e838846a8d9e9895fc51f7941647c3",
+      "documento": "Redes VCN en OCI",
       "fragmento": 7,
+      "pagina": null,
       "extracto": "El NAT Gateway permite que los recursos de una subred privada accedan a internet..."
     }
-  ],
-  "evaluacion_calidad": {
-    "anclaje_fuente_score": 1.0,
-    "claridad_pedagogica": "Alta",
-    "observaciones": "El borrador es completamente fiel al contexto técnico original, sin alucinaciones ni omisiones críticas. La adaptación en formato de flashcards es excelente para el perfil de principiante, manteniendo los conceptos clave, la advertencia sobre las reglas de ingress y un nivel didáctico muy adecuado.",
-    "intentos_revision": 1,
-    "requiere_revision_admin": false
-  }
+  ]
 }
