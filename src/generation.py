@@ -8,6 +8,13 @@ from langchain_core.documents import Document
 def generate_content(
     request: GenerationRequest, *, source_docs: list[Document] | None = None
 ) -> EducationalResponse:
+    return generate_content_with_sources(request, source_docs=source_docs)[0]
+
+
+def generate_content_with_sources(
+    request: GenerationRequest, *, source_docs: list[Document] | None = None
+) -> tuple[EducationalResponse, list[Document]]:
+    """Igual que ``generate_content``, pero devuelve además los fragmentos recuperados."""
     # La importación diferida permite consultar los esquemas sin configurar Gemini.
     from graph import build_graph
     from the_keys import GEMINI_API_KEY
@@ -29,4 +36,4 @@ def generate_content(
     state = build_graph().invoke(inputs)
     if state.get("review_status") in {"no_source_context", "empty_draft"}:
         raise NoContextError("La fuente o el borrador no contienen texto utilizable.")
-    return EducationalResponse.model_validate(state["final_response"])
+    return EducationalResponse.model_validate(state["final_response"]), list(state.get("retrieved_docs") or [])

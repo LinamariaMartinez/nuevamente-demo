@@ -23,12 +23,17 @@ class StrictModel(BaseModel):
     )
 
 
+DEFAULT_NICHE = "General"
+DEFAULT_DETAIL = "Didáctico"
+NICHE_CATALOG = ("Fintech", "Salud", "E-commerce", "General")
+
+
 class GenerationRequest(StrictModel):
     tema: Text = Field(max_length=2000)
     perfil_destinatario: UserProfile
     formato_salida: OutputFormat
-    nicho_sector: Text = Field(default="General", max_length=200)
-    nivel_detalle: Text = Field(default="Didáctico", max_length=200)
+    nicho_sector: Text = Field(default=DEFAULT_NICHE, max_length=200)
+    nivel_detalle: Text = Field(default=DEFAULT_DETAIL, max_length=200)
 
 
 class Flashcard(StrictModel):
