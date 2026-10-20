@@ -5,13 +5,14 @@ from pydantic import ValidationError
 
 import sesion
 from cliente_api import ErrorCliente
-from contrato import LARGO_MAXIMO_DESCRIPCION, LARGO_MAXIMO_NOMBRE_TEMA, DatosTema
+from contrato import LARGO_MAXIMO_DESCRIPCION, LARGO_MAXIMO_NOMBRE_TEMA, NICHOS, DatosTema
 from paginas import contraer_menu, ir_a, mostrar_error, mostrar_modo_demo
 
 DATOS_INCOMPLETOS = "Escribe un nombre y elige al menos un documento."
 SIN_DOCUMENTOS = "Todavía no hay documentos. Sube al menos uno para crear un tema."
 VACIO = "Todavía no hay temas. Crea el primero con el formulario de la izquierda."
-CLAVES_NUEVO = ("nuevo_nombre", "nuevo_descripcion", "nuevo_documentos")
+AYUDA_SECTOR = "Adapta los ejemplos y el vocabulario del material; no cambia lo que dicen los documentos."
+CLAVES_NUEVO = ("nuevo_nombre", "nuevo_descripcion", "nuevo_sector", "nuevo_documentos")
 
 
 def _formulario(clave, titulos, tema=None):
@@ -26,6 +27,9 @@ def _formulario(clave, titulos, tema=None):
                                key=f"{clave}_nombre")
         descripcion = st.text_area("Descripción", value=tema.descripcion if tema else "",
                                    max_chars=LARGO_MAXIMO_DESCRIPCION, key=f"{clave}_descripcion")
+        # Un sector que no está en la lista (por ejemplo, creado por /docs) abre en General
+        sector = tema.nicho_sector if tema and tema.nicho_sector in NICHOS else "General"
+        st.selectbox("Sector", NICHOS, index=NICHOS.index(sector), key=f"{clave}_sector", help=AYUDA_SECTOR)
         elegidos = [d.id for d in (tema.documentos if tema else []) if d.id in titulos]
         # Se muestra el título y se guarda el id
         documentos = st.multiselect("Documentos", list(titulos), default=elegidos, format_func=titulos.get,
@@ -35,7 +39,8 @@ def _formulario(clave, titulos, tema=None):
     if not enviado:
         return None
     try:
-        return DatosTema(nombre=nombre, descripcion=descripcion, documentos=documentos)
+        return DatosTema(nombre=nombre, descripcion=descripcion, nicho_sector=st.session_state[f"{clave}_sector"],
+                         documentos=documentos)
     except ValidationError:
         st.warning(DATOS_INCOMPLETOS)
         return None
@@ -106,7 +111,7 @@ def _tarjeta(cliente, tema, titulos):
         st.markdown(f"**{tema.nombre}**")
         if tema.descripcion:
             st.write(tema.descripcion)
-        st.caption("Documentos: " + ", ".join(d.titulo for d in tema.documentos))
+        st.caption(f"Sector: {tema.nicho_sector} · Documentos: " + ", ".join(d.titulo for d in tema.documentos))
         if st.session_state.get("retirando_tema") == tema.id_tema:
             _confirmar_retiro(cliente, tema)
             return

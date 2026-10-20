@@ -24,7 +24,7 @@ class PaginaTemas(unittest.TestCase):
         at = abrir_pagina(TEMAS, usuario="admin")
         self.assertEqual(at.title[0].value, "Temas")
         self.assertIn("**Redes en OCI**", textos(at.markdown))
-        self.assertIn("Documentos: Redes VCN en OCI", textos(at.caption))
+        self.assertIn("Sector: General · Documentos: Redes VCN en OCI", textos(at.caption))
 
     def test_el_formulario_muestra_los_titulos_de_los_documentos(self):
         at = abrir_pagina(TEMAS, usuario="admin")
@@ -36,6 +36,24 @@ class PaginaTemas(unittest.TestCase):
         self.assertIn("Tema creado: Bases de datos", textos(at.success))
         self.assertIn("**Bases de datos**", textos(at.markdown))
         self.assertEqual(len(cliente.listar_temas()), 4)
+
+    def test_crear_tema_con_sector(self):
+        cliente = ClienteMock()
+        at = abrir_pagina(TEMAS, usuario="admin", cliente=cliente)
+        at.selectbox(key="nuevo_sector").set_value("Salud")
+        at = crear(at, "Salud ocupacional", ["d-nube"])
+        self.assertEqual([t.nicho_sector for t in cliente.listar_temas() if t.nombre == "Salud ocupacional"], ["Salud"])
+        self.assertIn("Sector: Salud · Documentos: Políticas de seguridad en la nube", textos(at.caption))
+
+    def test_editar_tema_con_sector_desconocido_abre_en_general(self):
+        class ClienteSectorRaro(ClienteMock):
+            def listar_temas(self):
+                return [t.model_copy(update={"nicho_sector": "Minería"}) for t in super().listar_temas()]
+
+        at = abrir_pagina(TEMAS, usuario="admin", cliente=ClienteSectorRaro())
+        at = at.button(key="editar_t-redes").click().run()
+        self.assertEqual(len(at.exception), 0)
+        self.assertEqual(at.selectbox(key="editar_t-redes_sector").value, "General")
 
     def test_crear_tema_arma_el_id_desde_el_nombre(self):
         cliente = ClienteMock()

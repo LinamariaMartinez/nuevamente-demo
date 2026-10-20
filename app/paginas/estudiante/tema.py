@@ -51,14 +51,6 @@ def _generar(cliente, tema):
         st.session_state["error_generacion"] = error
 
 
-def _mostrar_sector(cliente):
-    """El sector lo define el admin; aquí solo se informa. Si la API no responde, no se muestra."""
-    try:
-        st.caption(f"Contexto de tu institución: {cliente.obtener_configuracion().sector}")
-    except ErrorCliente:
-        pass
-
-
 def _boton_reintentar(etiqueta="Reintentar"):
     if st.button(etiqueta, key="reintentar"):
         st.session_state["reintentar_pedido"] = True
@@ -119,8 +111,7 @@ def mostrar():
         st.selectbox("Formato", FORMATOS, key="formato")
         st.text_input("¿Algo en particular? (opcional)", key="pedido", max_chars=LARGO_MAXIMO_TEMA,
                       placeholder="Ej.: reglas de seguridad")
-        if disponible:  # con la API caída, esta petición también fallaría y solo haría esperar
-            _mostrar_sector(cliente)
+        st.caption(f"Sector: {tema.nicho_sector}")  # lo elige el admin en el tema
         _quitar_material_si_cambio(tema.id_tema)
         reintentar = st.session_state.pop("reintentar_pedido", False)
         if st.button("Generar material", key="generar", type="primary") or reintentar:

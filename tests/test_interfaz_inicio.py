@@ -30,11 +30,12 @@ class MenuPorRol(unittest.TestCase):
     def test_admin_agrupado_y_solo_lo_que_esta_listo(self):
         self.assertEqual([(e.seccion, e.titulo) for e in menu.entradas("admin")],
                          [("Contenido", "Documentos"), ("Contenido", "Temas"),
-                          ("Contenido", "Material en revisión"), ("Ajustes", "Configuración")])
+                          ("Contenido", "Material en revisión")])
 
     def test_lo_que_falta_esta_declarado_pero_oculto(self):
         ocultas = {e.titulo for rol in menu.MENU for e in menu.MENU[rol] if not e.lista}
-        self.assertEqual(ocultas, {"Evaluaciones", "Exámenes", "Usuarios", "Progreso"})
+        # Configuración sale: el sector se elige en cada tema (decisión del 19-oct)
+        self.assertEqual(ocultas, {"Evaluaciones", "Exámenes", "Usuarios", "Progreso", "Configuración"})
 
 
 class PuntoDeEntrada(unittest.TestCase):
@@ -91,7 +92,7 @@ class PuntoDeEntrada(unittest.TestCase):
         at = abrir("admin")
         self.assertEqual(at.title[0].value, "Documentos")
         self.assertIn("Administración", textos(at.sidebar.caption))
-        self.assertEqual(set(paginas.DESTINOS), {"documentos", "temas", "revision", "configuracion"})
+        self.assertEqual(set(paginas.DESTINOS), {"documentos", "temas", "revision"})
 
     def test_el_menu_se_contrae_con_el_material_y_vuelve_en_otra_pagina(self):
         # AppTest no recuerda st.switch_page entre ejecuciones con páginas-función: el cambio de página se

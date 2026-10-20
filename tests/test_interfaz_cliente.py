@@ -189,10 +189,7 @@ class ModoMock(unittest.TestCase):
 
     # --- Generar material ---
     def test_genera_un_paquete_por_formato_con_lo_que_pidio_el_estudiante(self):
-        cliente = con_sesion("admin")
-        cliente.guardar_configuracion("Fintech")
-        cliente.cerrar_sesion()
-        cliente.iniciar_sesion("laura", "demo-estudiante")
+        cliente = con_sesion("laura")
         for formato in ("Tutorial", "Flashcards", "Quiz", "Resumen"):
             with self.subTest(formato=formato):
                 paquete = cliente.generar_paquete(solicitud(formato_salida=formato))
@@ -200,7 +197,19 @@ class ModoMock(unittest.TestCase):
                 self.assertEqual(paquete.id_tema, "t-redes")
                 self.assertEqual(paquete.status, "exito")
                 self.assertEqual(paquete.metadatos.perfil_aplicado, PERFILES[1])
-                self.assertEqual(paquete.metadatos.nicho_sector, "Fintech")
+                self.assertEqual(paquete.metadatos.nicho_sector, "General")  # el sector de t-redes
+
+    def test_genera_con_el_sector_del_tema(self):
+        paquete = con_sesion("laura").generar_paquete(solicitud(id_tema="t-seguridad"))
+        self.assertEqual(paquete.metadatos.nicho_sector, "Salud")
+
+    def test_el_sector_se_guarda_en_el_tema(self):
+        cliente = con_sesion("admin")
+        tema = cliente.crear_tema(DatosTema(nombre="Pagos", documentos=["d-datos"], nicho_sector="Fintech"))
+        self.assertEqual(tema.nicho_sector, "Fintech")
+        editado = cliente.editar_tema(tema.id_tema, DatosTema(nombre="Pagos", documentos=["d-datos"],
+                                                              nicho_sector="E-commerce"))
+        self.assertEqual(editado.nicho_sector, "E-commerce")
 
     def test_tema_no_asignado_no_genera(self):
         with self.assertRaises(ErrorCliente) as ctx:
@@ -425,7 +434,8 @@ class ModoHttp(unittest.TestCase):
         cliente, sesion = self.con_token(respuesta(status=201, cuerpo=creado), respuesta(cuerpo=[DOCUMENTO_JSON]))
         tema = cliente.crear_tema(DatosTema(nombre="Redes en OCI", documentos=[ID_A]))
         self.assertEqual(sesion.llamadas[1][2]["json"],
-                         {"id_tema": "redes-en-oci", "nombre": "Redes en OCI", "descripcion": "", "documentos": [ID_A]})
+                         {"id_tema": "redes-en-oci", "nombre": "Redes en OCI", "descripcion": "", "documentos": [ID_A],
+                          "nicho_sector": "General"})
         self.assertEqual(self.rutas(sesion), [("POST", "/api/v1/temas"),
                                               ("GET", "/api/v1/temas/redes-en-oci/documentos")])
         self.assertEqual((tema.id_tema, [d.titulo for d in tema.documentos]), ("redes-en-oci", ["Redes VCN"]))
@@ -445,7 +455,7 @@ class ModoHttp(unittest.TestCase):
             ("GET", "/api/v1/temas/t-1/documentos"), ("PATCH", "/api/v1/temas/t-1"),
             ("PUT", f"/api/v1/temas/t-1/documentos/{ID_B}"), ("DELETE", f"/api/v1/temas/t-1/documentos/{ID_A}"),
             ("GET", "/api/v1/temas/t-1/documentos")])
-        self.assertEqual(sesion.llamadas[2][2]["json"], {"nombre": "Redes 2", "descripcion": ""})
+        self.assertEqual(sesion.llamadas[2][2]["json"], {"nombre": "Redes 2", "descripcion": "", "nicho_sector": "General"})
         self.assertEqual((tema.nombre, [d.id for d in tema.documentos]), ("Redes 2", [ID_B]))
 
     def test_editar_tema_sin_cambiar_documentos_no_los_toca(self):

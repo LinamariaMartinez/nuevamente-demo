@@ -216,6 +216,8 @@ class Tema(BaseModel):
     id_tema: str
     nombre: str
     descripcion: str = ""
+    # El sector con el que se genera el material de este tema (texto libre: lo que guarde Backend)
+    nicho_sector: str = "General"
     documentos: list["DocumentoTema"] = []
 
 
@@ -231,7 +233,15 @@ class DatosTema(BaseModel):
 
     nombre: str
     descripcion: str = ""
+    nicho_sector: str = "General"
     documentos: list[str] = Field(min_length=1)  # id de cada documento
+
+    @field_validator("nicho_sector")
+    @classmethod
+    def sector_permitido(cls, valor):
+        if valor not in NICHOS:
+            raise ValueError(f"sector no permitido: {valor!r}")
+        return valor
 
     @field_validator("nombre")
     @classmethod

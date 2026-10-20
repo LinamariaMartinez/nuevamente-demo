@@ -219,6 +219,16 @@ class ReglasDeCuentasYTemas(unittest.TestCase):
         datos = DatosTema(nombre="  Redes  ", descripcion=" VCN ", documentos=["a.pdf", "a.pdf", "b.md"])
         self.assertEqual((datos.nombre, datos.descripcion, datos.documentos), ("Redes", "VCN", ["a.pdf", "b.md"]))
 
+    def test_datos_tema_sector_valido_y_por_defecto(self):
+        self.assertEqual(DatosTema(nombre="Redes", documentos=["d-1"]).nicho_sector, "General")
+        self.assertEqual(DatosTema(nombre="Redes", documentos=["d-1"], nicho_sector="Salud").nicho_sector, "Salud")
+        with self.assertRaises(ValidationError):
+            DatosTema(nombre="Redes", documentos=["d-1"], nicho_sector="Minería")
+
+    def test_tema_acepta_cualquier_sector_que_mande_el_backend(self):
+        self.assertEqual(Tema(id_tema="a", nombre="A", nicho_sector="Minería").nicho_sector, "Minería")
+        self.assertEqual(Tema(id_tema="a", nombre="A").nicho_sector, "General")
+
     def test_datos_tema_sin_nombre_o_sin_documentos_fallan(self):
         for cambios in ({"nombre": "   "}, {"documentos": []}, {"nombre": "x" * 101}, {"descripcion": "x" * 501}):
             with self.subTest(cambios=cambios):

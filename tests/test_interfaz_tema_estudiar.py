@@ -55,6 +55,9 @@ class PaginaDelTema(unittest.TestCase):
         self.assertIn("Documentos de este tema: Redes VCN en OCI", textos(at.caption))
         self.assertIn("Modo demostración: datos de ejemplo", textos(at.info))
 
+    def test_muestra_el_sector_del_tema(self):
+        self.assertIn("Sector: Salud", textos(abrir(tema="t-seguridad").caption))
+
     def test_solo_para_estudiantes(self):
         at = abrir(usuario="admin")
         self.assertIn("No tienes permiso para ver esta página.", textos(at.error))

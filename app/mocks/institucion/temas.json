@@ -1,5 +1,5 @@
 [
-  {"id_tema": "t-redes", "nombre": "Redes en OCI", "descripcion": "Redes virtuales (VCN), subredes y reglas de seguridad en Oracle Cloud.", "documentos": [{"id": "d-redes", "titulo": "Redes VCN en OCI"}]},
-  {"id_tema": "t-seguridad", "nombre": "Seguridad en la nube", "descripcion": "Buenas prácticas de identidad, acceso y protección de datos.", "documentos": [{"id": "d-nube", "titulo": "Políticas de seguridad en la nube"}]},
-  {"id_tema": "t-datos", "nombre": "Herramientas de datos", "descripcion": "Herramientas para consultar y preparar datos.", "documentos": [{"id": "d-datos", "titulo": "Guía de herramientas de datos"}]}
+  {"id_tema": "t-redes", "nombre": "Redes en OCI", "descripcion": "Redes virtuales (VCN), subredes y reglas de seguridad en Oracle Cloud.", "nicho_sector": "General", "documentos": [{"id": "d-redes", "titulo": "Redes VCN en OCI"}]},
+  {"id_tema": "t-seguridad", "nombre": "Seguridad en la nube", "descripcion": "Buenas prácticas de identidad, acceso y protección de datos.", "nicho_sector": "Salud", "documentos": [{"id": "d-nube", "titulo": "Políticas de seguridad en la nube"}]},
+  {"id_tema": "t-datos", "nombre": "Herramientas de datos", "descripcion": "Herramientas para consultar y preparar datos.", "nicho_sector": "Fintech", "documentos": [{"id": "d-datos", "titulo": "Guía de herramientas de datos"}]}
 ]

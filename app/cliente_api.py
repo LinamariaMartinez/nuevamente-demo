@@ -129,7 +129,7 @@ class ClienteMock:
 
     def _tema(self, id_tema, datos):
         titulos = {d.id: d.titulo for d in self._documentos}
-        return Tema(id_tema=id_tema, nombre=datos.nombre, descripcion=datos.descripcion,
+        return Tema(id_tema=id_tema, nombre=datos.nombre, descripcion=datos.descripcion, nicho_sector=datos.nicho_sector,
                     documentos=[DocumentoTema(id=d, titulo=titulos[d]) for d in datos.documentos])
 
     # --- Sesión ---
@@ -205,7 +205,7 @@ class ClienteMock:
         paquete = self._leer(MOCK_POR_FORMATO[solicitud.formato_salida])
         metadatos = paquete.metadatos.model_copy(update={
             "perfil_aplicado": solicitud.perfil_destinatario,
-            "nicho_sector": self._configuracion.sector,
+            "nicho_sector": tema.nicho_sector,  # como Backend: el sector sale del tema
         })
         # Id nuevo en cada generación, como la API: si se repite, las vistas
         # interactivas heredan el estado del paquete anterior (quiz ya calificado, etc.)
@@ -465,7 +465,8 @@ class ClienteHttp:
     def editar_tema(self, id_tema, datos):
         ruta = f"/api/v1/temas/{_en_ruta(id_tema)}"
         antes = [d.id for d in self._documentos_del_tema(id_tema)]
-        editado = self._pedir("PATCH", ruta, json={"nombre": datos.nombre, "descripcion": datos.descripcion})
+        editado = self._pedir("PATCH", ruta, json={"nombre": datos.nombre, "descripcion": datos.descripcion,
+                                                   "nicho_sector": datos.nicho_sector})
         for id_documento in (d for d in datos.documentos if d not in antes):
             self._pedir("PUT", f"{ruta}/documentos/{_en_ruta(id_documento)}")
         for id_documento in (d for d in antes if d not in datos.documentos):

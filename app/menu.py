@@ -24,7 +24,8 @@ MENU = {
         Entrada("revision", "Material en revisión", ":material/rate_review:", "Contenido"),
         Entrada("usuarios", "Usuarios", ":material/group:", "Personas", lista=False),  # pieza 3
         Entrada("progreso", "Progreso", ":material/monitoring:", "Personas", lista=False),  # pieza 3
-        Entrada("configuracion", "Configuración", ":material/settings:", "Ajustes"),
+        # Sin uso por ahora: el sector se elige en cada tema (decisión del 19-oct)
+        Entrada("configuracion", "Configuración", ":material/settings:", "Ajustes", lista=False),
     ),
 }
 
