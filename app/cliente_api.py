@@ -8,6 +8,7 @@ Las páginas solo usan obtener_cliente() y los métodos de los clientes; nunca s
 import hmac
 import json
 import os
+from datetime import datetime, timezone
 from pathlib import Path
 from urllib.parse import quote
 from uuid import uuid4
@@ -16,7 +17,8 @@ import requests
 from dotenv import load_dotenv
 from pydantic import ValidationError
 
-from contrato import Configuracion, Documento, Paquete, ResumenPaquete, Sesion, Tema, Usuario
+from contrato import (Configuracion, Documento, DocumentoTema, Paquete, ResumenPaquete, Sesion, Tema, Usuario,
+                      id_tema_desde_nombre)
 
 CARPETA_MOCKS = Path(__file__).resolve().parent / "mocks"
 CARPETA_INSTITUCION = CARPETA_MOCKS / "institucion"  # cuentas y temas de demostración
@@ -73,11 +75,14 @@ class ClienteMock:
                          for c in cuentas}
         self._temas = [Tema.model_validate(t)
                        for t in json.loads((institucion / "temas.json").read_text(encoding="utf-8"))]
+        creado = datetime(2026, 10, 14, 15, 0, tzinfo=timezone.utc)
         self._documentos = [
-            Documento(nombre="oci_redes_vcn.pdf", estado="indexado", chunks=24),
-            Documento(nombre="politicas_nube.md", estado="indexado", chunks=12),
-            Documento(nombre="guia_datos.txt", estado="indexado", chunks=8),
-            Documento(nombre="manual_escaneado.pdf", estado="error", error="El PDF no tiene texto extraíble."),
+            Documento(id="d-redes", titulo="Redes VCN en OCI", nombre_archivo="oci_redes_vcn.pdf", tipo="pdf",
+                      fragmentos=24, creado_en=creado),
+            Documento(id="d-nube", titulo="Políticas de seguridad en la nube", nombre_archivo="politicas_nube.md",
+                      tipo="md", fragmentos=12, creado_en=creado),
+            Documento(id="d-datos", titulo="Guía de herramientas de datos", nombre_archivo="guia_datos.txt",
+                      tipo="txt", fragmentos=8, creado_en=creado),
         ]
         self._configuracion = Configuracion()
         self._guiones_generados = 0
@@ -107,10 +112,15 @@ class ClienteMock:
         repetido = any(t.nombre.lower() == datos.nombre.lower() and t.id_tema != id_tema for t in self._temas)
         if repetido:
             raise ErrorCliente("rechazado", mensaje="Ya existe un tema con ese nombre.")
-        indexados = {d.nombre for d in self._documentos if d.estado == "indexado"}
-        faltan = [nombre for nombre in datos.documentos if nombre not in indexados]
+        subidos = {d.id for d in self._documentos}
+        faltan = [id_documento for id_documento in datos.documentos if id_documento not in subidos]
         if faltan:
-            raise ErrorCliente("rechazado", ", ".join(faltan), mensaje="Elige solo documentos ya indexados.")
+            raise ErrorCliente("rechazado", ", ".join(faltan), mensaje="Elige solo documentos ya subidos.")
+
+    def _tema(self, id_tema, datos):
+        titulos = {d.id: d.titulo for d in self._documentos}
+        return Tema(id_tema=id_tema, nombre=datos.nombre, descripcion=datos.descripcion,
+                    documentos=[DocumentoTema(id=d, titulo=titulos[d]) for d in datos.documentos])
 
     # --- Sesión ---
     def salud(self):
@@ -147,7 +157,10 @@ class ClienteMock:
     def crear_tema(self, datos):
         self._exigir("admin")
         self._revisar_datos_tema(datos)
-        tema = Tema(id_tema=f"t-{uuid4().hex[:8]}", **datos.model_dump())
+        id_tema = id_tema_desde_nombre(datos.nombre)
+        if any(t.id_tema == id_tema for t in self._temas):  # como Backend: el id no se puede repetir
+            raise ErrorCliente("rechazado", mensaje="Ya existe un tema con ese nombre.")
+        tema = self._tema(id_tema, datos)
         self._temas.append(tema)
         return tema
 
@@ -155,7 +168,7 @@ class ClienteMock:
         self._exigir("admin")
         indice = self._indice_tema(id_tema)
         self._revisar_datos_tema(datos, id_tema)
-        self._temas[indice] = Tema(id_tema=id_tema, **datos.model_dump())
+        self._temas[indice] = self._tema(id_tema, datos)
         return self._temas[indice]
 
     def retirar_tema(self, id_tema):
@@ -216,7 +229,9 @@ class ClienteMock:
     # --- Documentos y configuración ---
     def subir_documento(self, nombre, contenido):
         self._exigir("admin")
-        documento = Documento(nombre=nombre, estado="indexado", chunks=len(contenido) // 1000 + 1)
+        documento = Documento(id=f"d-{uuid4().hex[:8]}", titulo=Path(nombre).stem, nombre_archivo=nombre,
+                              tipo=nombre.rsplit(".", 1)[-1].lower(), fragmentos=len(contenido) // 1000 + 1,
+                              creado_en=datetime.now(timezone.utc))
         self._documentos.append(documento)
         return documento
 

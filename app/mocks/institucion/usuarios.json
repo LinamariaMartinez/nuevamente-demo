@@ -1,17 +1,17 @@
 [
   {
     "contrasena": "demo-estudiante",
-    "usuario": {"id_usuario": "u-laura", "nombre": "Laura Gómez", "usuario": "laura", "rol": "estudiante",
+    "usuario": {"id_usuario": 1, "nombre": "Laura Gómez", "usuario": "laura", "rol": "estudiante",
                 "activo": true, "debe_cambiar_contrasena": false, "temas": ["t-redes", "t-seguridad"]}
   },
   {
     "contrasena": "temporal-123",
-    "usuario": {"id_usuario": "u-mateo", "nombre": "Mateo Díaz", "usuario": "mateo", "rol": "estudiante",
+    "usuario": {"id_usuario": 2, "nombre": "Mateo Díaz", "usuario": "mateo", "rol": "estudiante",
                 "activo": true, "debe_cambiar_contrasena": true, "temas": ["t-redes"]}
   },
   {
     "contrasena": "demo-admin",
-    "usuario": {"id_usuario": "u-admin", "nombre": "Andrea Ruiz", "usuario": "admin", "rol": "admin",
+    "usuario": {"id_usuario": 3, "nombre": "Andrea Ruiz", "usuario": "admin", "rol": "admin",
                 "activo": true, "debe_cambiar_contrasena": false, "temas": []}
   }
 ]

@@ -58,7 +58,7 @@ class SesionFalsa:
         return self.respuesta
 
 
-SESION_JSON = {"token": "tok-123", "usuario": {"id_usuario": "u-1", "nombre": "Ana", "usuario": "ana",
+SESION_JSON = {"token": "tok-123", "usuario": {"id_usuario": 1, "nombre": "Ana", "usuario": "ana",
                                                "rol": "admin", "temas": []}}
 TEMA_JSON = {"id_tema": "t-1", "nombre": "Redes", "descripcion": "", "documentos": ["a.pdf"]}
 
@@ -115,31 +115,35 @@ class ModoMock(unittest.TestCase):
         cliente = con_sesion("laura")
         for llamada in (cliente.listar_documentos, cliente.listar_paquetes_revision,
                         lambda: cliente.guardar_configuracion("Salud"),
-                        lambda: cliente.crear_tema(DatosTema(nombre="X", documentos=["guia_datos.txt"]))):
+                        lambda: cliente.crear_tema(DatosTema(nombre="X", documentos=["d-datos"]))):
             with self.subTest(llamada=llamada), self.assertRaises(ErrorCliente) as ctx:
                 llamada()
             self.assertEqual(ctx.exception.tipo, "sin_permiso")
 
     def test_crear_editar_y_retirar_tema(self):
         cliente = con_sesion("admin")
-        tema = cliente.crear_tema(DatosTema(nombre="Bases de datos", documentos=["guia_datos.txt"]))
+        tema = cliente.crear_tema(DatosTema(nombre="Bases de datos", documentos=["d-datos"]))
+        self.assertEqual(tema.id_tema, "bases-de-datos")
+        self.assertEqual([d.titulo for d in tema.documentos], ["Guía de herramientas de datos"])
         self.assertIn(tema.id_tema, [t.id_tema for t in cliente.listar_temas()])
-        editado = cliente.editar_tema(tema.id_tema, DatosTema(nombre="Bases de datos SQL", documentos=["guia_datos.txt"]))
-        self.assertEqual(editado.nombre, "Bases de datos SQL")
+        editado = cliente.editar_tema(tema.id_tema, DatosTema(nombre="Bases de datos SQL",
+                                                              documentos=["d-datos", "d-nube"]))
+        self.assertEqual((editado.id_tema, editado.nombre), ("bases-de-datos", "Bases de datos SQL"))
+        self.assertEqual([d.id for d in editado.documentos], ["d-datos", "d-nube"])
         cliente.retirar_tema(tema.id_tema)
         self.assertNotIn(tema.id_tema, [t.id_tema for t in cliente.listar_temas()])
 
     def test_nombre_repetido_no_crea_duplicado(self):
         cliente = con_sesion("admin")
         with self.assertRaises(ErrorCliente) as ctx:
-            cliente.crear_tema(DatosTema(nombre="redes en oci", documentos=["guia_datos.txt"]))
+            cliente.crear_tema(DatosTema(nombre="redes en oci", documentos=["d-datos"]))
         self.assertEqual((ctx.exception.tipo, ctx.exception.mensaje), ("rechazado", "Ya existe un tema con ese nombre."))
         self.assertEqual(len(cliente.listar_temas()), 3)
 
-    def test_documento_no_indexado_no_sirve_para_un_tema(self):
+    def test_documento_inexistente_no_sirve_para_un_tema(self):
         with self.assertRaises(ErrorCliente) as ctx:
-            con_sesion("admin").crear_tema(DatosTema(nombre="Escaneos", documentos=["manual_escaneado.pdf"]))
-        self.assertEqual(ctx.exception.mensaje, "Elige solo documentos ya indexados.")
+            con_sesion("admin").crear_tema(DatosTema(nombre="Escaneos", documentos=["d-no-existe"]))
+        self.assertEqual(ctx.exception.mensaje, "Elige solo documentos ya subidos.")
 
     def test_retirar_un_tema_lo_quita_de_quien_lo_tenia(self):
         cliente = con_sesion("admin")
@@ -208,12 +212,12 @@ class ModoMock(unittest.TestCase):
 
     def test_documentos_de_demostracion_y_subir_uno(self):
         cliente = con_sesion("admin")
-        estados = [d.estado for d in cliente.listar_documentos()]
-        self.assertEqual(estados.count("indexado"), 3)
-        self.assertIn("error", estados)
-        documento = cliente.subir_documento("nuevo.md", b"# Hola")
-        self.assertEqual(documento.estado, "indexado")
-        self.assertEqual(len(cliente.listar_documentos()), len(estados) + 1)
+        antes = cliente.listar_documentos()
+        self.assertEqual([d.id for d in antes], ["d-redes", "d-nube", "d-datos"])
+        documento = cliente.subir_documento("nuevo_manual.md", b"# Hola")
+        self.assertEqual((documento.titulo, documento.nombre_archivo, documento.tipo, documento.fragmentos),
+                         ("nuevo_manual", "nuevo_manual.md", "md", 1))
+        self.assertEqual(len(cliente.listar_documentos()), len(antes) + 1)
 
     def test_sector_empieza_en_general_se_cambia_y_rechaza_valores_raros(self):
         cliente = con_sesion("admin")

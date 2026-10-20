@@ -11,7 +11,7 @@ sys.path.insert(0, str(RAIZ / "src"))
 from pydantic import ValidationError
 
 from contrato import (FORMATOS, NICHOS, PERFILES, Configuracion, DatosTema, Fuente, MaterialEnRevision, Paquete,
-                      ResumenPaquete, Sesion, SolicitudPaquete, Tema, Usuario, items_validos)
+                      ResumenPaquete, Sesion, SolicitudPaquete, Tema, Usuario, id_tema_desde_nombre, items_validos)
 
 MOCKS = RAIZ / "app" / "mocks"
 
@@ -177,7 +177,7 @@ class CuentasYTemasDeDemostracion(unittest.TestCase):
 
 class ReglasDeCuentasYTemas(unittest.TestCase):
     def usuario(self, **cambios):
-        datos = {"id_usuario": "u-1", "nombre": "Ana", "usuario": "ana", "rol": "estudiante"}
+        datos = {"id_usuario": 1, "nombre": "Ana", "usuario": "ana", "rol": "estudiante"}
         datos.update(cambios)
         return Usuario(**datos)
 
@@ -186,6 +186,26 @@ class ReglasDeCuentasYTemas(unittest.TestCase):
         self.assertTrue(usuario.activo)
         self.assertFalse(usuario.debe_cambiar_contrasena)
         self.assertEqual(usuario.temas, [])
+
+    def test_usuario_id_entero(self):
+        # En el backend integrado los usuarios se identifican con un número
+        self.assertEqual(self.usuario().id_usuario, 1)
+        with self.assertRaises(ValidationError):
+            self.usuario(id_usuario="u-1")
+
+    def test_id_tema_desde_nombre(self):
+        self.assertEqual(id_tema_desde_nombre("Redes en OCI"), "redes-en-oci")
+        self.assertEqual(id_tema_desde_nombre("Análisis de año"), "analisis-de-ano")
+        self.assertEqual(id_tema_desde_nombre("  --Hola  mundo--  "), "hola-mundo")
+        solo_simbolos = id_tema_desde_nombre("¿¡!?")
+        self.assertTrue(solo_simbolos.startswith("tema-"))
+        self.assertEqual(len(solo_simbolos), 13)
+        self.assertLessEqual(len(id_tema_desde_nombre("a" * 150)), 100)
+        self.assertFalse(id_tema_desde_nombre("a" * 99 + " b").endswith("-"))
+
+    def test_tema_lleva_id_y_titulo_de_sus_documentos(self):
+        tema = Tema(id_tema="redes", nombre="Redes", documentos=[{"id": "d-1", "titulo": "Redes VCN"}])
+        self.assertEqual(tema.documentos[0].titulo, "Redes VCN")
 
     def test_rol_desconocido_falla(self):
         with self.assertRaises(ValueError):

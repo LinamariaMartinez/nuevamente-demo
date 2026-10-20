@@ -4,8 +4,11 @@ Lo usan los dos lados. Se cambia solo de común acuerdo; si cambia, los ejemplos
 app/mocks/ se actualizan en el mismo PR.
 """
 
+import re
+import unicodedata
 from datetime import datetime
 from typing import Literal, Optional
+from uuid import uuid4
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
@@ -177,20 +180,25 @@ class ResumenPaquete(BaseModel):
 
 
 class Documento(BaseModel):
-    nombre: str
-    estado: Literal["procesando", "indexado", "error"]
-    chunks: int = 0
-    error: Optional[str] = None
+    """Un documento ya indexado: la subida es síncrona, así que si falla no queda en la lista."""
+
+    id: str
+    titulo: str
+    nombre_archivo: str
+    tipo: Literal["pdf", "md", "txt"]
+    fragmentos: int = Field(ge=0)
+    creado_en: datetime
 
 
 # --- Cuentas y temas (v2): el admin crea las cuentas y arma los temas ---
 ROLES = ("estudiante", "admin")
 LARGO_MAXIMO_NOMBRE_TEMA = 100
 LARGO_MAXIMO_DESCRIPCION = 500
+LARGO_MAXIMO_ID_TEMA = 100
 
 
 class Usuario(BaseModel):
-    id_usuario: str
+    id_usuario: int
     nombre: str
     usuario: str
     rol: Literal["estudiante", "admin"]
@@ -208,8 +216,14 @@ class Tema(BaseModel):
     id_tema: str
     nombre: str
     descripcion: str = ""
-    # Nombres de archivo, iguales al metadata["source"] de los chunks: el Investigador filtra por ellos
-    documentos: list[str] = []
+    documentos: list["DocumentoTema"] = []
+
+
+class DocumentoTema(BaseModel):
+    """Un documento dentro de un tema: el id para guardar y el título para mostrar."""
+
+    id: str
+    titulo: str
 
 
 class DatosTema(BaseModel):
@@ -217,7 +231,7 @@ class DatosTema(BaseModel):
 
     nombre: str
     descripcion: str = ""
-    documentos: list[str] = Field(min_length=1)
+    documentos: list[str] = Field(min_length=1)  # id de cada documento
 
     @field_validator("nombre")
     @classmethod
@@ -241,3 +255,10 @@ class DatosTema(BaseModel):
     @classmethod
     def sin_repetidos(cls, valor):
         return list(dict.fromkeys(valor))
+
+
+def id_tema_desde_nombre(nombre):
+    """Arma el id que pide Backend a partir del nombre: "Análisis de año" → "analisis-de-ano"."""
+    sin_tildes = unicodedata.normalize("NFKD", nombre).encode("ascii", "ignore").decode("ascii")
+    identificador = re.sub(r"[^a-z0-9]+", "-", sin_tildes.lower())[:LARGO_MAXIMO_ID_TEMA].strip("-")
+    return identificador or f"tema-{uuid4().hex[:8]}"  # un nombre de solo símbolos

@@ -52,7 +52,7 @@ class PaginaDelTema(unittest.TestCase):
     def test_muestra_nombre_descripcion_y_documentos(self):
         at = abrir()
         self.assertEqual(at.title[0].value, "Redes en OCI")
-        self.assertIn("Documentos de este tema: oci_redes_vcn.pdf", textos(at.caption))
+        self.assertIn("Documentos de este tema: Redes VCN en OCI", textos(at.caption))
         self.assertIn("Modo demostración: datos de ejemplo", textos(at.info))
 
     def test_solo_para_estudiantes(self):

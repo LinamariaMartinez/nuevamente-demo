@@ -5,14 +5,12 @@ import unittest
 from apoyo_interfaz import abrir_pagina, columnas_principales, textos
 
 from cliente_api import ClienteMock
-from contrato import Documento
-
 TEMAS = "paginas.admin.temas:mostrar"
 
 
 class ClienteSinIndexados(ClienteMock):
     def listar_documentos(self):
-        return [Documento(nombre="malo.pdf", estado="error", error="Sin texto")]
+        return []
 
 
 def crear(at, nombre, documentos):
@@ -26,21 +24,26 @@ class PaginaTemas(unittest.TestCase):
         at = abrir_pagina(TEMAS, usuario="admin")
         self.assertEqual(at.title[0].value, "Temas")
         self.assertIn("**Redes en OCI**", textos(at.markdown))
-        self.assertIn("Documentos: oci_redes_vcn.pdf", textos(at.caption))
+        self.assertIn("Documentos: Redes VCN en OCI", textos(at.caption))
 
-    def test_solo_documentos_indexados_en_el_formulario(self):
+    def test_el_formulario_muestra_los_titulos_de_los_documentos(self):
         at = abrir_pagina(TEMAS, usuario="admin")
-        self.assertNotIn("manual_escaneado.pdf", at.multiselect(key="nuevo_documentos").options)
+        self.assertIn("Guía de herramientas de datos", at.multiselect(key="nuevo_documentos").options)
 
     def test_crear_tema(self):
         cliente = ClienteMock()
-        at = crear(abrir_pagina(TEMAS, usuario="admin", cliente=cliente), "Bases de datos", ["guia_datos.txt"])
+        at = crear(abrir_pagina(TEMAS, usuario="admin", cliente=cliente), "Bases de datos", ["d-datos"])
         self.assertIn("Tema creado: Bases de datos", textos(at.success))
         self.assertIn("**Bases de datos**", textos(at.markdown))
         self.assertEqual(len(cliente.listar_temas()), 4)
 
+    def test_crear_tema_arma_el_id_desde_el_nombre(self):
+        cliente = ClienteMock()
+        crear(abrir_pagina(TEMAS, usuario="admin", cliente=cliente), "Redes en OCI 2", ["d-redes"])
+        self.assertIn("redes-en-oci-2", [t.id_tema for t in cliente.listar_temas()])
+
     def test_nombre_repetido_avisa_y_conserva_lo_escrito(self):
-        at = crear(abrir_pagina(TEMAS, usuario="admin"), "redes en oci", ["guia_datos.txt"])
+        at = crear(abrir_pagina(TEMAS, usuario="admin"), "redes en oci", ["d-datos"])
         self.assertIn("Ya existe un tema con ese nombre.", textos(at.error))
         self.assertEqual(at.text_input(key="nuevo_nombre").value, "redes en oci")
 
@@ -72,7 +75,7 @@ class PaginaTemas(unittest.TestCase):
 
     def test_sin_documentos_indexados_lleva_a_documentos(self):
         at = abrir_pagina(TEMAS, usuario="admin", cliente=ClienteSinIndexados())
-        self.assertIn("Todavía no hay documentos indexados. Sube al menos uno para crear un tema.", textos(at.info))
+        self.assertIn("Todavía no hay documentos. Sube al menos uno para crear un tema.", textos(at.info))
         self.assertEqual(at.button(key="ir_documentos").label, "Ir a Documentos")
 
     def test_formulario_a_la_izquierda_y_lista_a_la_derecha(self):

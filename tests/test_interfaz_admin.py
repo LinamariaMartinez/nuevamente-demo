@@ -6,7 +6,7 @@ from apoyo_interfaz import abrir_pagina, columnas_principales, textos
 
 from cliente_api import ClienteMock, ErrorCliente
 from contrato import Tema
-from paginas.admin.documentos import ESTADO_DOCUMENTO, temas_por_documento, validar_archivo
+from paginas.admin.documentos import temas_por_documento, validar_archivo
 
 DOCUMENTOS = "paginas.admin.documentos:mostrar"
 CONFIGURACION = "paginas.admin.configuracion:mostrar"
@@ -30,25 +30,22 @@ class ReglasDeArchivos(unittest.TestCase):
         self.assertEqual(validar_archivo("grande.txt", 11 * MB), "El archivo supera 10 MB.")
 
     def test_temas_por_documento(self):
-        temas = [Tema(id_tema="a", nombre="Redes", documentos=["x.pdf"]),
-                 Tema(id_tema="b", nombre="Nube", documentos=["x.pdf", "y.md"])]
-        self.assertEqual(temas_por_documento(temas), {"x.pdf": ["Redes", "Nube"], "y.md": ["Nube"]})
-
-    def test_estados_con_etiqueta_y_color(self):
-        self.assertEqual(ESTADO_DOCUMENTO["indexado"], ("Indexado", "green"))
-        self.assertEqual(ESTADO_DOCUMENTO["error"], ("Con error", "red"))
+        x, y = {"id": "d-x", "titulo": "X"}, {"id": "d-y", "titulo": "Y"}
+        temas = [Tema(id_tema="a", nombre="Redes", documentos=[x]),
+                 Tema(id_tema="b", nombre="Nube", documentos=[x, y])]
+        self.assertEqual(temas_por_documento(temas), {"d-x": ["Redes", "Nube"], "d-y": ["Nube"]})
 
 
 class PaginaDocumentos(unittest.TestCase):
-    def test_lista_con_estado_fragmentos_y_temas(self):
+    def test_lista_con_titulo_tipo_fragmentos_y_temas(self):
         at = abrir_pagina(DOCUMENTOS, usuario="admin")
         self.assertEqual(at.title[0].value, "Documentos")
-        markdown = textos(at.markdown)
-        self.assertIn("**oci_redes_vcn.pdf**", markdown)
-        self.assertEqual(markdown.count(":green-badge[Indexado]"), 3)
-        self.assertIn(":red-badge[Con error]", markdown)
-        self.assertIn("Redes en OCI", [t.value for t in at.text])
-        self.assertIn("Error: El PDF no tiene texto extraíble.", textos(at.caption))
+        self.assertIn("**Redes VCN en OCI**", textos(at.markdown))
+        self.assertIn("oci_redes_vcn.pdf", textos(at.caption))
+        texto = [t.value for t in at.text]
+        self.assertIn("PDF", texto)
+        self.assertIn("24 fragmentos", texto)
+        self.assertIn("Redes en OCI", texto)
 
     def test_error_de_la_api_muestra_detalle_al_admin(self):
         at = abrir_pagina(DOCUMENTOS, usuario="admin", cliente=ClienteQueFalla())

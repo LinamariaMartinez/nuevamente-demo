@@ -113,7 +113,7 @@ def mostrar():
     st.title(tema.nombre)
     if tema.descripcion:
         st.write(tema.descripcion)
-    st.caption("Documentos de este tema: " + ", ".join(tema.documentos))
+    st.caption("Documentos de este tema: " + ", ".join(d.titulo for d in tema.documentos))
     mostrar_modo_demo(cliente)
     disponible = cliente.salud()
     if not disponible:

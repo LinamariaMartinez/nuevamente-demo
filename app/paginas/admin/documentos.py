@@ -1,4 +1,4 @@
-"""Documentos (admin): subir la documentación de la institución y ver su estado (spec §6.5)."""
+"""Documentos (admin): subir la documentación de la institución y ver qué temas la usan (spec §6.5)."""
 
 import streamlit as st
 
@@ -8,11 +8,6 @@ from paginas import mostrar_error, mostrar_modo_demo
 
 EXTENSIONES = ("pdf", "md", "txt")
 TAMANO_MAXIMO_MB = 10
-ESTADO_DOCUMENTO = {
-    "indexado": ("Indexado", "green"),
-    "procesando": ("Procesando", "blue"),
-    "error": ("Con error", "red"),
-}
 VACIO = "Todavía no hay documentos. Sube el primero en la sección de arriba."
 
 
@@ -29,11 +24,11 @@ def validar_archivo(nombre, tamano_bytes):
 
 
 def temas_por_documento(temas):
-    """nombre del documento → nombres de los temas que lo usan."""
+    """id del documento → nombres de los temas que lo usan."""
     usos = {}
     for tema in temas:
-        for nombre in tema.documentos:
-            usos.setdefault(nombre, []).append(tema.nombre)
+        for documento in tema.documentos:
+            usos.setdefault(documento.id, []).append(tema.nombre)
     return usos
 
 
@@ -53,7 +48,7 @@ def _subir(cliente):
         except ErrorCliente as error:
             mostrar_error(error)
             return
-        st.success(f"{documento.nombre}: {ESTADO_DOCUMENTO[documento.estado][0]}")
+        st.success(f"{documento.titulo}: indexado en {documento.fragmentos} fragmentos")
 
 
 def _lista(cliente):
@@ -72,15 +67,13 @@ def _lista(cliente):
         except ErrorCliente:
             usos = {}  # la lista de documentos sigue siendo útil sin la columna de temas
         for documento in documentos:
-            nombre, estado, fragmentos, temas = st.columns([4, 2, 2, 4], vertical_alignment="center")
-            nombre.markdown(f"**{documento.nombre}**")
-            etiqueta, color = ESTADO_DOCUMENTO[documento.estado]
-            with estado:
-                st.badge(etiqueta, color=color)
-            fragmentos.text(f"{documento.chunks} fragmentos")
-            temas.text(", ".join(usos.get(documento.nombre, [])) or "—")
-            if documento.error:
-                st.caption(f"Error: {documento.error}")
+            titulo, tipo, fragmentos, temas = st.columns([4, 2, 2, 4], vertical_alignment="center")
+            with titulo:
+                st.markdown(f"**{documento.titulo}**")
+                st.caption(documento.nombre_archivo)
+            tipo.text(documento.tipo.upper())
+            fragmentos.text(f"{documento.fragmentos} fragmentos")
+            temas.text(", ".join(usos.get(documento.id, [])) or "—")
 
 
 def mostrar():

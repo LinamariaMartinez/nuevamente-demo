@@ -17,7 +17,7 @@ class ClienteSinTemas(ClienteMock):
 
 
 def tema(id_tema):
-    return Tema(id_tema=id_tema, nombre=id_tema, documentos=["a.pdf"])
+    return Tema(id_tema=id_tema, nombre=id_tema, documentos=[{"id": "d-a", "titulo": "A"}])
 
 
 class ReglasDelFiltro(unittest.TestCase):
