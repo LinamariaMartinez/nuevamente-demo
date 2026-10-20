@@ -1,6 +1,19 @@
-# F07 — Diseño de la interfaz de NuevaMente (versión 2.3)
+# F07 — Diseño de la interfaz de NuevaMente (versión 2.4)
 
 ## 0. Cambios
+
+### Versión 2.4 (respecto a la 2.3)
+
+Nueva cara para lo que se ve sin sesión: la landing y el inicio de sesión. El contrato (§5) no cambia.
+
+| Tema | Versión 2.3 | Versión 2.4 |
+|---|---|---|
+| Landing | Componentes de Streamlit (títulos, tarjetas y botones) | **Página en HTML y CSS** (`st.html`, sin JavaScript): demo que rota sola y se puede tocar, cinta de parámetros, agentes en acción (0.72 → corrige → 0.86), para quién, por dentro (con el JSON) y **En OCI**. Solo **Iniciar sesión** del cierre es un botón de Streamlit |
+| Iniciar sesión desde la landing | Botón que cambia de página | El botón del cierre y, en el menú de arriba, un **enlace a la dirección `acceso`** (recarga la app y abre la pantalla) |
+| Inicio de sesión | Una columna a todo el ancho | **Tarjeta flotante** de 820 px: panel oscuro con la marca y los tres pasos, formulario de 300 px y, debajo, las cuentas de demostración. **Sin scroll** en 1440 × 900 y 1366 × 768 |
+| Tema en Iniciar sesión | Claro u oscuro según la persona | **Siempre claro**: el contraste entre el panel oscuro y el fondo claro es el diseño |
+| Cambia tu contraseña | Columna a todo el ancho | **La misma tarjeta**: el panel saluda y explica que la contraseña es temporal |
+| CSS | Solo el bloque del usuario en el menú (§9) | Además, el CSS de la landing y del acceso, cada uno en su plantilla de `app/plantillas/` (§9) |
 
 ### Versión 2.3 (respecto a la 2.2)
 
@@ -133,7 +146,7 @@ sin tema elegido, vuelve a la lista de donde salió:
 | `app/sesion.py` | Frontend | Iniciar y cerrar sesión, usuario actual, exigir rol | 1 |
 | `app/cliente_api.py` | Frontend | Una función por ruta; modo mock o http; token; traduce los errores | 1–3 |
 | `app/marca.py`, `assets/`, `.streamlit/config.toml` | Frontend | Identidad visual: logo, ícono y tema (ajustados en la v2.1, §9) | 1 |
-| `app/paginas/acceso.py` | Frontend | Iniciar sesión y cambiar contraseña (reemplaza la portada) | 1 |
+| `app/paginas/acceso.py` | Frontend | Iniciar sesión y cambiar contraseña en la tarjeta flotante (v2.4) | 1 |
 | `app/paginas/estudiante/mis_temas.py` | Frontend | Lista de temas asignados | 1 |
 | `app/paginas/estudiante/tema.py` | Frontend | Página del tema: Estudiar | 1 |
 | `app/paginas/estudiante/evaluaciones.py` | Frontend | Lista de evaluaciones, una por tema | 2 |
@@ -145,8 +158,9 @@ sin tema elegido, vuelve a la lista de donde salió:
 | `app/paginas/admin/examenes.py` | Frontend | Generar, revisar y publicar el examen de cada tema | 2 |
 | `app/paginas/admin/usuarios.py` | Frontend | Crear usuarios, asignar temas, restablecer contraseña, dar intentos | 3 |
 | `app/paginas/admin/progreso.py` | Frontend | Notas e intentos por tema | 3 |
-| `app/paginas/landing.py` | Frontend | Landing: qué es NuevaMente, cómo funciona y acceso a Iniciar sesión | 1 |
-| `app/estilo.py` | Frontend | El único CSS de la app: bloque del usuario al fondo del menú (§9) | 1 |
+| `app/paginas/landing.py` | Frontend | Landing: arma el HTML de la plantilla con los textos y el botón Iniciar sesión (v2.4) | 1 |
+| `app/plantillas/landing.html`, `app/plantillas/acceso.html` | Frontend | HTML y CSS de la landing; CSS de las pantallas de acceso (v2.4, §9) | 1 |
+| `app/estilo.py` | Frontend | CSS de la app con sesión: bloque del usuario al fondo del menú (§9) | 1 |
 | `app/vistas/` | Frontend | Vista genérica y vistas por formato + `examen.py` (formulario del examen, pieza 2) | 1–2 |
 | `app/vistas/flashcards.py` | Frontend | Componente HTML: tarjeta que se voltea, progreso y Lo sé / Repasar (v2.2) | 1 |
 | `app/vistas/resumen.py`, `app/vistas/guion.py` | Frontend | Resumen en tarjetas y Guion en escenas (v2.2) | 1 |
@@ -269,22 +283,44 @@ generación de material funciona de verdad; lo demás puede mostrarse en modo mo
 
 Orden de los elementos y estados de cada pantalla. Los textos siguen el tono del documento de identidad visual.
 
-### 6.0 Landing (pieza 1, v2.2)
-Para el jurado y quien visite el proyecto. Ocupa el ancho completo; sin menú lateral.
-- **Arriba, a la izquierda:** logo, "De documentación técnica a material de estudio, en minutos.", una frase de
-  explicación ("Tu institución sube sus manuales; NuevaMente los convierte en material adaptado a cada nivel, con fuentes
-  y control de calidad."), **Iniciar sesión** y **Ver cómo funciona** (baja a esa sección).
-- **Arriba, a la derecha:** caja **Prueba la demo** con las cuentas de demostración (**solo en modo mock**) y los formatos.
-- **Cómo funciona:** tres pasos en tres tarjetas: la institución sube documentos y arma temas → tres agentes
-  (Investigador busca, Redactor adapta, Revisor verifica) → quien estudia aprende y presenta la evaluación.
-- **Por dentro:** tres tarjetas: fiel a las fuentes (RAG, cada material cita sus fragmentos), calidad revisada
-  (puntaje ≥ 0.8; si no, se corrige hasta 3 veces) y listo para integrar (JSON estructurado, OCI Object Storage).
+### 6.0 Landing (pieza 1, v2.4)
+Para el jurado y quien visite el proyecto. Ocupa el ancho completo; sin menú lateral. Es HTML y CSS dibujado con
+`st.html`, **sin JavaScript** (`st.html` quita `<script>` y `<svg>`: los íconos van como imagen con el SVG en `data:`).
+Lo que se puede tocar usa radios y casillas con `:has()`; el movimiento son animaciones de CSS, que se apagan con
+`prefers-reduced-motion`. El encabezado y los bloques oscuros son iguales en los dos modos; las secciones claras siguen
+el tema.
+- **Menú de arriba:** logo, Cómo funciona · Para quién · Por dentro · En OCI (bajan a su sección) e **Iniciar sesión**
+  (enlace a la dirección `acceso`).
+- **Encabezado:** "De documentación técnica a *material de estudio*, en minutos.", la explicación, **Probar la demo**
+  (baja a las cuentas) y **Ver cómo funciona**. A la derecha, una demo que **rota sola** entre los cinco formatos (se
+  detiene al pasar el mouse o al elegir uno): perfil Principiante / Intermedio / Avanzado, flashcard que se voltea, quiz
+  que se califica, guía, resumen y guion. Debajo, una cinta con formatos, perfiles y sectores.
+- **Cómo funciona:** tres pasos en tarjetas y **los agentes en vivo**: el Revisor da 0.72, el material vuelve al
+  Redactor y queda en 0.86 (umbral 0.8, hasta 3 intentos).
+- **Para quién:** institución (sube documentos, aprueba material, crea usuarios) y estudiante (sus temas, perfil y
+  formato, Mi material).
+- **Por dentro:** fiel a las fuentes, calidad revisada y listo para integrar; al elegir uno se ve su parte del JSON.
+- **En OCI:** navegador → VM Ampere A1 (interfaz, API, agentes y datos de la app) → OCI Object Storage (documentos,
+  paquetes aprobados y respaldos), con los modelos por la API de Gemini.
+- **Cierre:** "Aprender hoy, construir mañana.", **Iniciar sesión** (botón de Streamlit) y las **cuentas de
+  demostración** (solo en modo mock; si no, "Pide tu usuario a quien administra la plataforma.").
 
-### 6.1 Acceso (pieza 1)
-- **Iniciar sesión:** logo, "Aprender hoy, construir mañana.", los tres pasos (consulta tus temas → estudia → presenta la
-  evaluación), usuario, contraseña, **Iniciar sesión** (formulario: Enter también envía).
-- **Cambia tu contraseña** (si es temporal): actual, nueva, confirmar. Mínimo 8 caracteres y que coincidan; se valida
-  también en Backend.
+### 6.1 Acceso (pieza 1, v2.4)
+Las dos pantallas son una **tarjeta flotante** centrada (820 × 500 px; 460 px de alto en pantallas bajas; crece si un
+aviso no cabe), **sin scroll** en pantallas grandes y **siempre en claro**.
+- **Iniciar sesión:** encima de la tarjeta, **Volver al inicio**. A la izquierda de la tarjeta, un panel oscuro (360 px)
+  con el logo claro, "Aprender hoy, *construir mañana.*" y los tres pasos (consulta tus temas → estudia con material a
+  tu medida → presenta la evaluación). A la derecha, "Inicia sesión", "Con el usuario que te dio tu institución.", los
+  avisos (sesión vencida, campos vacíos, datos incorrectos, demasiados intentos), **Usuario** (ícono de persona),
+  **Contraseña** (ícono de llave) e **Iniciar sesión** (formulario: Enter también envía), todo en 300 px.
+- **Cuentas de demostración** (solo en modo mock), en una línea debajo de la tarjeta: rol, persona + usuario y llave +
+  contraseña, los mismos íconos de los campos (sin escribir "usuario" ni "contraseña"). Sin modo mock: "Pide tu usuario a
+  quien administra la plataforma."
+- **Celular:** el panel queda como una franja arriba (logo y lema, sin los pasos), el formulario a lo ancho y cada cuenta
+  en su línea; aquí sí hay scroll.
+- **Cambia tu contraseña** (si es temporal): la misma tarjeta. El panel dice "Hola, <nombre>. *Tu contraseña es
+  temporal.*" y "Crea una nueva para entrar a tus temas."; a la derecha, actual, nueva, confirmar, **Guardar contraseña**
+  y **Salir**. Mínimo 12 caracteres y que coincidan; se valida también en Backend.
 
 ### 6.2 Mis temas — estudiante (pieza 1)
 - Título "Mis temas" y "Consulta tus temas asignados y continúa donde lo dejaste.", más "Tienes N temas asignados."
@@ -425,20 +461,20 @@ Identidad **"Bosque sereno"** (documento de identidad visual, aprobado por el eq
 `.streamlit/config.toml`, logo e ícono en `assets/`, íconos de línea en el menú, componentes nativos de Streamlit y
 CSS mínimo. Contrastes según WCAG 2.2 AA, que se verifican con pruebas automáticas.
 
-**Ajustes de la versión 2.1.** Solo componentes nativos y `config.toml`, **sin CSS a mano** (salvo la única excepción de
-la v2.2, abajo): el CSS depende de nombres internos de Streamlit que cambian entre versiones.
+**Ajustes de la versión 2.1.** Solo componentes nativos y `config.toml`, **sin CSS a mano** (salvo las excepciones de
+la v2.2 y la v2.4, abajo): el CSS depende de nombres internos de Streamlit que cambian entre versiones.
 
 **Logo** (`assets/`): dos hojas redondeadas, sin tallo, y el texto "NuevaMente" convertido a trazos.
 
 | Archivo | Colores | Dónde va |
 |---|---|---|
-| `logo_nuevamente.svg` | Hojas `#7DC1B0` y `#205E58`; texto `#205E58` | Pantalla de inicio de sesión (fondo claro) |
-| `logo_nuevamente_menu.svg` | Hojas `#A9CDBD` y `#F5F7F5`; texto `#EAF2EF` | Menú lateral, en los dos modos (`st.logo`) |
+| `logo_nuevamente.svg` | Hojas `#7DC1B0` y `#205E58`; texto `#205E58` | Fondos claros (desde la v2.4 ninguna pantalla lo usa) |
+| `logo_nuevamente_menu.svg` | Hojas `#A9CDBD` y `#F5F7F5`; texto `#EAF2EF` | Menú lateral (`st.logo`) y panel oscuro de Iniciar sesión, en los dos modos |
 | `icono_nuevamente.svg` | Cuadro `#205E58` con las hojas claras | Pestaña del navegador y menú plegado |
 
 Como el menú es oscuro en los dos modos, el logo **del menú** ya no depende del tema. `logo_nuevamente_oscuro.svg` se borra.
-(En la v2.2, el logo grande de la landing y de Iniciar sesión sí depende del tema: `marca.logo_principal()` usa la versión
-clara en oscuro; al cambiar el tema en Settings se actualiza en el siguiente clic.)
+(Desde la v2.4 ningún logo depende del tema: la landing lleva las hojas en su encabezado oscuro e Iniciar sesión usa el
+logo claro en su panel oscuro. `marca.logo_principal()` se borra.)
 
 **Menú lateral** (`[theme.light.sidebar]` y `[theme.dark.sidebar]`):
 
@@ -464,7 +500,7 @@ El verde claro de la referencia (`#7DC1B0`) **no** se usa en botones: Streamlit 
 **Ajustes de la versión 2.2.**
 - **Pantalla ancha:** `st.set_page_config(layout="wide")`. El texto largo del material queda en la columna derecha
   (unos 65–75 caracteres por línea en un portátil).
-- **Única excepción de CSS:** `app/estilo.py` pega al fondo del menú lateral el bloque del usuario (nombre, rol y
+- **Excepción de CSS en la app con sesión:** `app/estilo.py` pega al fondo del menú lateral el bloque del usuario (nombre, rol y
   Cerrar sesión). Son unas pocas reglas y solo para ese bloque. Si una versión futura de Streamlit cambia su estructura
   interna, el bloque vuelve a quedar debajo del menú; nada más se rompe.
 - **Sin errores técnicos en el navegador:** `[client] showErrorDetails = "none"` en `config.toml` (§7); el detalle queda en
@@ -478,6 +514,17 @@ El verde claro de la referencia (`#7DC1B0`) **no** se usa en botones: Streamlit 
   `prefers-reduced-motion` la tarjeta cambia sin girar. Botones con texto (no solo íconos) y manejables con teclado.
 - **Maquetas aprobadas (v2.2):** landing ancha, dos columnas en Estudiar, flashcards con Lo sé / Repasar y resumen en tarjetas.
 
+**Ajustes de la versión 2.4.**
+- **CSS de la landing y del acceso:** cada pantalla trae su CSS en una plantilla (`app/plantillas/landing.html` y
+  `acceso.html`) que se dibuja con `st.html`. Solo vive mientras la pantalla está abierta: Streamlit lo quita al cambiar
+  de página, así que no toca la app con sesión. Ningún archivo `.py` escribe `<style>`.
+- **Nombres internos de Streamlit:** el acceso usa contenedores con `key` (`.st-key-…`) y algunos `data-testid`
+  (`stMainBlockContainer`, `stLayoutWrapper`, `stTextInputRootElement`). Si una versión futura los cambia, la pantalla
+  sigue funcionando pero pierde el diseño; se revisa con capturas al subir de versión.
+- **Siempre en claro:** el CSS del acceso fija los colores de fondo, campos, botón y avisos aunque la persona use el tema
+  oscuro.
+- **Maquetas aprobadas (v2.4):** landing de Claude Design ("Landing NuevaMente") y tarjeta flotante del acceso (versión 3).
+
 ## 10. Pruebas
 
 Con `unittest` y `streamlit.testing.v1.AppTest`. **Ninguna prueba necesita API key ni la API corriendo.**
@@ -486,13 +533,13 @@ Con `unittest` y `streamlit.testing.v1.AppTest`. **Ninguna prueba necesita API k
 |---|---|
 | Contrato | Mocks válidos; `PreguntaEvaluacion` rechaza respuestas |
 | Cliente | Token en cada ruta; 401/403/404/409 traducidos; el token nunca va en la URL; en mock, cada estudiante ve solo sus temas y la nota sigue la regla 5.6 |
-| Acceso | Inicio correcto, incorrecto y vencido; cambio obligatorio de contraseña; cerrar sesión borra el token |
+| Acceso | Inicio correcto, incorrecto y vencido; cambio obligatorio de contraseña; cerrar sesión borra el token; tarjeta con panel y formulario, sin `<svg>`; avisos arriba de los campos; cuentas solo en modo mock (v2.4) |
 | Menú | El estudiante ve Mis temas (y Evaluaciones desde la pieza 2); el admin ve las tres secciones, cada una solo con las pantallas listas; debajo, nombre, rol y Cerrar sesión |
 | Estudiante | Mis temas: las tres métricas, el filtro en píldoras, la etiqueta de cada uno de los cuatro estados y que no haya barra de progreso; abrir un tema; Estudiar |
 | Evaluaciones | Una tarjeta por tema con el botón según su estado; los seis estados de `evaluacion.py` |
 | Admin | Una prueba por pantalla |
 | Permisos | Un estudiante no puede abrir pantallas del admin, ni por menú ni por URL; sin sesión solo se ven la Landing e Iniciar sesión |
-| Landing | Es la página inicial sin sesión; **Iniciar sesión** lleva a la pantalla de acceso; las cuentas de demostración aparecen solo en modo mock |
+| Landing | Es la página inicial sin sesión; **Iniciar sesión** lleva a la pantalla de acceso (botón y enlace a `acceso`); las cuentas de demostración aparecen solo en modo mock; la plantilla queda completa, sin `<script>` ni `<svg>`, cada enlace interno tiene destino y cada etiqueta su control (v2.4) |
 | Vistas v2.2 | Flashcards: el HTML del componente lleva todas las tarjetas, escapa el texto y usa los colores del modo; Resumen y Guion no caen en la vista genérica |
 | Dos columnas | Estudiar, Crear tema y Material en revisión dibujan dos columnas; Estudiar muestra el recuadro reservado antes de generar |
 | Tema visual | Claves válidas de `config.toml` (incluidas `[theme.light.sidebar]` y `[theme.dark.sidebar]`); contrastes mínimos de §9 (botón oscuro ≥ 4.5:1, bordes ≥ 3:1, texto del menú en los dos modos); los tres SVG existen y `st.logo` usa el del menú |
