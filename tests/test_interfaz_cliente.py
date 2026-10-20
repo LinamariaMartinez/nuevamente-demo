@@ -14,7 +14,7 @@ sys.path.insert(0, str(RAIZ / "app"))
 import requests
 
 from cliente_api import TIEMPO_CORTO_SEGUNDOS, ClienteHttp, ClienteMock, ErrorCliente, obtener_cliente
-from contrato import FORMATOS, PERFILES, DatosTema, MaterialEnRevision, SolicitudPaquete
+from contrato import FORMATOS, PERFILES, DatosEstudiante, DatosTema, MaterialEnRevision, SolicitudPaquete, Usuario
 
 MOCKS = RAIZ / "app" / "mocks"
 
@@ -186,6 +186,64 @@ class ModoMock(unittest.TestCase):
         with self.assertRaises(ErrorCliente) as ctx:
             con_sesion("admin").retirar_tema("t-no-existe")
         self.assertEqual(ctx.exception.tipo, "no_encontrado")
+
+    # --- Usuarios ---
+    def nuevo(self, cliente, usuario="ana", temas=("t-redes",)):
+        return cliente.crear_estudiante(DatosEstudiante(nombre="Ana Pérez", usuario=usuario,
+                                                        contrasena_temporal="Temporal-2026", temas=list(temas)))
+
+    def test_crear_estudiante_y_entrar_con_la_temporal(self):
+        cliente = con_sesion("admin")
+        ana = self.nuevo(cliente)
+        self.assertEqual((ana.rol, ana.debe_cambiar_contrasena, ana.temas), ("estudiante", True, ["t-redes"]))
+        self.assertIn("ana", [u.usuario for u in cliente.listar_usuarios()])
+        self.assertTrue(cliente.iniciar_sesion("ana", "Temporal-2026").usuario.debe_cambiar_contrasena)
+
+    def test_usuario_repetido_no_se_crea(self):
+        cliente = con_sesion("admin")
+        with self.assertRaises(ErrorCliente) as ctx:
+            self.nuevo(cliente, usuario="laura")
+        self.assertEqual((ctx.exception.tipo, ctx.exception.mensaje),
+                         ("rechazado", "Ya existe un usuario con ese nombre de usuario."))
+
+    def test_restablecer_contrasena_pide_cambiarla(self):
+        cliente = con_sesion("admin")
+        laura = cliente.restablecer_contrasena(1, "Nueva-temporal-1")
+        self.assertTrue(laura.debe_cambiar_contrasena)
+        self.assertTrue(cliente.iniciar_sesion("laura", "Nueva-temporal-1").usuario.debe_cambiar_contrasena)
+
+    def test_desactivar_impide_entrar_y_activar_lo_devuelve(self):
+        cliente = con_sesion("admin")
+        self.assertFalse(cliente.cambiar_activo(1, False).activo)
+        with self.assertRaises(ErrorCliente):
+            cliente.iniciar_sesion("laura", "demo-estudiante")
+        cliente.iniciar_sesion("admin", "demo-admin")
+        self.assertTrue(cliente.cambiar_activo(1, True).activo)
+
+    def test_cambiar_temas_del_estudiante(self):
+        cliente = con_sesion("admin")
+        laura = next(u for u in cliente.listar_usuarios() if u.usuario == "laura")
+        cliente.cambiar_temas(laura, ["t-datos"])
+        self.assertEqual(next(u for u in cliente.listar_usuarios() if u.usuario == "laura").temas, ["t-datos"])
+
+    def test_desbloquear_no_falla_en_el_mock(self):
+        self.assertIsNone(con_sesion("admin").desbloquear(1))
+
+    def test_acciones_sobre_un_admin_no_existen(self):
+        cliente = con_sesion("admin")
+        for accion in (lambda: cliente.restablecer_contrasena(3, "Nueva-temporal-1"),
+                       lambda: cliente.cambiar_activo(3, False), lambda: cliente.desbloquear(3)):
+            with self.subTest(accion=accion), self.assertRaises(ErrorCliente) as ctx:
+                accion()
+            self.assertEqual(ctx.exception.tipo, "no_encontrado")
+
+    def test_estudiante_no_administra_usuarios(self):
+        cliente = con_sesion("laura")
+        for accion in (cliente.listar_usuarios, lambda: self.nuevo(cliente, usuario="otra"),
+                       lambda: cliente.desbloquear(2)):
+            with self.subTest(accion=accion), self.assertRaises(ErrorCliente) as ctx:
+                accion()
+            self.assertEqual(ctx.exception.tipo, "sin_permiso")
 
     # --- Generar material ---
     def test_genera_un_paquete_por_formato_con_lo_que_pidio_el_estudiante(self):
@@ -468,6 +526,46 @@ class ModoHttp(unittest.TestCase):
         cliente, sesion = self.con_token(respuesta(status=204, texto=""))
         self.assertIsNone(cliente.retirar_tema("t/1 a"))
         self.assertEqual(self.rutas(sesion), [("DELETE", "/api/v1/temas/t%2F1%20a")])
+
+    # --- Usuarios ---
+    USUARIO_JSON = {"id_usuario": 7, "nombre": "Ana Pérez", "usuario": "ana", "rol": "estudiante", "activo": True,
+                    "debe_cambiar_contrasena": True, "temas": ["t-1"]}
+
+    def test_listar_y_crear_estudiante(self):
+        cliente, sesion = self.con_token(respuesta(cuerpo=[self.USUARIO_JSON]),
+                                         respuesta(status=201, cuerpo=self.USUARIO_JSON))
+        self.assertEqual([u.usuario for u in cliente.listar_usuarios()], ["ana"])
+        cliente.crear_estudiante(DatosEstudiante(nombre="Ana Pérez", usuario="ana",
+                                                 contrasena_temporal="Temporal-2026", temas=["t-1"]))
+        self.assertEqual(self.rutas(sesion), [("GET", "/api/v1/usuarios"), ("POST", "/api/v1/usuarios")])
+        self.assertEqual(sesion.llamadas[2][2]["json"], {"nombre": "Ana Pérez", "usuario": "ana",
+                                                         "contrasena_temporal": "Temporal-2026", "temas": ["t-1"]})
+
+    def test_usuario_repetido_avisa_con_su_mensaje(self):
+        fallo = self.error_de(lambda c: c.crear_estudiante(DatosEstudiante(
+            nombre="Ana", usuario="ana", contrasena_temporal="Temporal-2026")),
+            error(409, "CONFLICTO", "El usuario ya existe o hay datos duplicados"))
+        self.assertEqual(fallo.mensaje, "Ya existe un usuario con ese nombre de usuario.")
+
+    def test_restablecer_y_activar_mandan_solo_su_campo(self):
+        cliente, sesion = self.con_token(respuesta(cuerpo=self.USUARIO_JSON), respuesta(cuerpo=self.USUARIO_JSON))
+        cliente.restablecer_contrasena(7, "Nueva-temporal-1")
+        cliente.cambiar_activo(7, False)
+        self.assertEqual(self.rutas(sesion), [("PUT", "/api/v1/usuarios/7"), ("PUT", "/api/v1/usuarios/7")])
+        self.assertEqual([k["json"] for _, _, k in sesion.llamadas[1:]],
+                         [{"contrasena_temporal": "Nueva-temporal-1"}, {"activo": False}])
+
+    def test_cambiar_temas_solo_toca_lo_que_cambia(self):
+        cliente, sesion = self.con_token(respuesta(status=204, texto=""), respuesta(status=204, texto=""))
+        ana = Usuario.model_validate({**self.USUARIO_JSON, "temas": ["t-1", "t-2"]})
+        cliente.cambiar_temas(ana, ["t-2", "t-3"])
+        self.assertEqual(self.rutas(sesion), [("PUT", "/api/v1/temas/t-3/estudiantes/7"),
+                                              ("DELETE", "/api/v1/temas/t-1/estudiantes/7")])
+
+    def test_desbloquear(self):
+        cliente, sesion = self.con_token(respuesta(status=204, texto=""))
+        self.assertIsNone(cliente.desbloquear(7))
+        self.assertEqual(self.rutas(sesion), [("POST", "/api/v1/usuarios/7/desbloqueo")])
 
     # --- Material ---
     def test_generar_envia_los_campos_del_backend_y_espera_el_tiempo_maximo(self):

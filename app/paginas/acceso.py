@@ -4,7 +4,8 @@ import streamlit as st
 
 import marca
 import sesion
-from cliente_api import LARGO_MINIMO_CONTRASENA, ErrorCliente
+from cliente_api import ErrorCliente
+from contrato import LARGO_MINIMO_CONTRASENA
 from paginas import ir_a, mostrar_error
 
 

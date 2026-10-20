@@ -11,7 +11,8 @@ sys.path.insert(0, str(RAIZ / "src"))
 from pydantic import ValidationError
 
 from contrato import (FORMATOS, NICHOS, PERFILES, Configuracion, DatosTema, Fuente, MaterialEnRevision, Paquete,
-                      ResumenPaquete, Sesion, SolicitudPaquete, Tema, Usuario, id_tema_desde_nombre, items_validos)
+                      ResumenPaquete, Sesion, SolicitudPaquete, Tema, Usuario, id_tema_desde_nombre, items_validos,
+                      LARGO_MINIMO_CONTRASENA, DatosEstudiante, generar_contrasena_temporal)
 
 MOCKS = RAIZ / "app" / "mocks"
 
@@ -236,6 +237,32 @@ class ReglasDeCuentasYTemas(unittest.TestCase):
                 datos.update(cambios)
                 with self.assertRaises(ValueError):
                     DatosTema(**datos)
+
+
+class ReglasDeEstudiantes(unittest.TestCase):
+    def datos(self, **cambios):
+        datos = {"nombre": "  Ana Pérez ", "usuario": " ana ", "contrasena_temporal": "x" * 12, "temas": ["t-1", "t-1"]}
+        datos.update(cambios)
+        return DatosEstudiante(**datos)
+
+    def test_datos_estudiante_recorta_y_quita_temas_repetidos(self):
+        datos = self.datos()
+        self.assertEqual((datos.nombre, datos.usuario, datos.temas), ("Ana Pérez", "ana", ["t-1"]))
+
+    def test_datos_estudiante_rechaza_vacios_y_contrasena_corta(self):
+        self.assertEqual(LARGO_MINIMO_CONTRASENA, 12)
+        for cambios in ({"nombre": "  "}, {"usuario": ""}, {"contrasena_temporal": "x" * 11},
+                        {"nombre": "x" * 151}, {"usuario": "x" * 101}):
+            with self.subTest(cambios=cambios), self.assertRaises(ValidationError):
+                self.datos(**cambios)
+
+    def test_generar_contrasena_temporal(self):
+        primera, segunda = generar_contrasena_temporal(), generar_contrasena_temporal()
+        self.assertNotEqual(primera, segunda)
+        for contrasena in (primera, segunda):
+            self.assertEqual(len(contrasena), 14)
+            self.assertRegex(contrasena, r"^[A-Za-z0-9]{4}-[A-Za-z0-9]{4}-[A-Za-z0-9]{4}$")
+            self.assertFalse(set(contrasena) & set("0Oo1lI"))  # se confunden al dictarla
 
 
 if __name__ == "__main__":

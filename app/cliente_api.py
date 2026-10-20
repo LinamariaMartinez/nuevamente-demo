@@ -18,15 +18,14 @@ import requests
 from dotenv import load_dotenv
 from pydantic import ValidationError
 
-from contrato import (Configuracion, Documento, DocumentoTema, MaterialEnRevision, Paquete, ResumenPaquete, Sesion,
-                      Tema, Usuario, id_tema_desde_nombre)
+from contrato import (LARGO_MINIMO_CONTRASENA, Configuracion, Documento, DocumentoTema, MaterialEnRevision, Paquete,
+                      ResumenPaquete, Sesion, Tema, Usuario, id_tema_desde_nombre)
 
 CARPETA_MOCKS = Path(__file__).resolve().parent / "mocks"
 CARPETA_INSTITUCION = CARPETA_MOCKS / "institucion"  # cuentas y temas de demostración
 TEMA_SIN_CONTEXTO_MOCK = "tema inexistente"  # en modo mock, este pedido lanza el error sin_contexto
 TIEMPO_SALUD_SEGUNDOS = 5
 TIEMPO_CORTO_SEGUNDOS = 10  # rutas que no generan ni indexan: no esperar el tiempo máximo
-LARGO_MINIMO_CONTRASENA = 12  # el mismo mínimo que pide Backend
 MOCK_POR_FORMATO = {
     "Flashcards": "flashcards.json",
     "Quiz": "quiz.json",
@@ -161,6 +160,46 @@ class ClienteMock:
         cuenta["contrasena"] = nueva
         cuenta["usuario"] = usuario.model_copy(update={"debe_cambiar_contrasena": False})
         self._usuario = None  # como Backend: cambiar la contraseña cierra las sesiones de la persona
+
+    # --- Usuarios (solo admin; como Backend, solo se crean y modifican estudiantes) ---
+    def _cuenta_de_estudiante(self, id_usuario):
+        self._exigir("admin")
+        for cuenta in self._cuentas.values():
+            if cuenta["usuario"].id_usuario == id_usuario and cuenta["usuario"].rol == "estudiante":
+                return cuenta
+        raise ErrorCliente("no_encontrado", f"No existe un estudiante con el id {id_usuario}")
+
+    def _actualizar(self, cuenta, **cambios):
+        cuenta["usuario"] = cuenta["usuario"].model_copy(update=cambios)
+        return cuenta["usuario"]
+
+    def listar_usuarios(self):
+        self._exigir("admin")
+        return [cuenta["usuario"] for cuenta in self._cuentas.values()]
+
+    def crear_estudiante(self, datos):
+        self._exigir("admin")
+        if datos.usuario in self._cuentas:
+            raise ErrorCliente("rechazado", mensaje="Ya existe un usuario con ese nombre de usuario.")
+        id_usuario = max(c["usuario"].id_usuario for c in self._cuentas.values()) + 1
+        usuario = Usuario(id_usuario=id_usuario, nombre=datos.nombre, usuario=datos.usuario, rol="estudiante",
+                          debe_cambiar_contrasena=True, temas=datos.temas)
+        self._cuentas[datos.usuario] = {"contrasena": datos.contrasena_temporal, "usuario": usuario}
+        return usuario
+
+    def restablecer_contrasena(self, id_usuario, contrasena_temporal):
+        cuenta = self._cuenta_de_estudiante(id_usuario)
+        cuenta["contrasena"] = contrasena_temporal
+        return self._actualizar(cuenta, debe_cambiar_contrasena=True)
+
+    def cambiar_activo(self, id_usuario, activo):
+        return self._actualizar(self._cuenta_de_estudiante(id_usuario), activo=activo)
+
+    def cambiar_temas(self, usuario, temas):
+        self._actualizar(self._cuenta_de_estudiante(usuario.id_usuario), temas=list(temas))
+
+    def desbloquear(self, id_usuario):
+        self._cuenta_de_estudiante(id_usuario)  # el mock no bloquea por intentos: solo revisa permisos
 
     # --- Temas ---
     def listar_temas(self):
@@ -436,6 +475,33 @@ class ClienteHttp:
         self._pedir("PUT", "/api/v1/sesion/contrasena",
                     json={"contrasena_actual": actual, "contrasena_nueva": nueva})
         self._token = None  # el backend cierra todas las sesiones de la persona
+
+    # --- Usuarios ---
+    def listar_usuarios(self):
+        return self._lista(Usuario, self._pedir("GET", "/api/v1/usuarios"))
+
+    def crear_estudiante(self, datos):
+        creado = self._pedir("POST", "/api/v1/usuarios", json=datos.model_dump(),
+                             mensajes={409: "Ya existe un usuario con ese nombre de usuario."})
+        return self._validar(Usuario, creado)
+
+    def _actualizar_estudiante(self, id_usuario, cambios):
+        return self._validar(Usuario, self._pedir("PUT", f"/api/v1/usuarios/{_en_ruta(id_usuario)}", json=cambios))
+
+    def restablecer_contrasena(self, id_usuario, contrasena_temporal):
+        return self._actualizar_estudiante(id_usuario, {"contrasena_temporal": contrasena_temporal})
+
+    def cambiar_activo(self, id_usuario, activo):
+        return self._actualizar_estudiante(id_usuario, {"activo": activo})
+
+    def cambiar_temas(self, usuario, temas):
+        for id_tema in (t for t in temas if t not in usuario.temas):
+            self._pedir("PUT", f"/api/v1/temas/{_en_ruta(id_tema)}/estudiantes/{_en_ruta(usuario.id_usuario)}")
+        for id_tema in (t for t in usuario.temas if t not in temas):
+            self._pedir("DELETE", f"/api/v1/temas/{_en_ruta(id_tema)}/estudiantes/{_en_ruta(usuario.id_usuario)}")
+
+    def desbloquear(self, id_usuario):
+        self._pedir("POST", f"/api/v1/usuarios/{_en_ruta(id_usuario)}/desbloqueo")
 
     # --- Temas ---
     def _documentos_del_tema(self, id_tema):

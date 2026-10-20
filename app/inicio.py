@@ -21,7 +21,7 @@ import marca
 import menu
 import sesion
 from paginas import DESTINOS, acceso, aplicar_estado_menu, landing
-from paginas.admin import configuracion, documentos, revision, temas
+from paginas.admin import configuracion, documentos, revision, temas, usuarios
 from paginas.estudiante import mis_temas, tema
 
 # Pantalla ancha (v2.2): las pantallas de acción usan dos columnas (spec §6.6)
@@ -32,6 +32,7 @@ FUNCIONES = {
     "documentos": documentos.mostrar,
     "temas": temas.mostrar,
     "revision": revision.mostrar,
+    "usuarios": usuarios.mostrar,
     "configuracion": configuracion.mostrar,
 }
 

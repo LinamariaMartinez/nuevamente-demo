@@ -5,6 +5,7 @@ app/mocks/ se actualizan en el mismo PR.
 """
 
 import re
+import secrets
 import unicodedata
 from datetime import datetime
 from typing import Literal, Optional
@@ -195,6 +196,11 @@ ROLES = ("estudiante", "admin")
 LARGO_MAXIMO_NOMBRE_TEMA = 100
 LARGO_MAXIMO_DESCRIPCION = 500
 LARGO_MAXIMO_ID_TEMA = 100
+LARGO_MINIMO_CONTRASENA = 12  # el mismo mínimo que pide Backend
+LARGO_MAXIMO_NOMBRE = 150
+LARGO_MAXIMO_USUARIO = 100
+# Sin 0/O/o ni 1/l/I: la contraseña temporal se dicta o se copia a mano
+CARACTERES_CONTRASENA = "abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789"
 
 
 class Usuario(BaseModel):
@@ -272,3 +278,30 @@ def id_tema_desde_nombre(nombre):
     sin_tildes = unicodedata.normalize("NFKD", nombre).encode("ascii", "ignore").decode("ascii")
     identificador = re.sub(r"[^a-z0-9]+", "-", sin_tildes.lower())[:LARGO_MAXIMO_ID_TEMA].strip("-")
     return identificador or f"tema-{uuid4().hex[:8]}"  # un nombre de solo símbolos
+
+
+class DatosEstudiante(BaseModel):
+    """Lo que el admin escribe para crear un estudiante (Backend solo deja crear estudiantes)."""
+
+    nombre: str = Field(max_length=LARGO_MAXIMO_NOMBRE)
+    usuario: str = Field(max_length=LARGO_MAXIMO_USUARIO)
+    contrasena_temporal: str = Field(min_length=LARGO_MINIMO_CONTRASENA)
+    temas: list[str] = []  # id_tema asignados
+
+    @field_validator("nombre", "usuario", mode="before")
+    @classmethod
+    def sin_espacios_ni_vacio(cls, valor):
+        valor = str(valor).strip()
+        if not valor:
+            raise ValueError("no puede quedar vacío")
+        return valor
+
+    @field_validator("temas")
+    @classmethod
+    def temas_sin_repetidos(cls, valor):
+        return list(dict.fromkeys(valor))
+
+
+def generar_contrasena_temporal():
+    """Contraseña aleatoria de 14 caracteres para dictar: "Ab3k-9Qm2-Zt7p"."""
+    return "-".join("".join(secrets.choice(CARACTERES_CONTRASENA) for _ in range(4)) for _ in range(3))
