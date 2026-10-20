@@ -1,6 +1,22 @@
-# F07 — Diseño de la interfaz de NuevaMente (versión 2.2)
+# F07 — Diseño de la interfaz de NuevaMente (versión 2.3)
 
 ## 0. Cambios
+
+### Versión 2.3 (respecto a la 2.2)
+
+Alcance para la demo, ajustado al backend integrado. El contrato vigente es el **contrato común de la API**
+(rutas `/api/v1`, errores con `codigo` y `mensaje`, items con la forma de F06); §5 se resume con esos nombres.
+
+| Tema | Versión 2.2 | Versión 2.3 |
+|---|---|---|
+| Sector (nicho) | Uno para toda la institución, en Configuración | **Uno por tema**: el admin lo elige al crear o editar el tema. Configuración sale del menú |
+| Material del estudiante | Con anclaje, intentos de revisión y observaciones del revisor | Solo **tiempo estimado**, conceptos clave, prerrequisitos y fuentes. Lo demás lo ve el admin en revisión |
+| Mis temas | Métricas, filtro y estado de evaluación | **Solo las tarjetas** y "Tienes N temas asignados." Los estados vuelven con la evaluación |
+| Página del tema | Estudiar | Estudiar y **Mi material** (lo que generó o le aprobaron, para abrirlo de nuevo) |
+| Material en revisión | Ver y Exportar JSON | **Aprobar**, **Rechazar** (con confirmación) y Exportar JSON |
+| Usuarios | Pieza 3; contraseña temporal que se muestra una sola vez | **En la demo.** El admin **escribe la contraseña temporal o pulsa "Generar una"**; se muestra al guardar para copiarla. Si la persona no puede entrar: **Restablecer contraseña** y **Desbloquear** |
+| Contraseña | Mínimo 8 | **Mínimo 12** (como Backend); al cambiarla se vuelve a entrar solo |
+| Evaluación con examen | Pieza 2 | **Siguiente paso** después de la demo (el diseño de §6.4 se mantiene) |
 
 ### Versión 2.2 (respecto a la 2.1)
 
@@ -52,10 +68,10 @@ institución para capacitar a su gente** (empleados o contratistas): no es abier
 
 - **Estudiante:** inicia sesión y tiene dos entradas en el menú:
   - **Mis temas:** abre un tema para **estudiar**: elige nivel y formato y recibe su material (contenido, metadatos de
-    aprendizaje, puntaje de calidad y fuentes);
+    aprendizaje y fuentes). En **Mi material** vuelve a abrir lo que ya generó;
   - **Evaluaciones:** presenta el examen oficial de cada tema y ve su nota.
-- **Admin:** sube documentos, arma temas, genera y publica exámenes, crea usuarios, sigue el progreso, revisa el material
-  que no pasó el control de calidad y define el **sector de la institución** (el nicho que pide el reto, uno para toda la institución).
+- **Admin:** sube documentos, arma temas y elige el **sector de cada tema** (el nicho que pide el reto), crea las cuentas
+  de quienes estudian, y aprueba o rechaza el material que no pasó el control de calidad. Exámenes y progreso: siguiente paso.
 
 F07 trabaja con **datos de ejemplo (mock)**. La conexión con el backend real es F08: se cambia una variable de entorno
 y las pantallas quedan iguales.
@@ -168,7 +184,7 @@ Sin cambios respecto a la versión 1: el JSON del Hito 4 más `id_paquete`, `cre
 |---|---|
 | Perfiles | Principiante · Intermedio · Avanzado |
 | Formatos | Tutorial · Flashcards · Quiz · Resumen · Guion |
-| Nichos (sector de la institución) | Fintech · Salud · E-commerce · General — lo elige el admin |
+| Nichos (sector) | Fintech · Salud · E-commerce · General — lo elige el admin en cada tema (v2.3) |
 | Roles | `estudiante` · `admin` |
 
 ### 5.4 Modelos nuevos
@@ -177,7 +193,7 @@ Sin cambios respecto a la versión 1: el JSON del Hito 4 más `id_paquete`, `cre
 |---|---|
 | `Usuario` | `id_usuario`, `nombre`, `usuario`, `rol`, `activo`, `debe_cambiar_contrasena`, `temas` (lista de `id_tema`) |
 | `Sesion` | `token`, `usuario` (`Usuario`) |
-| `Tema` | `id_tema`, `nombre`, `descripcion`, `documentos` (nombres de archivo, iguales al `metadata["source"]` de los chunks) |
+| `Tema` | `id_tema` (la interfaz lo arma con el nombre: "Redes en OCI" → `redes-en-oci`), `nombre`, `descripcion`, `nicho_sector`, `documentos` (id y título de cada documento) |
 | `PreguntaExamen` (admin) | `id_pregunta`, `pregunta`, `opciones`, `respuesta_correcta`, `justificacion`, `fuente` (`Fuente`) |
 | `PreguntaEvaluacion` (estudiante) | `id_pregunta`, `pregunta`, `opciones` — **sin** respuesta ni justificación |
 | `Examen` | `id_tema`, `estado` (`borrador` / `publicado`), `preguntas` (`PreguntaExamen`), `nota_minima` (0–100), `intentos_maximos` (≥ 1) |
@@ -191,12 +207,14 @@ pantalla no basta (se verían en el navegador); Backend no las envía y `Pregunt
 ### 5.5 Petición para generar material
 
 ```json
-{ "id_tema": "t-redes", "tema": "", "perfil": "Principiante", "formato": "Flashcards" }
+{ "id_tema": "redes-en-oci", "perfil_destinatario": "Principiante", "formato_salida": "Flashcards" }
 ```
 - `id_tema` (nuevo): Backend busca **solo en los documentos de ese tema** (por ejemplo, con el filtro de FAISS sobre
   `metadata["source"]`) y comprueba que el tema esté asignado a quien pide.
-- `tema` pasa a ser **opcional**: es el campo "¿Algo en particular?". Vacío = todo el tema.
-- Sigue sin nicho: Backend aplica el sector guardado en la configuración.
+- `tema` pasa a ser **opcional**: es el campo "¿Algo en particular?". Vacío = no se envía (todo el tema).
+- Sin nicho: Backend aplica el sector del tema (v2.3).
+- Si el material no pasa la revisión, Backend responde **202** y el estudiante ve "Este material necesita una revisión
+  adicional antes de estar disponible."
 
 ### 5.6 Reglas de la evaluación
 
@@ -269,18 +287,19 @@ Para el jurado y quien visite el proyecto. Ocupa el ancho completo; sin menú la
   también en Backend.
 
 ### 6.2 Mis temas — estudiante (pieza 1)
-- Título "Mis temas" y "Consulta tus temas asignados y continúa donde lo dejaste."
-- Métricas (`st.metric` en contenedores con borde): **Asignados**, **Pendientes** (todo tema que no esté *Aprobado*) y
-  **Aprobados**.
-- Filtro en píldoras (`st.pills`): *Todos / Pendientes / Aprobados*, con ese mismo criterio.
-- Una tarjeta por tema (`st.container(border=True)`): ícono, nombre, etiqueta de estado (`st.badge`: *Pendiente*,
-  *Aprobado*, *Sin intentos* o *Sin evaluación*, según §5.6), "N documentos" más los intentos restantes o la nota, y **Abrir tema**.
-- **Sin barra de progreso:** la app no mide cuánto ha estudiado cada persona; solo conoce la nota de la evaluación.
-- Mientras no exista la pieza 2, todos los temas muestran *Sin evaluación*.
+- Título "Mis temas" y "Consulta tus temas asignados y continúa donde lo dejaste.", más "Tienes N temas asignados."
+- Una tarjeta por tema (`st.container(border=True)`): ícono, nombre, "N documentos" y **Abrir tema**.
+- **Sin barra de progreso:** la app no mide cuánto ha estudiado cada persona.
+- **v2.3:** sin métricas, filtro ni etiqueta de estado mientras no exista la evaluación. Cuando llegue, vuelven
+  *Pendiente*, *Aprobado*, *Sin intentos* y *Sin evaluación* (§5.6).
 - Vacío: "Todavía no tienes temas asignados. Cuando la institución te asigne uno, aparecerá aquí."
 
 ### 6.3 Tema — estudiante (pieza 1)
 Nombre, descripción y "Documentos de este tema: …". Solo tiene **Estudiar**; la evaluación se presenta desde Evaluaciones (§6.4).
+Debajo de Estudiar, "Sector: <sector del tema>" y la caja **Mi material** (v2.3): título, formato y fecha de lo que la
+persona generó en el tema (y lo que el admin le aprobó), con **Abrir**. Vacío: "Aquí aparecerá el material que generes."
+El material muestra al estudiante solo el tiempo estimado, los conceptos clave, los prerrequisitos y las fuentes; el
+anclaje, los intentos de revisión y las observaciones del revisor quedan para el admin.
 **Dos columnas (v2.2):** a la izquierda, en una caja, nivel, formato, "¿Algo en particular?" y **Generar material**; a la
 derecha, el material (o sus estados). Antes de generar, la derecha muestra un recuadro: "Elige tu nivel y formato y pulsa
 Generar material. Aquí aparecerá tu material."
@@ -323,13 +342,14 @@ Necesitas la nota mínima para aprobar." Una tarjeta por tema asignado, con nomb
 
 ### 6.5 Admin
 - **Documentos (pieza 1):** caja **Subir documento** (PDF, Markdown o TXT, máximo 10 MB) con **Subir e indexar**, y
-  caja **Documentos subidos** con una tabla: nombre, estado (etiqueta *Indexado* o *Con error*), fragmentos, temas que
-  lo usan y el error, si lo hay. Vacío: "Todavía no hay documentos. Sube el primero en la sección de arriba."
-- **Temas (pieza 1):** dos columnas (v2.2): a la izquierda el formulario (nombre, descripción, documentos indexados) con **Crear tema**; a la derecha la lista de temas con sus
-  documentos, **Editar** y **Retirar** (con confirmación). Sin documentos: enlace a Documentos. Ante un error, el formulario conserva lo escrito.
+  caja **Documentos subidos** con una tabla: título (y nombre del archivo), tipo, fragmentos y temas que lo usan. La
+  subida es síncrona: si falla, se muestra el mensaje de Backend y el documento no queda en la lista. Vacío: "Todavía no hay documentos. Sube el primero en la sección de arriba."
+- **Temas (pieza 1):** dos columnas (v2.2): a la izquierda el formulario (nombre, descripción, **sector**, documentos) con **Crear tema**; a la derecha la lista de temas con su
+  sector y sus documentos, **Editar** y **Retirar** (con confirmación). Sin documentos: enlace a Documentos. Ante un error, el formulario conserva lo escrito.
 - **Material en revisión (pieza 1):** dos columnas (v2.2): a la izquierda la lista del material que no superó la revisión; **Abrir** muestra a la derecha el paquete con
-  **Exportar JSON**.
-- **Configuración (pieza 1):** sector de la institución, con la explicación de cómo se usa, y **Guardar cambios**.
+  **Aprobar** (queda visible para quien lo pidió), **Rechazar** (con confirmación: se elimina y se puede generar de nuevo)
+  y **Exportar JSON**.
+- **Configuración:** fuera del menú desde la v2.3 (el sector va en cada tema).
 - **Exámenes (pieza 2):**
 
 | Estado | Lo que se ve |
@@ -340,9 +360,14 @@ Necesitas la nota mínima para aprobar." Una tarjeta por tema asignado, con nomb
 | Borrador | Cada pregunta con respuesta correcta, justificación y fuente; **Quitar** y **Pedir otra**; nota mínima, intentos y **Publicar evaluación** (con confirmación) |
 | Publicado | Solo lectura y **Generar nueva versión** |
 
-- **Usuarios (pieza 3):** tabla (nombre, usuario, rol, estado, temas) y **Crear usuario**. La contraseña temporal se
-  muestra **una sola vez**: "Cópiala ahora; no se volverá a mostrar." Por usuario: editar temas, activar o desactivar,
-  **Restablecer contraseña** y **Dar intento extra** (con confirmación).
+- **Usuarios (v2.3, en la demo):** dos columnas. A la izquierda **Crear estudiante**: nombre, usuario, contraseña temporal
+  (el admin la escribe o pulsa **Generar una**: 14 caracteres sin los que se confunden al dictarla) y temas. A la derecha,
+  una tarjeta por cuenta (nombre, usuario, rol, *Activa* o *Inactiva*, temas). Por estudiante: **Temas**, **Restablecer
+  contraseña**, **Desactivar** (con confirmación) o **Activar**, y **Desbloquear** (tras demasiados intentos fallidos).
+  Al crear o restablecer, la contraseña se muestra con botón de copiar y "Pásasela al estudiante. Al entrar, la app le
+  pedirá cambiarla." No se puede volver a consultar después (Backend guarda solo su hash): si la persona no puede entrar,
+  se restablece. Las cuentas de admin aparecen sin acciones (se crean con `api/crear_admin.py`). **Dar intento extra**
+  llega con la evaluación.
 - **Progreso (pieza 3):** filtro por tema, métricas y tabla (persona, estado, mejor nota, intentos).
 
 ### 6.6 Común
