@@ -30,13 +30,19 @@ class FakeOCIClient:
         self,
         *,
         bucket_exists: bool = True,
-        storage_tier: str = "Standard",
-        public_access_type: str = "NoPublicAccess",
+        storage_tier: str | None = "Standard",
+        public_access_type: str | None = "NoPublicAccess",
+        auto_tiering: str | None = "Disabled",
+        object_events_enabled: bool = False,
+        versioning: str | None = "Disabled",
         fail_put: bool = False,
     ):
         self.bucket_exists = bucket_exists
         self.storage_tier = storage_tier
         self.public_access_type = public_access_type
+        self.auto_tiering = auto_tiering
+        self.object_events_enabled = object_events_enabled
+        self.versioning = versioning
         self.fail_put = fail_put
         self.created_buckets = []
         self.uploaded_objects = {}
@@ -52,6 +58,9 @@ class FakeOCIClient:
                 name=bucket_name,
                 storage_tier=self.storage_tier,
                 public_access_type=self.public_access_type,
+                auto_tiering=self.auto_tiering,
+                object_events_enabled=self.object_events_enabled,
+                versioning=self.versioning,
             )
         )
 
@@ -63,6 +72,9 @@ class FakeOCIClient:
                 name=getattr(create_bucket_details, "name", DEFAULT_BUCKET_NAME),
                 storage_tier="Standard",
                 public_access_type="NoPublicAccess",
+                auto_tiering="Disabled",
+                object_events_enabled=False,
+                versioning="Disabled",
             )
         )
 
@@ -103,14 +115,14 @@ class FakeOCIClient:
 
 
 class OCIStorageTests(unittest.TestCase):
-    def test_build_content_object_id_matches_consigna_format(self):
+    def test_object_id_generation(self):
         obj_id = build_content_object_id("VCN", "Principiante", "Flashcards", sequence=1)
         self.assertEqual(obj_id, "contenido-vcn-principiante-flashcards-001.json")
 
         doc_id = build_document_object_id("arquitectura_redes_vcn_oci.md")
         self.assertEqual(doc_id, "documentos/redes-vcn-oci.md")
 
-    def test_ensure_bucket_exists_creates_always_free_bucket_on_404(self):
+    def test_create_always_free_bucket(self):
         client = FakeOCIClient(bucket_exists=False)
         manager = OCIStorageManager(
             client=client,
@@ -147,17 +159,29 @@ class OCIStorageTests(unittest.TestCase):
         self.assertFalse(events)
         self.assertEqual(versioning, "Disabled")
 
-    def test_ensure_bucket_rejects_non_always_free_tier(self):
-        client = FakeOCIClient(bucket_exists=True, storage_tier="Archive")
-        manager = OCIStorageManager(
-            client=client,
-            config={"tenancy": "ocid1.tenancy.oc1..test"},
-        )
-        with self.assertRaises(OCIStorageError) as ctx:
-            manager.ensure_bucket_exists()
-        self.assertIn("storage_tier='Archive'", str(ctx.exception))
+    def test_reject_invalid_bucket_policy(self):
+        casos = [
+            ({"storage_tier": "Archive"}, "storage_tier='Archive'"),
+            ({"storage_tier": None}, "storage_tier='None'"),
+            ({"public_access_type": "ObjectRead"}, "public_access_type='ObjectRead'"),
+            ({"public_access_type": "ObjectReadWithoutList"}, "public_access_type='ObjectReadWithoutList'"),
+            ({"public_access_type": None}, "public_access_type='None'"),
+            ({"auto_tiering": "InfrequentAccess"}, "auto_tiering='InfrequentAccess'"),
+            ({"object_events_enabled": True}, "eventos de objetos"),
+            ({"versioning": "Enabled"}, "versioning='Enabled'"),
+        ]
+        for kwargs, fragmento in casos:
+            with self.subTest(**kwargs):
+                client = FakeOCIClient(bucket_exists=True, **kwargs)
+                manager = OCIStorageManager(
+                    client=client,
+                    config={"tenancy": "ocid1.tenancy.oc1..test"},
+                )
+                with self.assertRaises(OCIStorageError) as ctx:
+                    manager.ensure_bucket_exists()
+                self.assertIn(fragmento, str(ctx.exception))
 
-    def test_ensure_bucket_rejects_public_access_types(self):
+    def test_block_upload_to_public_bucket(self):
         for public_type in ("ObjectRead", "ObjectReadWithoutList"):
             with self.subTest(public_type=public_type):
                 client = FakeOCIClient(bucket_exists=True, public_access_type=public_type)
@@ -165,45 +189,21 @@ class OCIStorageTests(unittest.TestCase):
                     client=client,
                     config={"tenancy": "ocid1.tenancy.oc1..test"},
                 )
-                with self.assertRaises(OCIStorageError) as ctx:
-                    manager.ensure_bucket_exists()
-                self.assertIn("NoPublicAccess", str(ctx.exception))
-                self.assertIn(f"public_access_type='{public_type}'", str(ctx.exception))
+                res_doc = manager.upload_document(b"# Titulo", filename="doc.md", raise_on_error=False)
+                self.assertEqual(res_doc.status_upload, "error")
 
-    def test_upload_document_rejects_public_bucket_before_put_object(self):
-        client = FakeOCIClient(bucket_exists=True, public_access_type="ObjectRead")
-        manager = OCIStorageManager(
-            client=client,
-            config={"tenancy": "ocid1.tenancy.oc1..test"},
-        )
-        # raise_on_error=False
-        res = manager.upload_document(b"# Titulo", filename="documento.md", raise_on_error=False)
-        self.assertEqual(res.status_upload, "error")
-        self.assertEqual(len(client.uploaded_objects), 0)
+                sample = {"status": "exito", "metadatos": {"conceptos_clave": ["VCN"]}}
+                _, res_json = manager.upload_educational_json(sample, raise_on_error=False)
+                self.assertEqual(res_json.status_upload, "error")
 
-        # raise_on_error=True
-        with self.assertRaises(OCIStorageError):
-            manager.upload_document(b"# Titulo", filename="documento.md", raise_on_error=True)
-        self.assertEqual(len(client.uploaded_objects), 0)
+                with self.assertRaises(OCIStorageError):
+                    manager.upload_document(b"# Titulo", filename="doc.md", raise_on_error=True)
+                with self.assertRaises(OCIStorageError):
+                    manager.upload_educational_json(sample, raise_on_error=True)
 
-    def test_upload_educational_json_rejects_public_bucket_before_put_object(self):
-        client = FakeOCIClient(bucket_exists=True, public_access_type="ObjectReadWithoutList")
-        manager = OCIStorageManager(
-            client=client,
-            config={"tenancy": "ocid1.tenancy.oc1..test"},
-        )
-        sample = {"status": "exito", "metadatos": {"conceptos_clave": ["VCN"]}}
-        # raise_on_error=False
-        _, oci_info = manager.upload_educational_json(sample, raise_on_error=False)
-        self.assertEqual(oci_info.status_upload, "error")
-        self.assertEqual(len(client.uploaded_objects), 0)
+                self.assertEqual(len(client.uploaded_objects), 0)
 
-        # raise_on_error=True
-        with self.assertRaises(OCIStorageError):
-            manager.upload_educational_json(sample, raise_on_error=True)
-        self.assertEqual(len(client.uploaded_objects), 0)
-
-    def test_upload_document_validates_extension_and_size(self):
+    def test_upload_document_validation(self):
         client = FakeOCIClient()
         manager = OCIStorageManager(
             client=client,
@@ -221,20 +221,20 @@ class OCIStorageTests(unittest.TestCase):
             self.assertEqual(res.objeto_id, "documentos/manual-vcn.md")
             self.assertIn("documentos/manual-vcn.md", client.uploaded_objects)
 
-        # Extensión inválida
         bad_ext = manager.upload_document(b"contenido", filename="script.exe")
         self.assertEqual(bad_ext.status_upload, "error")
 
-        # Archivo vacío
         empty_res = manager.upload_document(b"", filename="vacio.txt")
         self.assertEqual(empty_res.status_upload, "error")
 
-        # Archivo que supera el límite de 10 MiB
         oversized = b"a" * (MAX_UPLOAD_BYTES + 1)
         over_res = manager.upload_document(oversized, filename="grande.pdf")
         self.assertEqual(over_res.status_upload, "error")
 
-    def test_upload_educational_json_injects_almacenamiento_oci(self):
+        bad_path = manager.upload_document(b"contenido", filename="doc.md", object_id="../escape.md")
+        self.assertEqual(bad_path.status_upload, "error")
+
+    def test_upload_educational_json(self):
         client = FakeOCIClient()
         manager = OCIStorageManager(
             client=client,
@@ -289,7 +289,7 @@ class OCIStorageTests(unittest.TestCase):
             ["contenido-vcn-principiante-flashcards-001.json"],
         )
 
-    def test_upload_educational_json_handles_network_error(self):
+    def test_upload_network_error(self):
         client = FakeOCIClient(fail_put=True)
         manager = OCIStorageManager(
             client=client,

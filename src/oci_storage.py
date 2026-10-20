@@ -68,6 +68,14 @@ def slugify(text: str, max_words: int = 3) -> str:
     return "-".join(chosen)
 
 
+def validate_object_id(object_id: str) -> str:
+    """Valida que el identificador del objeto sea seguro y no contenga rutas relativas peligrosas."""
+    cleaned = (object_id or "").strip().replace("\\", "/")
+    if not cleaned or cleaned.startswith("/") or ".." in cleaned.split("/"):
+        raise ValueError(f"Identificador de objeto inválido o inseguro: {object_id!r}")
+    return cleaned
+
+
 def build_content_object_id(
     topic: str,
     profile: str,
@@ -91,7 +99,8 @@ def build_document_object_id(filename: str, prefix: str = "documentos") -> str:
     ext = path.suffix.lower()
     stem_slug = slugify(path.stem, max_words=5)
     clean_name = f"{stem_slug}{ext}" if ext else stem_slug
-    return f"{prefix}/{clean_name}" if prefix else clean_name
+    clean_prefix = prefix.strip("/")
+    return f"{clean_prefix}/{clean_name}" if clean_prefix else clean_name
 
 
 def load_oci_config(
@@ -208,6 +217,39 @@ class OCIStorageManager:
             self._compartment_id = tenancy
         return self._compartment_id
 
+    def _validate_bucket_policy(self, bucket: Any) -> tuple[str, str]:
+        """Valida que un objeto Bucket de OCI cumpla con Always Free y privacidad estricta."""
+        storage_tier = getattr(bucket, "storage_tier", None)
+        if storage_tier != "Standard":
+            raise OCIStorageError(
+                f"El bucket '{self.bucket_name}' tiene storage_tier='{storage_tier}'. "
+                "Solo se permite 'Standard' para cumplir con la capa Always Free."
+            )
+        public_access_type = getattr(bucket, "public_access_type", None)
+        if public_access_type != "NoPublicAccess":
+            raise OCIStorageError(
+                f"El bucket '{self.bucket_name}' tiene public_access_type='{public_access_type}'. "
+                "Solo se permite 'NoPublicAccess' para evitar la exposición pública de documentos."
+            )
+        auto_tiering = getattr(bucket, "auto_tiering", "Disabled")
+        if auto_tiering not in (None, "Disabled"):
+            raise OCIStorageError(
+                f"El bucket '{self.bucket_name}' tiene auto_tiering='{auto_tiering}'. "
+                "Debe estar en 'Disabled' para evitar costos adicionales."
+            )
+        if getattr(bucket, "object_events_enabled", False) is True:
+            raise OCIStorageError(
+                f"El bucket '{self.bucket_name}' tiene eventos de objetos habilitados. "
+                "Deben estar deshabilitados en la capa Always Free."
+            )
+        versioning = getattr(bucket, "versioning", "Disabled")
+        if versioning not in (None, "Disabled"):
+            raise OCIStorageError(
+                f"El bucket '{self.bucket_name}' tiene versioning='{versioning}'. "
+                "Debe estar en 'Disabled' para proteger la cuota de 20 GiB."
+            )
+        return storage_tier, public_access_type
+
     def ensure_bucket_exists(self, force_refresh: bool = False) -> dict[str, Any]:
         """Verifica que el bucket exista o lo crea garantizando parámetros Always Free y acceso privado."""
         if self._bucket_verified and not force_refresh:
@@ -225,19 +267,7 @@ class OCIStorageManager:
                 namespace_name=namespace,
                 bucket_name=self.bucket_name,
             )
-            bucket = response.data
-            storage_tier = getattr(bucket, "storage_tier", "Standard")
-            if storage_tier and storage_tier != "Standard":
-                raise OCIStorageError(
-                    f"El bucket '{self.bucket_name}' tiene storage_tier='{storage_tier}'. "
-                    "Solo se permite 'Standard' para cumplir con la capa Always Free."
-                )
-            public_access_type = getattr(bucket, "public_access_type", "NoPublicAccess")
-            if public_access_type and public_access_type != "NoPublicAccess":
-                raise OCIStorageError(
-                    f"El bucket '{self.bucket_name}' tiene public_access_type='{public_access_type}'. "
-                    "Solo se permite 'NoPublicAccess' para evitar la exposición pública de documentos."
-                )
+            storage_tier, public_access_type = self._validate_bucket_policy(response.data)
             self._bucket_verified = True
             return {
                 "bucket": self.bucket_name,
@@ -289,14 +319,20 @@ class OCIStorageManager:
                 create_bucket_details=details,
             )
             bucket = getattr(response, "data", None)
+            if bucket is not None:
+                storage_tier, public_access_type = self._validate_bucket_policy(bucket)
+            else:
+                storage_tier, public_access_type = "Standard", "NoPublicAccess"
             self._bucket_verified = True
             return {
                 "bucket": self.bucket_name,
                 "namespace": namespace,
                 "created": True,
-                "storage_tier": getattr(bucket, "storage_tier", "Standard"),
-                "public_access_type": getattr(bucket, "public_access_type", "NoPublicAccess"),
+                "storage_tier": storage_tier,
+                "public_access_type": public_access_type,
             }
+        except OCIStorageError:
+            raise
         except Exception as exc:
             raise OCIStorageError(f"No se pudo crear el bucket '{self.bucket_name}': {exc}") from exc
 
@@ -329,7 +365,17 @@ class OCIStorageManager:
             raise TypeError("source debe ser una ruta (str/Path) o bytes.")
 
         ext = Path(inferred_name).suffix.lower()
-        target_object_id = object_id or build_document_object_id(inferred_name, prefix=prefix)
+        raw_object_id = object_id or build_document_object_id(inferred_name, prefix=prefix)
+        try:
+            target_object_id = validate_object_id(raw_object_id)
+        except ValueError:
+            if raise_on_error:
+                raise
+            return AlmacenamientoOCI(
+                bucket=self.bucket_name,
+                objeto_id=raw_object_id or "invalido",
+                status_upload="error",
+            )
 
         if ext not in SUPPORTED_DOCUMENT_EXTENSIONS:
             if raise_on_error:
@@ -352,7 +398,6 @@ class OCIStorageManager:
                 status_upload="error",
             )
 
-        # Validación del bucket antes de subir:
         # Asegura que el bucket existe, es Standard y tiene NoPublicAccess ANTES de llamar a put_object
         try:
             self.ensure_bucket_exists()
@@ -423,12 +468,24 @@ class OCIStorageManager:
         resolved_profile = profile or metadatos.get("perfil_aplicado") or "principiante"
         resolved_format = output_format or metadatos.get("formato_generado") or "flashcards"
 
-        target_object_id = object_id or build_content_object_id(
+        raw_object_id = object_id or build_content_object_id(
             topic=str(resolved_topic),
             profile=str(resolved_profile),
             output_format=str(resolved_format),
             sequence=sequence,
         )
+        try:
+            target_object_id = validate_object_id(raw_object_id)
+        except ValueError:
+            oci_record = AlmacenamientoOCI(
+                bucket=self.bucket_name,
+                objeto_id=raw_object_id or "invalido",
+                status_upload="error",
+            )
+            data["almacenamiento_oci"] = oci_record.model_dump()
+            if raise_on_error:
+                raise
+            return data, oci_record
 
         # Preparamos el bloque almacenamiento_oci con estado 'completado' antes de serializar
         # para que el archivo JSON almacenado en el bucket contenga el registro exacto.
@@ -451,7 +508,6 @@ class OCIStorageManager:
                 raise ValueError(f"El JSON excede el tamaño máximo permitido ({MAX_UPLOAD_BYTES} bytes).")
             return data, oci_record
 
-        # Validación del bucket antes de subir:
         # Asegura que el bucket existe, es Standard y tiene NoPublicAccess ANTES de llamar a put_object
         try:
             self.ensure_bucket_exists()
@@ -489,19 +545,24 @@ class OCIStorageManager:
 
     def download_object(self, object_id: str) -> bytes:
         """Descarga los bytes de un objeto almacenado en el bucket de OCI."""
+        target_object_id = validate_object_id(object_id)
         try:
+            self.ensure_bucket_exists()
             response = self.client.get_object(
                 namespace_name=self.namespace,
                 bucket_name=self.bucket_name,
-                object_name=object_id,
+                object_name=target_object_id,
             )
             return response.data.content
+        except OCIStorageError:
+            raise
         except Exception as exc:
-            raise OCIStorageError(f"No se pudo descargar el objeto '{object_id}': {exc}") from exc
+            raise OCIStorageError(f"No se pudo descargar el objeto '{target_object_id}': {exc}") from exc
 
     def list_objects(self, prefix: str = "") -> list[str]:
         """Lista los nombres de los objetos almacenados en el bucket."""
         try:
+            self.ensure_bucket_exists()
             response = self.client.list_objects(
                 namespace_name=self.namespace,
                 bucket_name=self.bucket_name,
@@ -509,5 +570,7 @@ class OCIStorageManager:
             )
             objects = getattr(response.data, "objects", []) or []
             return [obj.name for obj in objects]
+        except OCIStorageError:
+            raise
         except Exception as exc:
             raise OCIStorageError(f"Error al listar objetos del bucket '{self.bucket_name}': {exc}") from exc
