@@ -32,5 +32,5 @@ langgraph
 pydantic
 
 # Interfaz (F07): app web y llamadas HTTP a la API del Backend
-streamlit>=1.40
+streamlit>=1.65
 requests

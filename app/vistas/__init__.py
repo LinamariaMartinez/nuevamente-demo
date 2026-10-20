@@ -9,9 +9,13 @@ import streamlit as st
 from pydantic import ValidationError
 
 from contrato import items_validos
-from vistas import generica
+from vistas import flashcards, generica, guia, quiz
 
-VISTAS = {}
+VISTAS = {
+    "Flashcards": flashcards,
+    "Quiz": quiz,
+    "Tutorial": guia,
+}
 
 
 def mostrar_paquete(paquete):
