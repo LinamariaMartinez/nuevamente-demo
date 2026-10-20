@@ -2,7 +2,8 @@
 
 Cumple con los requisitos de la consigna oficial de NuevaMente:
 1. Autenticación mediante OCI Python SDK (soporta ~/.oci/config y variables de entorno en .env).
-2. Creación y verificación de Bucket estrictamente en la capa Always Free (Standard Tier, sin costos).
+2. Creación y verificación de Bucket estrictamente en la capa Always Free (Standard Tier, sin costos)
+   y con acceso privado estricto (NoPublicAccess).
 3. Persistencia de documentos técnicos originales (.pdf, .md, .txt) y paquetes educativos JSON.
 4. Generación del bloque estructurado `almacenamiento_oci` con `bucket`, `objeto_id` y `status_upload`.
 """
@@ -171,6 +172,7 @@ class OCIStorageManager:
             or os.getenv("OCI_COMPARTMENT_OCID")
             or the_keys.OCI_COMPARTMENT_OCID
         )
+        self._bucket_verified: bool = False
 
     @property
     def config(self) -> dict[str, Any]:
@@ -206,8 +208,17 @@ class OCIStorageManager:
             self._compartment_id = tenancy
         return self._compartment_id
 
-    def ensure_bucket_exists(self) -> dict[str, Any]:
-        """Verifica que el bucket exista o lo crea garantizando parámetros Always Free."""
+    def ensure_bucket_exists(self, force_refresh: bool = False) -> dict[str, Any]:
+        """Verifica que el bucket exista o lo crea garantizando parámetros Always Free y acceso privado."""
+        if self._bucket_verified and not force_refresh:
+            return {
+                "bucket": self.bucket_name,
+                "namespace": self.namespace,
+                "created": False,
+                "storage_tier": "Standard",
+                "public_access_type": "NoPublicAccess",
+            }
+
         namespace = self.namespace
         try:
             response = self.client.get_bucket(
@@ -221,12 +232,19 @@ class OCIStorageManager:
                     f"El bucket '{self.bucket_name}' tiene storage_tier='{storage_tier}'. "
                     "Solo se permite 'Standard' para cumplir con la capa Always Free."
                 )
+            public_access_type = getattr(bucket, "public_access_type", "NoPublicAccess")
+            if public_access_type and public_access_type != "NoPublicAccess":
+                raise OCIStorageError(
+                    f"El bucket '{self.bucket_name}' tiene public_access_type='{public_access_type}'. "
+                    "Solo se permite 'NoPublicAccess' para evitar la exposición pública de documentos."
+                )
+            self._bucket_verified = True
             return {
                 "bucket": self.bucket_name,
                 "namespace": namespace,
                 "created": False,
                 "storage_tier": storage_tier,
-                "public_access_type": getattr(bucket, "public_access_type", "NoPublicAccess"),
+                "public_access_type": public_access_type,
             }
         except OCIStorageError:
             raise
@@ -271,6 +289,7 @@ class OCIStorageManager:
                 create_bucket_details=details,
             )
             bucket = getattr(response, "data", None)
+            self._bucket_verified = True
             return {
                 "bucket": self.bucket_name,
                 "namespace": namespace,
@@ -327,6 +346,19 @@ class OCIStorageManager:
                     f"Tamaño inválido ({len(raw_bytes)} bytes). "
                     f"Debe estar entre 1 byte y {MAX_UPLOAD_BYTES} bytes."
                 )
+            return AlmacenamientoOCI(
+                bucket=self.bucket_name,
+                objeto_id=target_object_id,
+                status_upload="error",
+            )
+
+        # Validación del bucket antes de subir:
+        # Asegura que el bucket existe, es Standard y tiene NoPublicAccess ANTES de llamar a put_object
+        try:
+            self.ensure_bucket_exists()
+        except Exception as exc:
+            if raise_on_error:
+                raise OCIStorageError(f"Validación de bucket fallida para '{self.bucket_name}': {exc}") from exc
             return AlmacenamientoOCI(
                 bucket=self.bucket_name,
                 objeto_id=target_object_id,
@@ -417,6 +449,21 @@ class OCIStorageManager:
             data["almacenamiento_oci"] = oci_record.model_dump()
             if raise_on_error:
                 raise ValueError(f"El JSON excede el tamaño máximo permitido ({MAX_UPLOAD_BYTES} bytes).")
+            return data, oci_record
+
+        # Validación del bucket antes de subir:
+        # Asegura que el bucket existe, es Standard y tiene NoPublicAccess ANTES de llamar a put_object
+        try:
+            self.ensure_bucket_exists()
+        except Exception as exc:
+            oci_record = AlmacenamientoOCI(
+                bucket=self.bucket_name,
+                objeto_id=target_object_id,
+                status_upload="error",
+            )
+            data["almacenamiento_oci"] = oci_record.model_dump()
+            if raise_on_error:
+                raise OCIStorageError(f"Validación de bucket fallida para '{self.bucket_name}': {exc}") from exc
             return data, oci_record
 
         try:

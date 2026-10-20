@@ -26,9 +26,17 @@ class FakeNotFoundError(Exception):
 
 
 class FakeOCIClient:
-    def __init__(self, *, bucket_exists=True, storage_tier="Standard", fail_put=False):
+    def __init__(
+        self,
+        *,
+        bucket_exists: bool = True,
+        storage_tier: str = "Standard",
+        public_access_type: str = "NoPublicAccess",
+        fail_put: bool = False,
+    ):
         self.bucket_exists = bucket_exists
         self.storage_tier = storage_tier
+        self.public_access_type = public_access_type
         self.fail_put = fail_put
         self.created_buckets = []
         self.uploaded_objects = {}
@@ -43,7 +51,7 @@ class FakeOCIClient:
             data=SimpleNamespace(
                 name=bucket_name,
                 storage_tier=self.storage_tier,
-                public_access_type="NoPublicAccess",
+                public_access_type=self.public_access_type,
             )
         )
 
@@ -145,8 +153,55 @@ class OCIStorageTests(unittest.TestCase):
             client=client,
             config={"tenancy": "ocid1.tenancy.oc1..test"},
         )
-        with self.assertRaises(OCIStorageError):
+        with self.assertRaises(OCIStorageError) as ctx:
             manager.ensure_bucket_exists()
+        self.assertIn("storage_tier='Archive'", str(ctx.exception))
+
+    def test_ensure_bucket_rejects_public_access_types(self):
+        for public_type in ("ObjectRead", "ObjectReadWithoutList"):
+            with self.subTest(public_type=public_type):
+                client = FakeOCIClient(bucket_exists=True, public_access_type=public_type)
+                manager = OCIStorageManager(
+                    client=client,
+                    config={"tenancy": "ocid1.tenancy.oc1..test"},
+                )
+                with self.assertRaises(OCIStorageError) as ctx:
+                    manager.ensure_bucket_exists()
+                self.assertIn("NoPublicAccess", str(ctx.exception))
+                self.assertIn(f"public_access_type='{public_type}'", str(ctx.exception))
+
+    def test_upload_document_rejects_public_bucket_before_put_object(self):
+        client = FakeOCIClient(bucket_exists=True, public_access_type="ObjectRead")
+        manager = OCIStorageManager(
+            client=client,
+            config={"tenancy": "ocid1.tenancy.oc1..test"},
+        )
+        # raise_on_error=False
+        res = manager.upload_document(b"# Titulo", filename="documento.md", raise_on_error=False)
+        self.assertEqual(res.status_upload, "error")
+        self.assertEqual(len(client.uploaded_objects), 0)
+
+        # raise_on_error=True
+        with self.assertRaises(OCIStorageError):
+            manager.upload_document(b"# Titulo", filename="documento.md", raise_on_error=True)
+        self.assertEqual(len(client.uploaded_objects), 0)
+
+    def test_upload_educational_json_rejects_public_bucket_before_put_object(self):
+        client = FakeOCIClient(bucket_exists=True, public_access_type="ObjectReadWithoutList")
+        manager = OCIStorageManager(
+            client=client,
+            config={"tenancy": "ocid1.tenancy.oc1..test"},
+        )
+        sample = {"status": "exito", "metadatos": {"conceptos_clave": ["VCN"]}}
+        # raise_on_error=False
+        _, oci_info = manager.upload_educational_json(sample, raise_on_error=False)
+        self.assertEqual(oci_info.status_upload, "error")
+        self.assertEqual(len(client.uploaded_objects), 0)
+
+        # raise_on_error=True
+        with self.assertRaises(OCIStorageError):
+            manager.upload_educational_json(sample, raise_on_error=True)
+        self.assertEqual(len(client.uploaded_objects), 0)
 
     def test_upload_document_validates_extension_and_size(self):
         client = FakeOCIClient()
