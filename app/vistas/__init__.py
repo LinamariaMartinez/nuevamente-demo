@@ -22,7 +22,8 @@ VISTAS = {
 COMPACTOS = {"Resumen"}
 
 
-def mostrar_paquete(paquete):
+def mostrar_paquete(paquete, para_admin=False):
+    """`para_admin`: además muestra los datos internos del Revisor (anclaje, intentos y observaciones)."""
     formato = paquete.metadatos.formato_generado
     vista = VISTAS.get(formato)
     items = None
@@ -32,9 +33,9 @@ def mostrar_paquete(paquete):
         except (ValidationError, KeyError):
             items = None
     propia = vista is not None and bool(items)
-    generica.mostrar_encabezado(paquete, compacto=propia and formato in COMPACTOS)
+    generica.mostrar_encabezado(paquete, compacto=propia and formato in COMPACTOS, para_admin=para_admin)
     if propia:
         vista.mostrar(paquete, items)
     else:
         generica.mostrar_items(paquete)
-    generica.mostrar_pie(paquete)
+    generica.mostrar_pie(paquete, para_admin=para_admin)

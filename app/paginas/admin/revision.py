@@ -73,7 +73,7 @@ def _paquete_abierto(cliente):
         return
     contraer_menu()  # hay material a la derecha: más espacio para revisarlo
     _acciones(cliente, paquete)
-    mostrar_paquete(paquete)
+    mostrar_paquete(paquete, para_admin=True)
 
 
 def mostrar():

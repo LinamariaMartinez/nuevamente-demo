@@ -1,4 +1,4 @@
-"""Mini-app para probar las vistas con AppTest: dibuja el paquete guardado en session_state."""
+"""Mini-app para probar las vistas con AppTest: dibuja el paquete guardado en session_state (como estudiante, o como admin)."""
 
 from pathlib import Path
 import sys
@@ -13,4 +13,5 @@ import streamlit as st
 from contrato import Paquete
 from vistas import mostrar_paquete
 
-mostrar_paquete(Paquete.model_validate(st.session_state["datos_paquete"]))
+mostrar_paquete(Paquete.model_validate(st.session_state["datos_paquete"]),
+                para_admin=st.session_state.get("para_admin", False))

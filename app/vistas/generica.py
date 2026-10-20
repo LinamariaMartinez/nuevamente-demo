@@ -18,20 +18,24 @@ def texto_seguro(texto):
     return str(texto).replace("$", "\\$")
 
 
-def mostrar_encabezado(paquete, compacto=False):
-    """`compacto`: sin introducción ni conceptos clave, porque la vista del formato los muestra a su manera."""
+def mostrar_encabezado(paquete, compacto=False, para_admin=False):
+    """`compacto`: sin introducción ni conceptos clave, porque la vista del formato los muestra a su manera.
+
+    `para_admin`: con anclaje, intentos y el aviso de revisión. A quien estudia esos datos internos no le sirven.
+    """
     contenido = paquete.contenido_adaptado
     metadatos = paquete.metadatos
     calidad = paquete.evaluacion_calidad
     st.header(texto_seguro(contenido.titulo))
-    if paquete.status == "requiere_revision":
+    if para_admin and paquete.status == "requiere_revision":
         st.warning(AVISO_REVISION)
     if contenido.introduccion_contextualizada and not compacto:
         st.markdown(texto_seguro(contenido.introduccion_contextualizada))
     tiempo, anclaje, intentos = st.columns(3)
     tiempo.metric("Tiempo estimado", f"{metadatos.tiempo_estimado_estudio_minutos} min")
-    anclaje.metric("Anclaje en fuentes", f"{calidad.anclaje_fuente_score:.0%}")
-    intentos.metric("Intentos de revisión", calidad.intentos_revision)
+    if para_admin:
+        anclaje.metric("Anclaje en fuentes", f"{calidad.anclaje_fuente_score:.0%}")
+        intentos.metric("Intentos de revisión", calidad.intentos_revision)
     if metadatos.conceptos_clave and not compacto:
         st.markdown("**Conceptos clave:** " + texto_seguro(" · ".join(metadatos.conceptos_clave)))
     if metadatos.prerrequisitos:
@@ -55,8 +59,8 @@ def mostrar_items(paquete):
             st.markdown(f"*{etiqueta}:* {texto_seguro(valor)}")
 
 
-def mostrar_pie(paquete):
-    if paquete.evaluacion_calidad.observaciones:
+def mostrar_pie(paquete, para_admin=False):
+    if para_admin and paquete.evaluacion_calidad.observaciones:
         with st.expander("Observaciones del revisor"):
             st.markdown(texto_seguro(paquete.evaluacion_calidad.observaciones))
     if paquete.fuentes:

@@ -114,6 +114,11 @@ class AprobarYRechazar(unittest.TestCase):
         self.assertIn("Material rechazado: se eliminó y se puede generar de nuevo.", textos(at.success))
         self.assertEqual(cliente.listar_paquetes_revision(), [])
 
+    def test_admin_ve_las_metricas_internas(self):
+        at = abrir_guion()
+        self.assertIn("Anclaje en fuentes", [m.label for m in at.metric])
+        self.assertIn("Observaciones del revisor", [e.label for e in at.expander])
+
     def test_exportar_json_usa_el_id(self):
         boton = abrir_guion().get("download_button")[0].proto
         self.assertEqual(boton.label, "Exportar JSON")
