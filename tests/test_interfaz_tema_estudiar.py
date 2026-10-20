@@ -75,6 +75,12 @@ class PaginaDelTema(unittest.TestCase):
         _, derecha = columnas_principales(at)
         self.assertEqual(derecha.header[0].value, titulo)
 
+    def test_la_fecha_se_muestra_en_hora_de_colombia(self):
+        from datetime import datetime, timezone
+        from paginas import fecha_local
+        self.assertEqual(fecha_local(datetime(2026, 10, 19, 20, 30, tzinfo=timezone.utc)), "2026-10-19 15:30")
+        self.assertEqual(fecha_local(datetime(2026, 10, 20, 2, 0)), "2026-10-19 21:00")  # sin zona = UTC
+
     def test_solo_para_estudiantes(self):
         at = abrir(usuario="admin")
         self.assertIn("No tienes permiso para ver esta página.", textos(at.error))

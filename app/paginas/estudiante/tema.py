@@ -5,7 +5,7 @@ import streamlit as st
 import sesion
 from cliente_api import ErrorCliente
 from contrato import FORMATOS, LARGO_MAXIMO_TEMA, PERFILES, MaterialEnRevision, SolicitudPaquete
-from paginas import contraer_menu, ir_a, mostrar_error, mostrar_modo_demo
+from paginas import contraer_menu, fecha_local, ir_a, mostrar_error, mostrar_modo_demo
 from vistas import mostrar_paquete
 
 EN_REVISION = "Este material necesita una revisión adicional antes de estar disponible."
@@ -67,7 +67,7 @@ def _mi_material(cliente, tema):
         for material in sorted(materiales, key=lambda m: m.creado_en, reverse=True):
             info, accion = st.columns([3, 1], vertical_alignment="center")
             info.markdown(f"**{material.titulo or material.tema}**")
-            info.caption(f"{material.formato} · {material.creado_en:%Y-%m-%d %H:%M}")
+            info.caption(f"{material.formato} · {fecha_local(material.creado_en)}")
             if accion.button("Abrir", key=f"abrir_material_{material.id}"):
                 _abrir(cliente, tema, material.id)
 

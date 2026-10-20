@@ -83,5 +83,9 @@ else:
     st.set_page_config(page_icon=str(marca.FAVICON))
     estilo.aplicar()  # nombre, rol y Cerrar sesión al fondo del menú
     _mostrar_usuario(usuario)
+    # Las páginas pueden saber si la persona acaba de llegar (por ejemplo, Usuarios borra avisos viejos)
+    st.session_state["pagina_anterior"] = st.session_state.get("pagina_actual")
+    # Por el nombre interno: la página por defecto tiene url_path vacío
+    st.session_state["pagina_actual"] = next((n for n, p in DESTINOS.items() if p is pagina), pagina.url_path)
     pagina.run()
     aplicar_estado_menu()  # al final: la página ya dijo si quiere el menú contraído

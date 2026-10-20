@@ -32,6 +32,20 @@ class CrearEstudiante(unittest.TestCase):
         ana = next(u for u in cliente.listar_usuarios() if u.usuario == "ana")
         self.assertEqual(ana.temas, ["t-redes"])
 
+    def test_la_contrasena_se_guarda_sin_espacios_al_borde(self):
+        # Revisión final: un espacio pegado al final dejaba al estudiante sin poder entrar
+        cliente = ClienteMock()
+        at = crear(abrir(cliente), contrasena="  Temporal-2026 ")
+        self.assertEqual(at.code[0].value, "Temporal-2026")
+        self.assertTrue(cliente.iniciar_sesion("ana", "Temporal-2026").usuario.debe_cambiar_contrasena)
+
+    def test_la_contrasena_no_reaparece_al_volver_de_otra_pagina(self):
+        aviso = {"texto": "Estudiante creado: Ana", "contrasena": "Temporal-2026"}
+        at = abrir_pagina(USUARIOS, usuario="admin", estado={"aviso_usuarios": aviso, "pagina_anterior": "temas"})
+        self.assertEqual(len(at.code), 0)
+        at = abrir_pagina(USUARIOS, usuario="admin", estado={"aviso_usuarios": aviso, "pagina_anterior": "usuarios"})
+        self.assertEqual(at.code[0].value, "Temporal-2026")  # seguir en la página no la borra
+
     def test_generar_una_llena_el_campo(self):
         at = abrir().button(key="generar_nueva").click().run()
         self.assertEqual(len(at.text_input(key="nuevo_usuario_contrasena").value), 14)

@@ -88,6 +88,11 @@ class PuntoDeEntrada(unittest.TestCase):
         self.assertIn("Estudiante", textos(at.sidebar.caption))
         self.assertEqual(set(paginas.DESTINOS), {"mis-temas", "tema"})  # ninguna página del admin
 
+    def test_inicio_recuerda_la_pagina_anterior(self):
+        at = abrir("admin")
+        self.assertEqual(at.session_state["pagina_actual"], "documentos")
+        self.assertIsNone(at.session_state["pagina_anterior"])
+
     def test_admin_entra_a_documentos(self):
         at = abrir("admin")
         self.assertEqual(at.title[0].value, "Documentos")

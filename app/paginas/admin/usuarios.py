@@ -33,6 +33,9 @@ def _avisar(texto, contrasena=None):
 
 
 def _mostrar_aviso():
+    # Si viene de otra página, el aviso (y la contraseña) es de una visita anterior: se borra
+    if st.session_state.get("pagina_anterior") not in (None, "usuarios"):
+        st.session_state.pop("aviso_usuarios", None)
     aviso = st.session_state.get("aviso_usuarios")
     if not aviso:
         return
@@ -60,7 +63,8 @@ def _crear(cliente, nombres_temas):
                        placeholder="Elige uno o varios")
         if not st.button("Crear", key="crear_usuario", type="primary"):
             return
-    contrasena = st.session_state.get("nuevo_usuario_contrasena", "")
+    # Sin espacios al borde: si no, la que se muestra no sería la que se guarda
+    contrasena = st.session_state.get("nuevo_usuario_contrasena", "").strip()
     if len(contrasena) < LARGO_MINIMO_CONTRASENA:
         st.warning(CONTRASENA_CORTA)
         return
@@ -101,7 +105,7 @@ def _panel_contrasena(cliente, usuario):
     _campo_contrasena(clave, f"generar_{usuario.id_usuario}")
     guardar, cancelar = st.columns(2)
     if guardar.button("Guardar", key=f"guardar_contrasena_{usuario.id_usuario}", type="primary"):
-        contrasena = st.session_state.get(clave, "")
+        contrasena = st.session_state.get(clave, "").strip()
         if len(contrasena) < LARGO_MINIMO_CONTRASENA:
             st.warning(CONTRASENA_CORTA)
             return

@@ -1,8 +1,13 @@
 """Ayudas comunes de las páginas: errores, aviso de modo demostración y cambio de página."""
 
+from datetime import timezone
+from zoneinfo import ZoneInfo
+
 import streamlit as st
 
 import sesion
+
+ZONA_HORARIA = ZoneInfo("America/Bogota")  # Backend guarda las fechas en UTC
 
 # nombre → st.Page. Lo llena inicio.py en cada ejecución; en las pruebas por página queda vacío
 DESTINOS = {}
@@ -27,6 +32,13 @@ def mostrar_error(error):
     if error.detalle and usuario is not None and usuario.rol == "admin":
         with st.expander("Ver detalle"):
             st.code(error.detalle)
+
+
+def fecha_local(fecha):
+    """Fecha y hora de Colombia para mostrar: Backend las manda en UTC (sin zona se toma como UTC)."""
+    if fecha.tzinfo is None:
+        fecha = fecha.replace(tzinfo=timezone.utc)
+    return f"{fecha.astimezone(ZONA_HORARIA):%Y-%m-%d %H:%M}"
 
 
 def mostrar_modo_demo(cliente):
