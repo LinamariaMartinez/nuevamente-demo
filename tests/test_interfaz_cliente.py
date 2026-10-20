@@ -122,9 +122,19 @@ class ModoMock(unittest.TestCase):
             cliente.cambiar_contrasena("equivocada", "nueva-clave-1")
         self.assertEqual(ctx.exception.mensaje, "La contraseña actual no es correcta.")
         cliente.cambiar_contrasena("temporal-123", "nueva-clave-1")
-        cliente.cerrar_sesion()
+        with self.assertRaises(ErrorCliente) as ctx:  # como el backend: se cierran las sesiones
+            cliente.listar_temas()
+        self.assertEqual(ctx.exception.tipo, "sesion_vencida")
         sesion = cliente.iniciar_sesion("mateo", "nueva-clave-1")
         self.assertFalse(sesion.usuario.debe_cambiar_contrasena)
+
+    def test_cambiar_contrasena_pide_12_caracteres_y_una_distinta(self):
+        cliente = con_sesion("mateo")
+        for nueva, mensaje in (("corta-11ch.", "La nueva contraseña debe tener al menos 12 caracteres."),
+                               ("temporal-123", "La nueva contraseña debe ser diferente.")):
+            with self.subTest(nueva=nueva), self.assertRaises(ErrorCliente) as ctx:
+                cliente.cambiar_contrasena("temporal-123", nueva)
+            self.assertEqual(ctx.exception.mensaje, mensaje)
 
     # --- Temas y permisos ---
     def test_estudiante_ve_solo_sus_temas_y_admin_todos(self):

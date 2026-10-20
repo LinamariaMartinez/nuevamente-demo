@@ -7,7 +7,7 @@ from streamlit.proto.TextInput_pb2 import TextInput
 from apoyo_interfaz import abrir_pagina, textos
 
 from cliente_api import ClienteMock, ErrorCliente
-from paginas.acceso import validar_contrasena_nueva
+from paginas.acceso import LARGO_MINIMO_CONTRASENA, validar_contrasena_nueva
 
 INICIO = "paginas.acceso:mostrar_inicio"
 CAMBIO = "paginas.acceso:mostrar_cambio"
@@ -20,6 +20,25 @@ class ClienteQueCuenta(ClienteMock):
 
     def iniciar_sesion(self, usuario, contrasena):
         self.intentos += 1
+        return super().iniciar_sesion(usuario, contrasena)
+
+
+class ClienteBloqueado(ClienteMock):
+    def iniciar_sesion(self, usuario, contrasena):
+        raise ErrorCliente("demasiados_intentos", "429", mensaje="Demasiados intentos. Intenta de nuevo en 5 minutos.")
+
+
+class ClienteQueNoDejaVolver(ClienteMock):
+    """Deja entrar una vez (al abrir la página); al volver a entrar tras cambiar la contraseña, está bloqueado."""
+
+    def __init__(self):
+        super().__init__()
+        self.entradas = 0
+
+    def iniciar_sesion(self, usuario, contrasena):
+        self.entradas += 1
+        if self.entradas > 1:
+            raise ErrorCliente("demasiados_intentos", "429")
         return super().iniciar_sesion(usuario, contrasena)
 
 
@@ -56,39 +75,57 @@ class IniciarSesion(unittest.TestCase):
         self.assertIn("Escribe tu usuario y tu contraseña.", textos(at.warning))
         self.assertEqual(cliente.intentos, 0)
 
+    def test_demasiados_intentos_muestra_su_mensaje(self):
+        at = entrar(abrir_pagina(INICIO, usuario=None, cliente=ClienteBloqueado()), "laura", "otra")
+        self.assertIn("Demasiados intentos. Intenta de nuevo en 5 minutos.", textos(at.error))
+
     def test_muestra_el_aviso_de_sesion_vencida(self):
         at = abrir_pagina(INICIO, usuario=None, estado={"aviso_acceso": "Tu sesión terminó. Inicia sesión de nuevo."})
         self.assertIn("Tu sesión terminó. Inicia sesión de nuevo.", textos(at.info))
 
 
 class CambiarContrasena(unittest.TestCase):
-    def cambiar(self, actual, nueva, confirmar):
-        at = abrir_pagina(CAMBIO, usuario="mateo")
+    def cambiar(self, actual, nueva, confirmar, cliente=None):
+        at = abrir_pagina(CAMBIO, usuario="mateo", cliente=cliente)
         at.text_input(key="cambio_actual").input(actual)
         at.text_input(key="cambio_nueva").input(nueva)
         at.text_input(key="cambio_confirmar").input(confirmar)
         return at.button(key="guardar_contrasena").click().run()
 
     def test_reglas_de_la_contrasena_nueva(self):
-        self.assertEqual(validar_contrasena_nueva("", "nueva-1234", "nueva-1234"), "Escribe tu contraseña actual.")
+        self.assertEqual(validar_contrasena_nueva("", "nueva-clave-12", "nueva-clave-12"), "Escribe tu contraseña actual.")
+        self.assertEqual(LARGO_MINIMO_CONTRASENA, 12)  # como el backend
         self.assertEqual(validar_contrasena_nueva("a", "corta", "corta"),
-                         "La nueva contraseña debe tener al menos 8 caracteres.")
-        self.assertEqual(validar_contrasena_nueva("a", "nueva-1234", "nueva-12345"), "Las contraseñas no coinciden.")
-        self.assertEqual(validar_contrasena_nueva("nueva-1234", "nueva-1234", "nueva-1234"),
+                         "La nueva contraseña debe tener al menos 12 caracteres.")
+        self.assertEqual(validar_contrasena_nueva("a", "x" * 11, "x" * 11),
+                         "La nueva contraseña debe tener al menos 12 caracteres.")
+        self.assertEqual(validar_contrasena_nueva("a", "nueva-clave-12", "nueva-clave-123"), "Las contraseñas no coinciden.")
+        self.assertEqual(validar_contrasena_nueva("nueva-clave-12", "nueva-clave-12", "nueva-clave-12"),
                          "La nueva contraseña debe ser distinta de la actual.")
-        self.assertIsNone(validar_contrasena_nueva("temporal-123", "nueva-1234", "nueva-1234"))
+        self.assertIsNone(validar_contrasena_nueva("temporal-123", "nueva-clave-12", "nueva-clave-12"))
 
     def test_cambio_correcto_quita_la_marca_de_temporal(self):
-        at = self.cambiar("temporal-123", "nueva-1234", "nueva-1234")
+        at = self.cambiar("temporal-123", "nueva-clave-12", "nueva-clave-12")
         self.assertFalse(at.session_state["sesion"].usuario.debe_cambiar_contrasena)
 
+    def test_tras_cambiar_la_contrasena_sigue_adentro(self):
+        # El backend cierra las sesiones al cambiar la contraseña: la interfaz vuelve a entrar sola
+        at = self.cambiar("temporal-123", "nueva-clave-12", "nueva-clave-12")
+        self.assertEqual([t.id_tema for t in at.session_state["cliente"].listar_temas()], ["t-redes"])
+
+    def test_si_no_puede_volver_a_entrar_va_al_inicio_de_sesion(self):
+        at = self.cambiar("temporal-123", "nueva-clave-12", "nueva-clave-12", cliente=ClienteQueNoDejaVolver())
+        self.assertNotIn("sesion", at.session_state)
+        self.assertEqual(len(at.exception), 0)
+        self.assertIn("Tu contraseña cambió. Inicia sesión con la nueva.", textos(at.info))
+
     def test_actual_incorrecta_muestra_el_mensaje(self):
-        at = self.cambiar("equivocada", "nueva-1234", "nueva-1234")
+        at = self.cambiar("equivocada", "nueva-clave-12", "nueva-clave-12")
         self.assertIn("La contraseña actual no es correcta.", textos(at.error))
         self.assertTrue(at.session_state["sesion"].usuario.debe_cambiar_contrasena)
 
     def test_no_coinciden_no_llama_a_la_api(self):
-        at = self.cambiar("temporal-123", "nueva-1234", "otra-12345")
+        at = self.cambiar("temporal-123", "nueva-clave-12", "otra-clave-123")
         self.assertIn("Las contraseñas no coinciden.", textos(at.warning))
         self.assertTrue(at.session_state["sesion"].usuario.debe_cambiar_contrasena)
 
@@ -107,8 +144,8 @@ class ErroresComunes(unittest.TestCase):
 
         at = abrir_pagina(CAMBIO, usuario="mateo", cliente=ClienteVencido())
         at.text_input(key="cambio_actual").input("temporal-123")
-        at.text_input(key="cambio_nueva").input("nueva-1234")
-        at.text_input(key="cambio_confirmar").input("nueva-1234")
+        at.text_input(key="cambio_nueva").input("nueva-clave-12")
+        at.text_input(key="cambio_confirmar").input("nueva-clave-12")
         at = at.button(key="guardar_contrasena").click().run()
         self.assertNotIn("sesion", at.session_state)
         self.assertIn("Tu sesión terminó. Inicia sesión de nuevo.", textos(at.info))  # ya en Iniciar sesión

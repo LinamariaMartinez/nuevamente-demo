@@ -4,10 +4,8 @@ import streamlit as st
 
 import marca
 import sesion
-from cliente_api import ErrorCliente
+from cliente_api import LARGO_MINIMO_CONTRASENA, ErrorCliente
 from paginas import ir_a, mostrar_error
-
-LARGO_MINIMO_CONTRASENA = 8
 
 
 def validar_contrasena_nueva(actual, nueva, confirmar):
@@ -69,9 +67,8 @@ def mostrar_cambio():
         st.warning(problema)
         return
     try:
-        sesion.cliente_de_sesion().cambiar_contrasena(actual, nueva)
+        sesion.cambiar_contrasena(actual, nueva)
     except ErrorCliente as error:
         mostrar_error(error)
         return
-    sesion.marcar_contrasena_cambiada()
     st.rerun()

@@ -26,6 +26,7 @@ CARPETA_INSTITUCION = CARPETA_MOCKS / "institucion"  # cuentas y temas de demost
 TEMA_SIN_CONTEXTO_MOCK = "tema inexistente"  # en modo mock, este pedido lanza el error sin_contexto
 TIEMPO_SALUD_SEGUNDOS = 5
 TIEMPO_CORTO_SEGUNDOS = 10  # rutas que no generan ni indexan: no esperar el tiempo máximo
+LARGO_MINIMO_CONTRASENA = 12  # el mismo mínimo que pide Backend
 MOCK_POR_FORMATO = {
     "Flashcards": "flashcards.json",
     "Quiz": "quiz.json",
@@ -152,9 +153,14 @@ class ClienteMock:
         cuenta = self._cuentas[usuario.usuario]
         if not hmac.compare_digest(actual.encode(), cuenta["contrasena"].encode()):
             raise ErrorCliente("rechazado", mensaje="La contraseña actual no es correcta.")
+        if len(nueva) < LARGO_MINIMO_CONTRASENA:  # las mismas reglas que Backend
+            raise ErrorCliente("rechazado", mensaje=f"La nueva contraseña debe tener al menos "
+                                                    f"{LARGO_MINIMO_CONTRASENA} caracteres.")
+        if nueva == actual:
+            raise ErrorCliente("rechazado", mensaje="La nueva contraseña debe ser diferente.")
         cuenta["contrasena"] = nueva
         cuenta["usuario"] = usuario.model_copy(update={"debe_cambiar_contrasena": False})
-        self._usuario = cuenta["usuario"]
+        self._usuario = None  # como Backend: cambiar la contraseña cierra las sesiones de la persona
 
     # --- Temas ---
     def listar_temas(self):

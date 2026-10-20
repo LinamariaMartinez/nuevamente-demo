@@ -29,10 +29,18 @@ def iniciar(usuario, contrasena):
     return sesion.usuario
 
 
-def marcar_contrasena_cambiada():
-    sesion = st.session_state["sesion"]
-    usuario = sesion.usuario.model_copy(update={"debe_cambiar_contrasena": False})
-    st.session_state["sesion"] = sesion.model_copy(update={"usuario": usuario})
+def cambiar_contrasena(actual, nueva):
+    """Cambia la contraseña y vuelve a entrar con la nueva. Lanza ErrorCliente si el cambio falla.
+
+    Backend cierra todas las sesiones de la persona al cambiarla. Si volver a entrar falla
+    (por ejemplo, demasiados intentos), la manda al inicio de sesión con un aviso.
+    """
+    usuario = usuario_actual().usuario
+    cliente_de_sesion().cambiar_contrasena(actual, nueva)
+    try:
+        iniciar(usuario, nueva)
+    except ErrorCliente:
+        cerrar(aviso="Tu contraseña cambió. Inicia sesión con la nueva.")
 
 
 def cerrar(aviso=None):

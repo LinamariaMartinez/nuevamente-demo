@@ -73,6 +73,51 @@ class PaginaConfiguracion(unittest.TestCase):
         self.assertIn(ErrorCliente.MENSAJES["no_disponible"], textos(at.error))
 
 
+class ClienteSinConfiguracion(ClienteMock):
+    def guardar_configuracion(self, sector):
+        raise ErrorCliente("rechazado", "404", mensaje="Esta opción todavía no está disponible en el servidor.")
+
+
+class ConfiguracionSinBackend(unittest.TestCase):
+    def test_guardar_sin_la_ruta_avisa_y_no_se_rompe(self):
+        at = abrir_pagina(CONFIGURACION, usuario="admin", cliente=ClienteSinConfiguracion())
+        at = at.button(key="guardar_sector").click().run()
+        self.assertEqual(len(at.exception), 0)
+        self.assertIn("Esta opción todavía no está disponible en el servidor.", textos(at.error))
+
+
+ID_GUION = ABRIR_GUION.removeprefix("abrir_")
+
+
+def abrir_guion(cliente=None):
+    return abrir_pagina(REVISION, usuario="admin", cliente=cliente).button(key=ABRIR_GUION).click().run()
+
+
+class AprobarYRechazar(unittest.TestCase):
+    def test_aprobar_lo_saca_de_la_lista(self):
+        cliente = ClienteMock()
+        at = abrir_guion(cliente).button(key=f"aprobar_{ID_GUION}").click().run()
+        self.assertIn("Material aprobado: ya lo pueden ver.", textos(at.success))
+        self.assertIn("No hay material pendiente de revisión.", textos(at.info))
+        self.assertEqual(cliente.listar_paquetes_revision(), [])
+
+    def test_rechazar_pide_confirmacion(self):
+        cliente = ClienteMock()
+        at = abrir_guion(cliente).button(key=f"rechazar_{ID_GUION}").click().run()
+        self.assertIn("¿Rechazar este material? Se eliminará y se podrá generar de nuevo.", textos(at.warning))
+        self.assertEqual(len(cliente.listar_paquetes_revision()), 1)  # todavía no se rechazó
+        at = at.button(key=f"cancelar_rechazar_{ID_GUION}").click().run()
+        self.assertEqual(len(cliente.listar_paquetes_revision()), 1)
+        at = at.button(key=f"rechazar_{ID_GUION}").click().run()
+        at = at.button(key=f"confirmar_rechazar_{ID_GUION}").click().run()
+        self.assertIn("Material rechazado: se eliminó y se puede generar de nuevo.", textos(at.success))
+        self.assertEqual(cliente.listar_paquetes_revision(), [])
+
+    def test_exportar_json_usa_el_id(self):
+        boton = abrir_guion().get("download_button")[0].proto
+        self.assertEqual(boton.label, "Exportar JSON")
+
+
 class PaginaRevision(unittest.TestCase):
     def test_lista_a_la_izquierda_y_material_a_la_derecha(self):
         at = abrir_pagina(REVISION, usuario="admin")
