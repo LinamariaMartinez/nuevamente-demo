@@ -7,6 +7,7 @@ Las páginas solo usan obtener_cliente() y los métodos de los clientes; nunca s
 
 import hmac
 import json
+import math
 import os
 from datetime import datetime, timezone
 from pathlib import Path
@@ -48,10 +49,11 @@ class ErrorCliente(Exception):
         "rechazado": "El servicio no pudo atender la petición. Inténtalo de nuevo.",
         "sin_contexto": "No encontramos ese tema en los documentos cargados. Prueba con otras palabras.",
         "sin_documentos": "Este tema todavía no tiene documentos. Avísale a quien administra la plataforma.",
+        "demasiados_intentos": "Demasiados intentos. Intenta de nuevo en unos minutos.",
     }
 
     def __init__(self, tipo, detalle="", mensaje=None):
-        # `mensaje` reemplaza el texto por defecto: lo usa el {"mensaje": ...} de Backend en 409 y 422
+        # `mensaje` reemplaza el texto por defecto: lo usa el mensaje de Backend en 400, 409 y 422
         self.tipo = tipo
         self.mensaje = mensaje or self.MENSAJES[tipo]
         self.detalle = detalle
@@ -286,30 +288,50 @@ def _en_ruta(valor):
     return quote(str(valor), safe="")
 
 
-def _mensaje_de_backend(respuesta):
-    """Backend manda {"mensaje": "..."} en español en los 409 y 422 (spec §5.7)."""
+def _codigo_y_mensaje(respuesta):
+    """Lee {"status": "error", "error": {"codigo", "mensaje"}} del backend; (None, None) si el cuerpo no sirve."""
     try:
-        mensaje = respuesta.json().get("mensaje")
+        error = respuesta.json().get("error")
     except (ValueError, AttributeError):
+        return None, None
+    if not isinstance(error, dict):
+        return None, None
+    codigo, mensaje = error.get("codigo"), error.get("mensaje")
+    return (codigo if isinstance(codigo, str) else None,
+            mensaje if isinstance(mensaje, str) and mensaje.strip() else None)
+
+
+def _minutos_de_espera(respuesta):
+    """Minutos del Retry-After de un 429 (redondeando hacia arriba), o None si no viene un número válido."""
+    try:
+        segundos = int(respuesta.headers.get("Retry-After", ""))
+    except ValueError:
         return None
-    return mensaje if isinstance(mensaje, str) and mensaje.strip() else None
+    return max(1, math.ceil(segundos / 60)) if segundos >= 0 else None
+
+
+def _mensaje_de_espera(minutos):
+    if minutos is None:
+        return None  # el mensaje por defecto: "en unos minutos"
+    return f"Demasiados intentos. Intenta de nuevo en {minutos} {'minuto' if minutos == 1 else 'minutos'}."
 
 
 class ClienteHttp:
-    """Llama a la API del Backend. Traduce cualquier falla a ErrorCliente.
+    """Llama a la API del Backend (rutas /api/v1). Traduce cualquier falla a ErrorCliente.
 
     El token vive en este objeto, que a su vez vive en st.session_state: nunca va en la URL ni en logs.
     """
 
     es_mock = False
 
-    def __init__(self, url, tiempo_maximo=120, sesion=None):
+    def __init__(self, url, tiempo_maximo=300, sesion=None):
         self._url = url.rstrip("/")
         self._tiempo_maximo = tiempo_maximo
         self._sesion = sesion or requests.Session()
         self._token = None
 
-    def _pedir(self, metodo, ruta, tiempo=None, **kwargs):
+    def _pedir_con_estado(self, metodo, ruta, tiempo=None, mensajes=None, **kwargs):
+        """Devuelve (código HTTP, JSON). `mensajes`: código HTTP → texto para la persona, si la ruta lo necesita."""
         cabeceras = {"Authorization": f"Bearer {self._token}"} if self._token else {}
         try:
             respuesta = self._sesion.request(metodo, self._url + ruta, headers=cabeceras,
@@ -319,26 +341,46 @@ class ClienteHttp:
         except requests.RequestException as error:
             raise ErrorCliente("no_disponible", str(error)) from error
         estado = respuesta.status_code
-        if estado == 401:
-            if (metodo, ruta) == ("PUT", "/sesion/contrasena"):
-                # La contraseña actual no coincide: la sesión sigue viva y no hay que mandar a la persona al login
-                raise ErrorCliente("rechazado", respuesta.text, mensaje="La contraseña actual no es correcta.")
-            tipo = "credenciales" if (metodo, ruta) == ("POST", "/sesion") else "sesion_vencida"
-            raise ErrorCliente(tipo, respuesta.text)
-        if estado == 403:
-            raise ErrorCliente("sin_permiso", respuesta.text)
-        if estado == 404:
-            raise ErrorCliente("no_encontrado", respuesta.text)
-        if estado in (409, 422):
-            raise ErrorCliente("rechazado", respuesta.text, mensaje=_mensaje_de_backend(respuesta))
         if estado >= 400:
-            raise ErrorCliente("rechazado", f"{estado}: {respuesta.text}")
+            codigo, mensaje = _codigo_y_mensaje(respuesta)
+            detalle = f"{estado} {codigo or ''}: {mensaje or respuesta.text[:200]}"
+            propio = (mensajes or {}).get(estado)
+            raise self._error(metodo, ruta, estado, codigo, mensaje, detalle, propio, respuesta)
         if estado == 204 or not respuesta.content:
-            return None
+            return estado, None
         try:
-            return respuesta.json()
+            return estado, respuesta.json()
         except ValueError as error:
             raise ErrorCliente("respuesta_invalida", f"La respuesta no es JSON: {respuesta.text[:200]}") from error
+
+    def _pedir(self, metodo, ruta, **kwargs):
+        return self._pedir_con_estado(metodo, ruta, **kwargs)[1]
+
+    @staticmethod
+    def _error(metodo, ruta, estado, codigo, mensaje, detalle, propio, respuesta):
+        if propio:
+            return ErrorCliente("rechazado", detalle, mensaje=propio)
+        if estado == 401:
+            return ErrorCliente("credenciales" if (metodo, ruta) == ("POST", "/api/v1/sesion") else "sesion_vencida",
+                                detalle)
+        if estado == 403:
+            return ErrorCliente("sin_permiso", detalle)
+        if estado == 404:
+            return ErrorCliente("no_encontrado", detalle)
+        if estado == 429:
+            return ErrorCliente("demasiados_intentos", detalle, mensaje=_mensaje_de_espera(_minutos_de_espera(respuesta)))
+        if codigo == "SIN_CONTEXTO":
+            return ErrorCliente("sin_contexto", detalle)
+        if codigo == "SIN_DOCUMENTOS_ASOCIADOS":
+            return ErrorCliente("sin_documentos", detalle)
+        if estado in (400, 409, 422):
+            # "Revisa los campos: body.x" es técnico: se muestra el mensaje general y el detalle queda para el admin
+            return ErrorCliente("rechazado", detalle, mensaje=None if codigo == "ENTRADA_INVALIDA" else mensaje)
+        if estado == 502:
+            return ErrorCliente("respuesta_invalida", detalle)
+        if estado == 503:
+            return ErrorCliente("no_disponible", detalle)
+        return ErrorCliente("rechazado", detalle)
 
     def _validar(self, modelo, datos):
         try:
@@ -351,16 +393,28 @@ class ClienteHttp:
             raise ErrorCliente("respuesta_invalida", f"Se esperaba una lista y llegó: {type(datos).__name__}")
         return [self._validar(modelo, elemento) for elemento in datos]
 
+    def _items(self, datos):
+        """Los listados del backend vienen como {"items", "total", "limit", "offset"}."""
+        if not isinstance(datos, dict) or not isinstance(datos.get("items"), list):
+            raise ErrorCliente("respuesta_invalida", f"Se esperaba un listado y llegó: {type(datos).__name__}")
+        return datos["items"]
+
+    def _documento(self, datos):
+        if not isinstance(datos, dict):
+            raise ErrorCliente("respuesta_invalida", f"Se esperaba un documento y llegó: {type(datos).__name__}")
+        return self._validar(Documento, {**datos, "titulo": datos.get("documento_titulo"),
+                                         "fragmentos": datos.get("fragmentos_extraidos")})
+
     # --- Sesión ---
     def salud(self):
         try:
-            self._pedir("GET", "/salud", tiempo=TIEMPO_SALUD_SEGUNDOS)
+            self._pedir("GET", "/health", tiempo=TIEMPO_SALUD_SEGUNDOS)
             return True
         except ErrorCliente:
             return False
 
     def iniciar_sesion(self, usuario, contrasena):
-        datos = self._pedir("POST", "/sesion", json={"usuario": usuario, "contrasena": contrasena})
+        datos = self._pedir("POST", "/api/v1/sesion", json={"usuario": usuario, "contrasena": contrasena})
         sesion = self._validar(Sesion, datos)
         self._token = sesion.token
         return sesion
@@ -368,50 +422,97 @@ class ClienteHttp:
     def cerrar_sesion(self):
         try:
             if self._token:
-                self._pedir("DELETE", "/sesion")
+                self._pedir("DELETE", "/api/v1/sesion")
         finally:
             self._token = None  # aunque la API falle, aquí la sesión se cierra
 
     def cambiar_contrasena(self, actual, nueva):
-        self._pedir("PUT", "/sesion/contrasena", json={"actual": actual, "nueva": nueva})
+        self._pedir("PUT", "/api/v1/sesion/contrasena",
+                    json={"contrasena_actual": actual, "contrasena_nueva": nueva})
+        self._token = None  # el backend cierra todas las sesiones de la persona
 
     # --- Temas ---
+    def _documentos_del_tema(self, id_tema):
+        datos = self._pedir("GET", f"/api/v1/temas/{_en_ruta(id_tema)}/documentos")
+        if not isinstance(datos, list):
+            raise ErrorCliente("respuesta_invalida", f"Se esperaba una lista y llegó: {type(datos).__name__}")
+        return [DocumentoTema(id=d.id, titulo=d.titulo) for d in map(self._documento, datos)]
+
+    def _tema(self, datos):
+        if not isinstance(datos, dict):
+            raise ErrorCliente("respuesta_invalida", f"Se esperaba un tema y llegó: {type(datos).__name__}")
+        # GET /temas no trae los documentos: se piden aparte
+        return self._validar(Tema, {**datos, "documentos": self._documentos_del_tema(datos.get("id_tema"))})
+
     def listar_temas(self):
-        return self._lista(Tema, self._pedir("GET", "/temas"))
+        datos = self._pedir("GET", "/api/v1/temas")
+        if not isinstance(datos, list):
+            raise ErrorCliente("respuesta_invalida", f"Se esperaba una lista y llegó: {type(datos).__name__}")
+        return [self._tema(tema) for tema in datos]
 
     def crear_tema(self, datos):
-        return self._validar(Tema, self._pedir("POST", "/temas", json=datos.model_dump()))
+        cuerpo = {"id_tema": id_tema_desde_nombre(datos.nombre), **datos.model_dump()}
+        # El id sale del nombre: un 409 quiere decir que ya hay un tema que se llama igual
+        creado = self._pedir("POST", "/api/v1/temas", json=cuerpo, mensajes={409: "Ya existe un tema con ese nombre."})
+        return self._tema(creado)
 
     def editar_tema(self, id_tema, datos):
-        return self._validar(Tema, self._pedir("PUT", f"/temas/{_en_ruta(id_tema)}", json=datos.model_dump()))
+        ruta = f"/api/v1/temas/{_en_ruta(id_tema)}"
+        antes = [d.id for d in self._documentos_del_tema(id_tema)]
+        editado = self._pedir("PATCH", ruta, json={"nombre": datos.nombre, "descripcion": datos.descripcion})
+        for id_documento in (d for d in datos.documentos if d not in antes):
+            self._pedir("PUT", f"{ruta}/documentos/{_en_ruta(id_documento)}")
+        for id_documento in (d for d in antes if d not in datos.documentos):
+            self._pedir("DELETE", f"{ruta}/documentos/{_en_ruta(id_documento)}")
+        return self._tema(editado)
 
     def retirar_tema(self, id_tema):
-        self._pedir("DELETE", f"/temas/{_en_ruta(id_tema)}")
+        self._pedir("DELETE", f"/api/v1/temas/{_en_ruta(id_tema)}")
 
     # --- Material ---
     def generar_paquete(self, solicitud):
-        return self._validar(Paquete, self._pedir("POST", "/paquetes", tiempo=self._tiempo_maximo,
-                                                   json=solicitud.model_dump()))
+        cuerpo = solicitud.model_dump(exclude={"tema"} if not solicitud.tema else None)
+        estado, datos = self._pedir_con_estado("POST", "/api/v1/contenidos", tiempo=self._tiempo_maximo, json=cuerpo)
+        if estado == 202:  # no pasó la revisión de calidad: queda para el admin
+            return self._validar(MaterialEnRevision, datos)
+        return self._validar(Paquete, datos)
 
     def obtener_paquete(self, id_paquete):
-        return self._validar(Paquete, self._pedir("GET", f"/paquetes/{_en_ruta(id_paquete)}"))
+        return self._validar(Paquete, self._pedir("GET", f"/api/v1/contenidos/{_en_ruta(id_paquete)}"))
 
     def listar_paquetes_revision(self):
-        return self._lista(ResumenPaquete, self._pedir("GET", "/paquetes", params={"requiere_revision": "true"}))
+        items = self._items(self._pedir("GET", "/api/v1/contenidos", params={"pendiente": "true", "limit": 100}))
+        return [self._validar(ResumenPaquete, {**item, "formato": item.get("formato_generado")}
+                              if isinstance(item, dict) else item) for item in items]
+
+    def aprobar_paquete(self, id_paquete):
+        return self._validar(Paquete, self._pedir("POST", f"/api/v1/contenidos/{_en_ruta(id_paquete)}/aprobar"))
+
+    def rechazar_paquete(self, id_paquete):
+        self._pedir("POST", f"/api/v1/contenidos/{_en_ruta(id_paquete)}/rechazar")
 
     # --- Documentos y configuración ---
     def subir_documento(self, nombre, contenido):
-        datos = self._pedir("POST", "/documentos", tiempo=self._tiempo_maximo, files={"archivo": (nombre, contenido)})
-        return self._validar(Documento, datos)
+        datos = self._pedir("POST", "/api/v1/documentos", tiempo=self._tiempo_maximo,
+                            files={"archivo": (nombre, contenido)})
+        return self._documento(datos)
 
     def listar_documentos(self):
-        return self._lista(Documento, self._pedir("GET", "/documentos"))
+        return [self._documento(d) for d in self._items(self._pedir("GET", "/api/v1/documentos",
+                                                                    params={"limit": 100}))]
 
     def obtener_configuracion(self):
-        return self._validar(Configuracion, self._pedir("GET", "/configuracion"))
+        try:
+            return self._validar(Configuracion, self._pedir("GET", "/api/v1/configuracion"))
+        except ErrorCliente as error:
+            if error.tipo == "no_encontrado":  # Backend todavía no tiene la ruta: se usa el sector por defecto
+                return Configuracion()
+            raise
 
     def guardar_configuracion(self, sector):
-        return self._validar(Configuracion, self._pedir("PUT", "/configuracion", json={"sector": sector}))
+        datos = self._pedir("PUT", "/api/v1/configuracion", json={"sector": sector},
+                            mensajes={404: "Esta opción todavía no está disponible en el servidor."})
+        return self._validar(Configuracion, datos)
 
 
 def obtener_cliente():
@@ -420,6 +521,6 @@ def obtener_cliente():
     if os.getenv("MODO_API", "mock").strip().lower() == "http":
         return ClienteHttp(
             url=os.getenv("URL_API", "http://localhost:8000"),
-            tiempo_maximo=float(os.getenv("TIEMPO_MAXIMO_SEGUNDOS", "120")),
+            tiempo_maximo=float(os.getenv("TIEMPO_MAXIMO_SEGUNDOS", "300")),
         )
     return ClienteMock()

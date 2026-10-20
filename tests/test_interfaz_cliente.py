@@ -34,12 +34,19 @@ def con_sesion(usuario, cliente=None):
     return cliente
 
 
-def respuesta(status=200, cuerpo=None, texto=None):
+def respuesta(status=200, cuerpo=None, texto=None, cabeceras=None):
     r = requests.Response()
     r.status_code = status
     r.encoding = "utf-8"
     r._content = (json.dumps(cuerpo) if texto is None else texto).encode("utf-8")
+    r.headers.update(cabeceras or {})
     return r
+
+
+def error(status, codigo, mensaje="Mensaje del backend.", cabeceras=None):
+    """Un error con el formato del backend integrado."""
+    return respuesta(status=status, cuerpo={"status": "error", "error": {"codigo": codigo, "mensaje": mensaje}},
+                     cabeceras=cabeceras)
 
 
 class SesionFalsa:
@@ -60,7 +67,20 @@ class SesionFalsa:
 
 SESION_JSON = {"token": "tok-123", "usuario": {"id_usuario": 1, "nombre": "Ana", "usuario": "ana",
                                                "rol": "admin", "temas": []}}
-TEMA_JSON = {"id_tema": "t-1", "nombre": "Redes", "descripcion": "", "documentos": ["a.pdf"]}
+TEMA_JSON = {"id_tema": "t-1", "nombre": "Redes", "descripcion": "", "nicho_sector": "General",
+             "nivel_detalle": "Didáctico"}
+ID_A, ID_B = "a" * 32, "b" * 32
+DOCUMENTO_JSON = {"id": ID_A, "documento_titulo": "Redes VCN", "nombre_archivo": "redes.pdf", "tipo": "pdf",
+                  "tamano_bytes": 10, "fragmentos_extraidos": 3, "creado_en": "2026-10-19T15:00:00Z"}
+DOCUMENTO_B_JSON = {**DOCUMENTO_JSON, "id": ID_B, "documento_titulo": "Nube"}
+CONTENIDO_JSON = {"id": "c" * 32, "documento_id": None, "id_tema": "t-redes", "id_usuario": 2, "titulo": "Guion",
+                  "tema": "subredes", "perfil_aplicado": "Intermedio", "formato_generado": "Guion",
+                  "status": "requiere_revision", "anclaje_fuente_score": 0.6, "creado_en": "2026-10-19T15:00:00Z",
+                  "aprobado_en": None}
+
+
+def listado(*items):
+    return {"items": list(items), "total": len(items), "limit": 100, "offset": 0}
 
 
 def paquete_json(nombre="quiz.json"):
@@ -276,6 +296,8 @@ class ModoMock(unittest.TestCase):
 
 
 class ModoHttp(unittest.TestCase):
+    URL = "http://api.local"
+
     def cliente(self, **kwargs):
         sesion = SesionFalsa(**kwargs)
         return ClienteHttp("http://api.local/", tiempo_maximo=30, sesion=sesion), sesion
@@ -286,82 +308,207 @@ class ModoHttp(unittest.TestCase):
         cliente.iniciar_sesion("ana", "clave")
         return cliente, sesion
 
+    def rutas(self, sesion, desde=1):
+        return [(m, u.removeprefix(self.URL)) for m, u, _ in sesion.llamadas[desde:]]
+
+    def error_de(self, accion, *respuestas):
+        cliente, _ = self.con_token(*respuestas)
+        with self.assertRaises(ErrorCliente) as ctx:
+            accion(cliente)
+        return ctx.exception
+
     # --- Sesión y token ---
     def test_iniciar_sesion_guarda_el_token_y_lo_envia_despues(self):
-        cliente, sesion = self.con_token(respuesta(cuerpo=[TEMA_JSON]))
+        cliente, sesion = self.con_token(respuesta(cuerpo=[TEMA_JSON]), respuesta(cuerpo=[DOCUMENTO_JSON]))
         temas = cliente.listar_temas()
-        (m1, u1, k1), (m2, u2, k2) = sesion.llamadas
-        self.assertEqual((m1, u1, k1["json"]), ("POST", "http://api.local/sesion", {"usuario": "ana", "contrasena": "clave"}))
+        (m1, u1, k1), (m2, u2, k2) = sesion.llamadas[:2]
+        self.assertEqual((m1, u1, k1["json"]),
+                         ("POST", f"{self.URL}/api/v1/sesion", {"usuario": "ana", "contrasena": "clave"}))
         self.assertNotIn("Authorization", k1["headers"])
-        self.assertEqual((m2, u2), ("GET", "http://api.local/temas"))
+        self.assertEqual((m2, u2), ("GET", f"{self.URL}/api/v1/temas"))
         self.assertEqual(k2["headers"]["Authorization"], "Bearer tok-123")
         self.assertNotIn("tok-123", u2)  # el token nunca va en la URL
         self.assertEqual(temas[0].nombre, "Redes")
 
+    def test_salud_usa_health(self):
+        cliente, sesion = self.cliente(respuesta=respuesta(cuerpo={"status": "ok", "base_datos": "sqlite"}))
+        self.assertTrue(cliente.salud())
+        self.assertEqual(self.rutas(sesion, 0), [("GET", "/health")])
+
+    def test_salud_es_false_si_la_api_no_responde(self):
+        cliente, sesion = self.cliente(excepcion=requests.ConnectionError("caída"))
+        self.assertFalse(cliente.salud())
+        self.assertEqual(sesion.llamadas[0][2]["timeout"], 5)
+
     def test_401_en_inicio_es_credenciales_y_en_otra_ruta_sesion_vencida(self):
-        cliente, _ = self.cliente(respuesta=respuesta(status=401, texto="no"))
+        cliente, _ = self.cliente(respuesta=error(401, "AUTENTICACION_REQUERIDA"))
         with self.assertRaises(ErrorCliente) as ctx:
             cliente.iniciar_sesion("ana", "mala")
         self.assertEqual(ctx.exception.tipo, "credenciales")
-        cliente, _ = self.con_token(respuesta(status=401, texto="vencido"))
-        with self.assertRaises(ErrorCliente) as ctx:
-            cliente.listar_temas()
-        self.assertEqual(ctx.exception.tipo, "sesion_vencida")
+        fallo = self.error_de(lambda c: c.listar_temas(), error(401, "AUTENTICACION_REQUERIDA"))
+        self.assertEqual(fallo.tipo, "sesion_vencida")
 
     def test_cerrar_sesion_borra_el_token_aunque_la_api_falle(self):
         cliente, sesion = self.con_token(respuesta(status=500, texto="caída"), respuesta(cuerpo=[]))
         with self.assertRaises(ErrorCliente):
             cliente.cerrar_sesion()
-        self.assertEqual(sesion.llamadas[1][0], "DELETE")
+        self.assertEqual(self.rutas(sesion)[0], ("DELETE", "/api/v1/sesion"))
         cliente.listar_temas()
         self.assertNotIn("Authorization", sesion.llamadas[2][2]["headers"])
 
-    def test_401_al_cambiar_la_contrasena_es_contrasena_actual_incorrecta(self):
-        # Revisión final: no debe cerrar la sesión de quien se equivocó al escribir su contraseña actual
-        cliente, _ = self.con_token(respuesta(status=401, texto="actual incorrecta"))
-        with self.assertRaises(ErrorCliente) as ctx:
-            cliente.cambiar_contrasena("mala", "nueva-1234")
-        self.assertEqual((ctx.exception.tipo, ctx.exception.mensaje), ("rechazado", "La contraseña actual no es correcta."))
-
-    def test_cambiar_contrasena_envia_actual_y_nueva(self):
-        cliente, sesion = self.con_token(respuesta(status=204, texto=""))
-        self.assertIsNone(cliente.cambiar_contrasena("vieja-123", "nueva-1234"))
+    def test_cambiar_contrasena_envia_los_campos_del_backend_y_borra_el_token(self):
+        # El backend cierra todas las sesiones de la persona al cambiar la contraseña
+        cliente, sesion = self.con_token(
+            respuesta(cuerpo={"mensaje": "Contraseña actualizada correctamente", "sesiones_revocadas": True}),
+            respuesta(cuerpo=[]))
+        self.assertIsNone(cliente.cambiar_contrasena("vieja-123", "nueva-clave-12"))
         metodo, url, kwargs = sesion.llamadas[1]
         self.assertEqual((metodo, url, kwargs["json"]),
-                         ("PUT", "http://api.local/sesion/contrasena", {"actual": "vieja-123", "nueva": "nueva-1234"}))
+                         ("PUT", f"{self.URL}/api/v1/sesion/contrasena",
+                          {"contrasena_actual": "vieja-123", "contrasena_nueva": "nueva-clave-12"}))
+        cliente.listar_temas()
+        self.assertNotIn("Authorization", sesion.llamadas[2][2]["headers"])
+
+    def test_400_al_cambiar_la_contrasena_usa_el_mensaje_del_backend(self):
+        fallo = self.error_de(lambda c: c.cambiar_contrasena("mala", "nueva-clave-12"),
+                              error(400, "SOLICITUD_INVALIDA", "La contraseña actual es incorrecta"))
+        self.assertEqual((fallo.tipo, fallo.mensaje), ("rechazado", "La contraseña actual es incorrecta"))
+
+    # --- Demasiados intentos (429) ---
+    def intento_bloqueado(self, cabeceras):
+        cliente, _ = self.cliente(respuesta=error(429, "DEMASIADOS_INTENTOS", cabeceras=cabeceras))
+        with self.assertRaises(ErrorCliente) as ctx:
+            cliente.iniciar_sesion("ana", "clave")
+        self.assertEqual(ctx.exception.tipo, "demasiados_intentos")
+        return ctx.exception.mensaje
+
+    def test_429_con_retry_after_60_dice_1_minuto(self):
+        self.assertEqual(self.intento_bloqueado({"Retry-After": "60"}),
+                         "Demasiados intentos. Intenta de nuevo en 1 minuto.")
+
+    def test_429_con_retry_after_301_dice_6_minutos(self):
+        self.assertEqual(self.intento_bloqueado({"Retry-After": "301"}),
+                         "Demasiados intentos. Intenta de nuevo en 6 minutos.")
+
+    def test_429_sin_retry_after(self):
+        self.assertEqual(self.intento_bloqueado(None), "Demasiados intentos. Intenta de nuevo en unos minutos.")
+
+    def test_429_retry_after_no_numerico(self):
+        for valor in ("abc", "", "-5"):
+            with self.subTest(valor=valor):
+                self.assertEqual(self.intento_bloqueado({"Retry-After": valor}),
+                                 "Demasiados intentos. Intenta de nuevo en unos minutos.")
 
     # --- Temas ---
-    def test_crear_editar_y_retirar_tema(self):
-        datos = DatosTema(nombre="Redes", documentos=["a.pdf"])
-        cliente, sesion = self.con_token(respuesta(cuerpo=TEMA_JSON), respuesta(cuerpo=TEMA_JSON),
-                                         respuesta(status=204, texto=""))
-        cliente.crear_tema(datos)
-        cliente.editar_tema("t-1", datos)
-        self.assertIsNone(cliente.retirar_tema("t-1"))
-        self.assertEqual([(m, u) for m, u, _ in sesion.llamadas[1:]],
-                         [("POST", "http://api.local/temas"), ("PUT", "http://api.local/temas/t-1"),
-                          ("DELETE", "http://api.local/temas/t-1")])
-        self.assertEqual(sesion.llamadas[1][2]["json"], {"nombre": "Redes", "descripcion": "", "documentos": ["a.pdf"]})
+    def test_listar_temas_trae_los_documentos_de_cada_tema(self):
+        otro = {**TEMA_JSON, "id_tema": "t-2", "nombre": "Nube"}
+        cliente, sesion = self.con_token(respuesta(cuerpo=[TEMA_JSON, otro]), respuesta(cuerpo=[DOCUMENTO_JSON]),
+                                         respuesta(cuerpo=[]))
+        temas = cliente.listar_temas()
+        self.assertEqual(self.rutas(sesion), [("GET", "/api/v1/temas"), ("GET", "/api/v1/temas/t-1/documentos"),
+                                              ("GET", "/api/v1/temas/t-2/documentos")])
+        self.assertEqual([(d.id, d.titulo) for d in temas[0].documentos], [(ID_A, "Redes VCN")])
+        self.assertEqual(temas[1].documentos, [])
 
-    def test_id_con_caracteres_especiales_va_codificado(self):
+    def test_crear_tema_arma_el_id_y_trae_los_titulos(self):
+        creado = {**TEMA_JSON, "id_tema": "redes-en-oci", "nombre": "Redes en OCI", "documentos": [ID_A]}
+        cliente, sesion = self.con_token(respuesta(status=201, cuerpo=creado), respuesta(cuerpo=[DOCUMENTO_JSON]))
+        tema = cliente.crear_tema(DatosTema(nombre="Redes en OCI", documentos=[ID_A]))
+        self.assertEqual(sesion.llamadas[1][2]["json"],
+                         {"id_tema": "redes-en-oci", "nombre": "Redes en OCI", "descripcion": "", "documentos": [ID_A]})
+        self.assertEqual(self.rutas(sesion), [("POST", "/api/v1/temas"),
+                                              ("GET", "/api/v1/temas/redes-en-oci/documentos")])
+        self.assertEqual((tema.id_tema, [d.titulo for d in tema.documentos]), ("redes-en-oci", ["Redes VCN"]))
+
+    def test_crear_tema_repetido_avisa_con_el_nombre(self):
+        fallo = self.error_de(lambda c: c.crear_tema(DatosTema(nombre="Redes", documentos=[ID_A])),
+                              error(409, "CONFLICTO", "Ya existe un tema con ese identificador"))
+        self.assertEqual((fallo.tipo, fallo.mensaje), ("rechazado", "Ya existe un tema con ese nombre."))
+
+    def test_editar_tema_solo_toca_documentos_que_cambian(self):
+        # Tenía A; queda con B: se agrega B y se quita A
+        cliente, sesion = self.con_token(
+            respuesta(cuerpo=[DOCUMENTO_JSON]), respuesta(cuerpo={**TEMA_JSON, "nombre": "Redes 2"}),
+            respuesta(status=204, texto=""), respuesta(status=204, texto=""), respuesta(cuerpo=[DOCUMENTO_B_JSON]))
+        tema = cliente.editar_tema("t-1", DatosTema(nombre="Redes 2", documentos=[ID_B]))
+        self.assertEqual(self.rutas(sesion), [
+            ("GET", "/api/v1/temas/t-1/documentos"), ("PATCH", "/api/v1/temas/t-1"),
+            ("PUT", f"/api/v1/temas/t-1/documentos/{ID_B}"), ("DELETE", f"/api/v1/temas/t-1/documentos/{ID_A}"),
+            ("GET", "/api/v1/temas/t-1/documentos")])
+        self.assertEqual(sesion.llamadas[2][2]["json"], {"nombre": "Redes 2", "descripcion": ""})
+        self.assertEqual((tema.nombre, [d.id for d in tema.documentos]), ("Redes 2", [ID_B]))
+
+    def test_editar_tema_sin_cambiar_documentos_no_los_toca(self):
+        cliente, sesion = self.con_token(respuesta(cuerpo=[DOCUMENTO_JSON]), respuesta(cuerpo=TEMA_JSON),
+                                         respuesta(cuerpo=[DOCUMENTO_JSON]))
+        cliente.editar_tema("t-1", DatosTema(nombre="Redes", documentos=[ID_A]))
+        self.assertEqual([m for m, _ in self.rutas(sesion)], ["GET", "PATCH", "GET"])
+
+    def test_retirar_tema_con_id_codificado(self):
         cliente, sesion = self.con_token(respuesta(status=204, texto=""))
-        cliente.retirar_tema("t/1 a")
-        self.assertEqual(sesion.llamadas[1][1], "http://api.local/temas/t%2F1%20a")
+        self.assertIsNone(cliente.retirar_tema("t/1 a"))
+        self.assertEqual(self.rutas(sesion), [("DELETE", "/api/v1/temas/t%2F1%20a")])
 
-    # --- Material, documentos y configuración ---
-    def test_generar_envia_id_tema_y_espera_el_tiempo_maximo(self):
-        cliente, sesion = self.con_token(respuesta(cuerpo=paquete_json()))
+    # --- Material ---
+    def test_generar_envia_los_campos_del_backend_y_espera_el_tiempo_maximo(self):
+        cliente, sesion = self.con_token(respuesta(status=201, cuerpo=paquete_json()))
         paquete = cliente.generar_paquete(solicitud())
         metodo, url, kwargs = sesion.llamadas[1]
-        self.assertEqual((metodo, url), ("POST", "http://api.local/paquetes"))
-        self.assertEqual((kwargs["json"]["id_tema"], kwargs["json"]["tema"]), ("t-redes", "Redes VCN"))
+        self.assertEqual((metodo, url), ("POST", f"{self.URL}/api/v1/contenidos"))
+        self.assertEqual(kwargs["json"], {"id_tema": "t-redes", "tema": "Redes VCN",
+                                          "perfil_destinatario": PERFILES[1], "formato_salida": "Quiz"})
         self.assertEqual(kwargs["timeout"], 30)
         self.assertEqual(paquete.metadatos.formato_generado, "Quiz")
 
+    def test_generar_sin_tema_no_manda_tema(self):
+        cliente, sesion = self.con_token(respuesta(status=201, cuerpo=paquete_json()))
+        cliente.generar_paquete(solicitud(tema=""))
+        self.assertNotIn("tema", sesion.llamadas[1][2]["json"])
+
+    def test_generar_202_es_material_en_revision(self):
+        pendiente = {"id": "c" * 32, "creado_en": "2026-10-19T15:00:00Z", "status": "requiere_revision",
+                     "mensaje": "El material quedó pendiente de revisión por un administrador."}
+        cliente, _ = self.con_token(respuesta(status=202, cuerpo=pendiente))
+        material = cliente.generar_paquete(solicitud(formato_salida="Guion"))
+        self.assertIsInstance(material, MaterialEnRevision)
+        self.assertEqual(material.id, "c" * 32)
+
+    def test_generar_422_sin_contexto_y_sin_documentos(self):
+        for codigo, tipo in (("SIN_CONTEXTO", "sin_contexto"), ("SIN_DOCUMENTOS_ASOCIADOS", "sin_documentos")):
+            with self.subTest(codigo=codigo):
+                fallo = self.error_de(lambda c: c.generar_paquete(solicitud()), error(422, codigo))
+                self.assertEqual((fallo.tipo, fallo.mensaje), (tipo, ErrorCliente.MENSAJES[tipo]))
+
+    def test_revision_del_admin(self):
+        cliente, sesion = self.con_token(
+            respuesta(cuerpo=listado(CONTENIDO_JSON)), respuesta(cuerpo=paquete_json("guion.json")),
+            respuesta(cuerpo=paquete_json("guion.json")), respuesta(status=204, texto=""))
+        resumenes = cliente.listar_paquetes_revision()
+        self.assertEqual(sesion.llamadas[1][2]["params"], {"pendiente": "true", "limit": 100})
+        self.assertEqual([(r.id, r.tema, r.formato) for r in resumenes], [("c" * 32, "subredes", "Guion")])
+        self.assertEqual(cliente.obtener_paquete("c" * 32).status, "requiere_revision")
+        self.assertEqual(cliente.aprobar_paquete("c" * 32).metadatos.formato_generado, "Guion")
+        self.assertIsNone(cliente.rechazar_paquete("c" * 32))
+        self.assertEqual(self.rutas(sesion), [
+            ("GET", "/api/v1/contenidos"), ("GET", f"/api/v1/contenidos/{'c' * 32}"),
+            ("POST", f"/api/v1/contenidos/{'c' * 32}/aprobar"), ("POST", f"/api/v1/contenidos/{'c' * 32}/rechazar")])
+
+    # --- Documentos y configuración ---
+    def test_documentos_subir_y_listar(self):
+        cliente, sesion = self.con_token(respuesta(status=201, cuerpo=DOCUMENTO_JSON),
+                                         respuesta(cuerpo=listado(DOCUMENTO_JSON)))
+        documento = cliente.subir_documento("redes.pdf", b"%PDF")
+        documentos = cliente.listar_documentos()
+        self.assertEqual(self.rutas(sesion), [("POST", "/api/v1/documentos"), ("GET", "/api/v1/documentos")])
+        self.assertEqual(sesion.llamadas[1][2]["files"], {"archivo": ("redes.pdf", b"%PDF")})
+        self.assertEqual(sesion.llamadas[2][2]["params"], {"limit": 100})
+        self.assertEqual((documento.titulo, documento.fragmentos), ("Redes VCN", 3))
+        self.assertEqual([d.id for d in documentos], [ID_A])
+
     def test_solo_generar_y_subir_esperan_el_tiempo_maximo(self):
-        documento = {"nombre": "a.pdf", "estado": "procesando", "chunks": 0, "error": None}
         cliente, sesion = self.con_token(respuesta(cuerpo={"sector": "General"}), respuesta(cuerpo={"sector": "General"}),
-                                         respuesta(cuerpo=[]), respuesta(cuerpo=[]), respuesta(cuerpo=documento))
+                                         respuesta(cuerpo=listado()), respuesta(cuerpo=listado()),
+                                         respuesta(status=201, cuerpo=DOCUMENTO_JSON))
         cliente.obtener_configuracion()
         cliente.guardar_configuracion("General")
         cliente.listar_documentos()
@@ -369,19 +516,36 @@ class ModoHttp(unittest.TestCase):
         cliente.subir_documento("a.pdf", b"%PDF")
         tiempos = [k["timeout"] for _, _, k in sesion.llamadas[1:]]
         self.assertEqual(tiempos, [TIEMPO_CORTO_SEGUNDOS] * 4 + [30])
-        self.assertEqual(sesion.llamadas[4][2]["params"], {"requiere_revision": "true"})
-        self.assertEqual(sesion.llamadas[5][2]["files"], {"archivo": ("a.pdf", b"%PDF")})
+
+    def test_configuracion_usa_api_v1(self):
+        cliente, sesion = self.con_token(respuesta(cuerpo={"sector": "Salud"}), respuesta(cuerpo={"sector": "Salud"}))
+        self.assertEqual(cliente.obtener_configuracion().sector, "Salud")
+        cliente.guardar_configuracion("Salud")
+        self.assertEqual(self.rutas(sesion), [("GET", "/api/v1/configuracion"), ("PUT", "/api/v1/configuracion")])
+        self.assertEqual(sesion.llamadas[2][2]["json"], {"sector": "Salud"})
+
+    def test_configuracion_404_devuelve_general(self):
+        # Mientras Backend no tenga la ruta, el estudiante puede generar igual
+        cliente, _ = self.con_token(error(404, "RECURSO_NO_ENCONTRADO"))
+        self.assertEqual(cliente.obtener_configuracion().sector, "General")
+
+    def test_guardar_configuracion_404_avisa_que_no_esta_disponible(self):
+        fallo = self.error_de(lambda c: c.guardar_configuracion("Salud"), error(404, "RECURSO_NO_ENCONTRADO"))
+        self.assertEqual((fallo.tipo, fallo.mensaje),
+                         ("rechazado", "Esta opción todavía no está disponible en el servidor."))
 
     # --- Errores ---
     def test_errores_de_red_y_de_estado_se_traducen(self):
         casos = [
             ({"excepcion": requests.ConnectionError("caída")}, "no_disponible"),
             ({"excepcion": requests.Timeout("lento")}, "tiempo_agotado"),
-            ({"respuesta": respuesta(status=403, texto="rol")}, "sin_permiso"),
-            ({"respuesta": respuesta(status=404, texto="no")}, "no_encontrado"),
-            ({"respuesta": respuesta(status=500, texto="explotó")}, "rechazado"),
+            ({"respuesta": error(403, "PERMISOS_INSUFICIENTES")}, "sin_permiso"),
+            ({"respuesta": error(404, "TEMA_NO_ENCONTRADO")}, "no_encontrado"),
+            ({"respuesta": error(500, "ERROR_INTERNO")}, "rechazado"),
+            ({"respuesta": error(502, "SALIDA_INVALIDA")}, "respuesta_invalida"),
+            ({"respuesta": error(503, "CONFIGURACION_INCOMPLETA")}, "no_disponible"),
             ({"respuesta": respuesta(texto="<html>proxy</html>")}, "respuesta_invalida"),
-            ({"respuesta": respuesta(cuerpo={"status": "exito"})}, "respuesta_invalida"),
+            ({"respuesta": respuesta(status=201, cuerpo={"status": "exito"})}, "respuesta_invalida"),
         ]
         for kwargs, tipo in casos:
             with self.subTest(tipo=tipo):
@@ -391,26 +555,28 @@ class ModoHttp(unittest.TestCase):
                 self.assertEqual(ctx.exception.tipo, tipo)
                 self.assertTrue(ctx.exception.mensaje)
 
-    def test_409_y_422_usan_el_mensaje_de_backend_si_viene(self):
-        cliente, _ = self.cliente(respuesta=respuesta(status=409, cuerpo={"mensaje": "Ya existe un tema con ese nombre."}))
+    def test_error_con_cuerpo_html(self):
+        # Un proxy delante de la API puede responder un 502 en HTML
+        cliente, _ = self.cliente(respuesta=respuesta(status=502, texto="<html>Bad Gateway</html>"))
         with self.assertRaises(ErrorCliente) as ctx:
-            cliente.crear_tema(DatosTema(nombre="Redes", documentos=["a.pdf"]))
-        self.assertEqual((ctx.exception.tipo, ctx.exception.mensaje), ("rechazado", "Ya existe un tema con ese nombre."))
-        cliente, _ = self.cliente(respuesta=respuesta(status=422, cuerpo={"detail": [{"loc": ["body"]}]}))
-        with self.assertRaises(ErrorCliente) as ctx:
-            cliente.crear_tema(DatosTema(nombre="Redes", documentos=["a.pdf"]))
-        self.assertEqual(ctx.exception.mensaje, ErrorCliente.MENSAJES["rechazado"])
+            cliente.generar_paquete(solicitud())
+        self.assertEqual((ctx.exception.tipo, ctx.exception.mensaje),
+                         ("respuesta_invalida", ErrorCliente.MENSAJES["respuesta_invalida"]))
 
-    def test_lista_que_no_es_lista_es_respuesta_invalida(self):
-        cliente, _ = self.cliente(respuesta=respuesta(cuerpo={"documentos": []}))
-        with self.assertRaises(ErrorCliente) as ctx:
-            cliente.listar_documentos()
-        self.assertEqual(ctx.exception.tipo, "respuesta_invalida")
+    def test_409_y_422_usan_el_mensaje_del_backend_salvo_la_entrada_invalida(self):
+        fallo = self.error_de(lambda c: c.retirar_tema("t-1"), error(409, "CONTENIDO_NO_PENDIENTE", "Ya no está."))
+        self.assertEqual((fallo.tipo, fallo.mensaje), ("rechazado", "Ya no está."))
+        # "Revisa los campos: body.x" es técnico: el detalle queda para el admin
+        fallo = self.error_de(lambda c: c.retirar_tema("t-1"),
+                              error(422, "ENTRADA_INVALIDA", "Revisa los campos: body.nombre"))
+        self.assertEqual(fallo.mensaje, ErrorCliente.MENSAJES["rechazado"])
+        self.assertIn("body.nombre", fallo.detalle)
 
-    def test_salud_es_false_si_la_api_no_responde(self):
-        cliente, sesion = self.cliente(excepcion=requests.ConnectionError("caída"))
-        self.assertFalse(cliente.salud())
-        self.assertEqual(sesion.llamadas[0][2]["timeout"], 5)
+    def test_listado_que_no_es_listado_es_respuesta_invalida(self):
+        for cuerpo in ({"documentos": []}, [DOCUMENTO_JSON]):
+            with self.subTest(cuerpo=cuerpo):
+                fallo = self.error_de(lambda c: c.listar_documentos(), respuesta(cuerpo=cuerpo))
+                self.assertEqual(fallo.tipo, "respuesta_invalida")
 
 
 class ElegirCliente(unittest.TestCase):
@@ -419,6 +585,12 @@ class ElegirCliente(unittest.TestCase):
             self.assertIsInstance(obtener_cliente(), ClienteMock)
         with patch.dict(os.environ, {"MODO_API": "http", "URL_API": "http://x", "TIEMPO_MAXIMO_SEGUNDOS": "60"}):
             self.assertIsInstance(obtener_cliente(), ClienteHttp)
+
+    def test_tiempo_maximo_por_defecto_es_300(self):
+        with patch.dict(os.environ, {"MODO_API": "http", "URL_API": "http://x"}), \
+                patch("cliente_api.load_dotenv"):
+            os.environ.pop("TIEMPO_MAXIMO_SEGUNDOS", None)
+            self.assertEqual(obtener_cliente()._tiempo_maximo, 300)
 
 
 if __name__ == "__main__":
