@@ -7,6 +7,7 @@ from apoyo_interfaz import RAIZ, abrir_pagina, columnas_principales, textos
 
 from cliente_api import ClienteMock, ErrorCliente
 from contrato import Tema
+from paginas import markdown_literal
 from paginas.admin.documentos import temas_por_documento, validar_archivo
 
 DOCUMENTOS = "paginas.admin.documentos:mostrar"
@@ -122,6 +123,26 @@ class AprobarYRechazar(unittest.TestCase):
     def test_exportar_json_usa_el_id(self):
         boton = abrir_guion().get("download_button")[0].proto
         self.assertEqual(boton.label, "Exportar JSON")
+
+
+class ClienteConTemaMalicioso(ClienteMock):
+    """El tema lo escribe quien estudia: podría traer markdown (imágenes o enlaces) para la pantalla del admin."""
+
+    def listar_paquetes_revision(self):
+        return [r.model_copy(update={"tema": "![x](https://ejemplo.co/a.png) **ojo** [aquí](https://ejemplo.co)"})
+                for r in super().listar_paquetes_revision()]
+
+
+class TextoDeOtros(unittest.TestCase):
+    def test_markdown_literal_escapa_lo_que_markdown_interpretaria(self):
+        self.assertEqual(markdown_literal("**a** [b](c) $5 :red[x]"), r"\*\*a\*\* \[b\]\(c\) \$5 \:red\[x\]")
+        self.assertEqual(markdown_literal("Redes VCN en OCI"), "Redes VCN en OCI")
+
+    def test_el_tema_que_pidio_el_estudiante_no_se_interpreta_en_revision(self):
+        at = abrir_pagina(REVISION, usuario="admin", cliente=ClienteConTemaMalicioso())
+        cuerpos = " ".join(m.value for m in at.markdown)
+        self.assertNotIn("![x](", cuerpos)
+        self.assertIn(r"\!\[x\]\(https", cuerpos)
 
 
 class PaginaRevision(unittest.TestCase):

@@ -1,5 +1,6 @@
 """Pruebas de la landing (v2.4): HTML y CSS con st.html, sin JavaScript, y el botón real de Iniciar sesión."""
 
+import json
 import re
 import unittest
 
@@ -76,6 +77,26 @@ class HtmlLanding(unittest.TestCase):
         agentes = landing._agentes()
         self.assertEqual(agentes.count("nm-flujo-punto"), len(landing.AGENTES) - 1)
         self.assertEqual(agentes.count('class="nm-conector"'), len(landing.AGENTES) - 1)
+
+    def test_el_json_de_por_dentro_usa_los_campos_del_contrato(self):
+        # "Rigor que se puede verificar": quien abra /docs debe ver los mismos nombres (contrato común, F06)
+        bloques = {}
+        for _, _, _, _, codigo in landing.POR_DENTRO:
+            bloques.update(json.loads("{" + codigo + "}"))
+        self.assertEqual(set(bloques["fuentes"][0]), {"documento_id", "documento", "fragmento", "pagina", "extracto"})
+        self.assertIn(bloques["status"], ("exito", "requiere_revision"))
+        self.assertEqual(set(bloques["evaluacion_calidad"]),
+                         {"anclaje_fuente_score", "calidad_pedagogica_score", "cumplimiento_formato_score",
+                          "claridad_pedagogica", "observaciones", "intentos_revision"})
+        self.assertEqual(set(bloques["metadatos"]),
+                         {"tiempo_estimado_estudio_minutos", "conceptos_clave", "prerrequisitos", "perfil_aplicado",
+                          "formato_generado", "nicho_sector", "nivel_detalle"})
+
+    def test_no_promete_revisar_todo_el_material(self):
+        # Solo lo que no pasa el control de calidad queda en revisión; lo demás llega directo a quien estudia
+        texto = _texto(self.html)
+        self.assertNotIn("antes de que llegue a nadie", texto)
+        self.assertNotIn("aprueba antes de publicar", texto)
 
     def test_tema_oscuro(self):
         self.assertIn('class="nm"', self.html)

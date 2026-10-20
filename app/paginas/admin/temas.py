@@ -6,7 +6,7 @@ from pydantic import ValidationError
 import sesion
 from cliente_api import ErrorCliente
 from contrato import LARGO_MAXIMO_DESCRIPCION, LARGO_MAXIMO_NOMBRE_TEMA, NICHOS, DatosTema
-from paginas import contraer_menu, ir_a, mostrar_error, mostrar_modo_demo
+from paginas import contraer_menu, ir_a, markdown_literal, mostrar_error, mostrar_modo_demo
 
 DATOS_INCOMPLETOS = "Escribe un nombre y elige al menos un documento."
 SIN_DOCUMENTOS = "Todavía no hay documentos. Sube al menos uno para crear un tema."
@@ -108,7 +108,7 @@ def _tarjeta(cliente, tema, titulos):
         if st.session_state.get("editando_tema") == tema.id_tema:
             _editar(cliente, tema, titulos)
             return
-        st.markdown(f"**{tema.nombre}**")
+        st.markdown(f"**{markdown_literal(tema.nombre)}**")
         if tema.descripcion:
             st.write(tema.descripcion)
         st.caption(f"Sector: {tema.nicho_sector} · Documentos: " + ", ".join(d.titulo for d in tema.documentos))

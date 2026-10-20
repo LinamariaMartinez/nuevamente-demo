@@ -44,7 +44,11 @@ def cambiar_contrasena(actual, nueva):
 
 
 def cerrar(aviso=None):
-    """Cierra la sesión en la API (si falla, igual se cierra aquí) y borra todo: token, cliente y material."""
+    """Cierra la sesión en la API (si falla, igual se cierra aquí) y borra todo: token, cliente y material.
+
+    En modo demostración el cliente se conserva: guarda en memoria lo creado en la demo (usuarios, temas,
+    material aprobado) y, sin él, quien entra después no lo encontraría. Su sesión ya quedó cerrada arriba.
+    """
     cliente = st.session_state.get("cliente")
     if cliente is not None:
         try:
@@ -53,6 +57,8 @@ def cerrar(aviso=None):
             pass
     for clave in list(st.session_state.keys()):
         del st.session_state[clave]
+    if cliente is not None and cliente.es_mock:
+        st.session_state["cliente"] = cliente
     if aviso:
         st.session_state["aviso_acceso"] = aviso
 

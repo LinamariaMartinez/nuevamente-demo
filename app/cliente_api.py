@@ -44,7 +44,8 @@ class ErrorCliente(Exception):
         "sin_permiso": "No tienes permiso para esta acción.",
         "no_encontrado": "No encontramos lo que buscabas. Es posible que se haya retirado.",
         "no_disponible": "El servicio no está disponible en este momento. Inténtalo de nuevo más tarde.",
-        "tiempo_agotado": "La generación está tardando más de lo normal. Inténtalo de nuevo en unos minutos.",
+        "tiempo_agotado": ("La generación está tardando más de lo normal. Puede que termine en unos minutos: "
+                           "revisa Mi material antes de generarlo de nuevo."),
         "respuesta_invalida": "Hubo un problema con el material generado. Inténtalo de nuevo.",
         "rechazado": "El servicio no pudo atender la petición. Inténtalo de nuevo.",
         "sin_contexto": "No encontramos ese tema en los documentos cargados. Prueba con otras palabras.",

@@ -37,30 +37,33 @@ AGENTES = (
     ("Revisor", "Verifica fidelidad y calidad didáctica."),
 )
 INSTITUCION = ("Sube documentos y arma temas con su sector",
-               "Aprueba o rechaza el material antes de que llegue a nadie",
+               "Revisa y aprueba el material que no pasa el control de calidad",
                "Crea usuarios y asigna temas a cada persona")
 ESTUDIANTE = ("Ve solo los temas que le asignaron",
               "Elige perfil y formato: flashcards, quiz, guía y más",
               "Guarda su material aprobado en Mi material")
-# (nombre, clave, texto, bloque del paquete JSON que se muestra al lado)
+# (nombre, clave, texto, bloque del paquete JSON que se muestra al lado). Los campos son los del contrato común (F06):
+# quien abra /docs de la API debe ver los mismos nombres
 POR_DENTRO = (
     ("Fiel a las fuentes", "RAG",
      "Cada material cita los fragmentos de los documentos que usó. Si el tema no tiene contexto suficiente, "
      "lo dice en lugar de inventar.",
-     "fuentes", '"fuentes": [\n  {\n    "documento": "Redes VCN en OCI",\n    "fragmento": 12,\n'
-                '    "texto": "Una VCN es una red privada…"\n  },\n  {\n    "documento": "Redes VCN en OCI",\n'
-                '    "fragmento": 18\n  }\n]'),
+     "fuentes", '"fuentes": [\n  {\n    "documento_id": "d-redes",\n    "documento": "Redes VCN en OCI",\n'
+                '    "fragmento": 1,\n    "pagina": 12,\n    "extracto": "Una VCN es una red privada…"\n  }\n]'),
     ("Calidad revisada", "≥ 0.8",
-     "El Revisor puntúa cada material; si no llega a 0.8, se corrige hasta 3 veces. "
-     "La institución aprueba antes de publicar.",
-     "revision", '"revision": {\n  "puntaje": 0.86,\n  "intentos": 2,\n  "estado": "aprobado"\n}'),
+     "El Revisor puntúa fidelidad a las fuentes, pedagogía y formato; si no alcanza el mínimo, se corrige hasta "
+     "3 veces. Lo que aun así no pasa queda en revisión para la institución.",
+     "evaluacion_calidad", '"status": "exito",\n"evaluacion_calidad": {\n  "anclaje_fuente_score": 0.86,\n'
+                           '  "calidad_pedagogica_score": 0.9,\n  "cumplimiento_formato_score": 0.95,\n'
+                           '  "claridad_pedagogica": "Alta",\n  "observaciones": "Fiel a las fuentes.",\n'
+                           '  "intentos_revision": 2\n}'),
     ("Listo para integrar", "JSON",
      "La salida es JSON estructurado, con metadatos de aprendizaje. Documentos y paquetes se guardan en "
      "OCI Object Storage.",
      "metadatos", '"metadatos": {\n  "tiempo_estimado_estudio_minutos": 5,\n  "conceptos_clave": [\n'
                   '    "VCN", "Subredes",\n    "Internet Gateway", "NAT Gateway"\n  ],\n  "prerrequisitos": [],\n'
                   '  "perfil_aplicado": "Principiante",\n  "formato_generado": "Flashcards",\n'
-                  '  "nicho_sector": "General"\n}'),
+                  '  "nicho_sector": "General",\n  "nivel_detalle": "Didáctico"\n}'),
 )
 # Arquitectura en OCI Always Free (04-decisiones.md, 25-sep): VM Ampere A1 + Object Storage; LLM por la API de Gemini
 COMPONENTES_VM = (("Interfaz", "Streamlit"), ("API", "FastAPI · /api/v1"), ("Agentes", "LangGraph · RAG"),

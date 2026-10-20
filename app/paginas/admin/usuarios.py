@@ -11,7 +11,7 @@ from pydantic import ValidationError
 import sesion
 from cliente_api import ErrorCliente
 from contrato import LARGO_MINIMO_CONTRASENA, DatosEstudiante, generar_contrasena_temporal
-from paginas import contraer_menu, mostrar_error, mostrar_modo_demo
+from paginas import contraer_menu, markdown_literal, mostrar_error, mostrar_modo_demo
 
 CONTRASENA_CORTA = f"La contraseña temporal debe tener al menos {LARGO_MINIMO_CONTRASENA} caracteres."
 DATOS_INCOMPLETOS = "Escribe el nombre y el usuario."
@@ -178,7 +178,7 @@ def _acciones(cliente, usuario, nombres_temas):
 def _tarjeta(cliente, usuario, nombres_temas):
     with st.container(border=True):
         nombre, estado = st.columns([4, 1], vertical_alignment="center")
-        nombre.markdown(f"**{usuario.nombre}**")
+        nombre.markdown(f"**{markdown_literal(usuario.nombre)}**")
         estado.markdown(":green-badge[Activa]" if usuario.activo else ":red-badge[Inactiva]")
         detalle = f"{usuario.usuario} · {sesion.ROL_LEGIBLE[usuario.rol]}"
         if usuario.rol == "estudiante":

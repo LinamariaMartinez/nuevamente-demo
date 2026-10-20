@@ -4,11 +4,11 @@ import streamlit as st
 
 import sesion
 from cliente_api import ErrorCliente
-from paginas import contraer_menu, fecha_local, mostrar_error, mostrar_modo_demo
+from paginas import contraer_menu, fecha_local, markdown_literal, mostrar_error, mostrar_modo_demo
 from vistas import mostrar_paquete
 
 RESERVADO = "Abre un material de la lista para verlo aquí."
-APROBADO = "Material aprobado."  # todavía no hay pantalla donde quien estudia vea su material aprobado
+APROBADO = "Material aprobado."  # quien lo pidió lo encuentra en Mi material, en la página del tema
 RECHAZADO = "Material rechazado: se eliminó y se puede generar de nuevo."
 
 
@@ -98,7 +98,7 @@ def mostrar():
     with izquierda:
         for resumen in resumenes:
             with st.container(border=True):
-                st.markdown(f"**{resumen.tema}**")
+                st.markdown(f"**{markdown_literal(resumen.tema)}**")
                 st.caption(f"{resumen.formato} · anclaje {resumen.anclaje_fuente_score:.0%}"
                            f" · {fecha_local(resumen.creado_en)}")
                 if st.button("Abrir", key=f"abrir_{resumen.id}"):

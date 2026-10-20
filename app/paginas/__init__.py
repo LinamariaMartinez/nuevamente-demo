@@ -1,6 +1,7 @@
 """Ayudas comunes de las páginas: errores, aviso de modo demostración y cambio de página."""
 
 from datetime import timezone
+import re
 from zoneinfo import ZoneInfo
 
 import streamlit as st
@@ -17,6 +18,17 @@ def ir_a(nombre):
     destino = DESTINOS.get(nombre)
     if destino is not None:
         st.switch_page(destino)
+
+
+_MARKDOWN = re.compile(r"([\\`*_{}\[\]()#+\-.!|<>$~:])")
+
+
+def markdown_literal(texto):
+    """Texto escrito por otra persona (tema pedido, nombre, descripción) para st.markdown: se ve tal cual.
+
+    Sin esto, quien estudia podría meter una imagen o un enlace que se dibuja en la pantalla del admin.
+    """
+    return _MARKDOWN.sub(r"\\\1", str(texto))
 
 
 def mostrar_error(error):

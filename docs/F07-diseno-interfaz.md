@@ -14,6 +14,7 @@ Nueva cara para lo que se ve sin sesión: la landing y el inicio de sesión. El 
 | Tema en Iniciar sesión | Claro u oscuro según la persona | **Siempre claro**: el contraste entre el panel oscuro y el fondo claro es el diseño |
 | Cambia tu contraseña | Columna a todo el ancho | **La misma tarjeta**: el panel saluda y explica que la contraseña es temporal |
 | CSS | Solo el bloque del usuario en el menú (§9) | Además, el CSS de la landing y del acceso, cada uno en su plantilla de `app/plantillas/` (§9) |
+| Cerrar sesión en modo demostración | Borraba todo, también lo creado en la demo | **Conserva el cliente de demostración** (usuarios, temas y material creados); la sesión sí se cierra. Con la API real se borra todo, como antes |
 
 ### Versión 2.3 (respecto a la 2.2)
 
@@ -296,10 +297,11 @@ el tema.
   detiene al pasar el mouse o al elegir uno): perfil Principiante / Intermedio / Avanzado, flashcard que se voltea, quiz
   que se califica, guía, resumen y guion. Debajo, una cinta con formatos, perfiles y sectores.
 - **Cómo funciona:** tres pasos en tarjetas y **los agentes en vivo**: el Revisor da 0.72, el material vuelve al
-  Redactor y queda en 0.86 (umbral 0.8, hasta 3 intentos).
-- **Para quién:** institución (sube documentos, aprueba material, crea usuarios) y estudiante (sus temas, perfil y
-  formato, Mi material).
-- **Por dentro:** fiel a las fuentes, calidad revisada y listo para integrar; al elegir uno se ve su parte del JSON.
+  Redactor y queda en 0.86 (anclaje mínimo 0.8; pedagogía y formato, 0.75; hasta 3 intentos).
+- **Para quién:** institución (sube documentos, revisa y aprueba el material que no pasa el control de calidad, crea
+  usuarios) y estudiante (sus temas, perfil y formato, Mi material).
+- **Por dentro:** fiel a las fuentes, calidad revisada y listo para integrar; al elegir uno se ve su parte del JSON,
+  con los nombres de campo del contrato común (`fuentes`, `status` y `evaluacion_calidad`, `metadatos`).
 - **En OCI:** navegador → VM Ampere A1 (interfaz, API, agentes y datos de la app) → OCI Object Storage (documentos,
   paquetes aprobados y respaldos), con los modelos por la API de Gemini.
 - **Cierre:** "Aprender hoy, construir mañana.", **Iniciar sesión** (botón de Streamlit) y las **cuentas de
@@ -517,7 +519,7 @@ El verde claro de la referencia (`#7DC1B0`) **no** se usa en botones: Streamlit 
 **Ajustes de la versión 2.4.**
 - **CSS de la landing y del acceso:** cada pantalla trae su CSS en una plantilla (`app/plantillas/landing.html` y
   `acceso.html`) que se dibuja con `st.html`. Solo vive mientras la pantalla está abierta: Streamlit lo quita al cambiar
-  de página, así que no toca la app con sesión. Ningún archivo `.py` escribe `<style>`.
+  de página, así que no toca la app con sesión. Fuera de `app/estilo.py`, ningún archivo `.py` escribe `<style>`.
 - **Nombres internos de Streamlit:** el acceso usa contenedores con `key` (`.st-key-…`) y algunos `data-testid`
   (`stMainBlockContainer`, `stLayoutWrapper`, `stTextInputRootElement`). Si una versión futura los cambia, la pantalla
   sigue funcionando pero pierde el diseño; se revisa con capturas al subir de versión.
@@ -535,7 +537,7 @@ Con `unittest` y `streamlit.testing.v1.AppTest`. **Ninguna prueba necesita API k
 | Cliente | Token en cada ruta; 401/403/404/409 traducidos; el token nunca va en la URL; en mock, cada estudiante ve solo sus temas y la nota sigue la regla 5.6 |
 | Acceso | Inicio correcto, incorrecto y vencido; cambio obligatorio de contraseña; cerrar sesión borra el token; tarjeta con panel y formulario, sin `<svg>`; avisos arriba de los campos; cuentas solo en modo mock (v2.4) |
 | Menú | El estudiante ve Mis temas (y Evaluaciones desde la pieza 2); el admin ve las tres secciones, cada una solo con las pantallas listas; debajo, nombre, rol y Cerrar sesión |
-| Estudiante | Mis temas: las tres métricas, el filtro en píldoras, la etiqueta de cada uno de los cuatro estados y que no haya barra de progreso; abrir un tema; Estudiar |
+| Estudiante | Mis temas: solo las tarjetas y "Tienes N temas asignados.", sin métricas, filtro, estados ni barra de progreso (v2.3); abrir un tema; Estudiar y Mi material |
 | Evaluaciones | Una tarjeta por tema con el botón según su estado; los seis estados de `evaluacion.py` |
 | Admin | Una prueba por pantalla |
 | Permisos | Un estudiante no puede abrir pantallas del admin, ni por menú ni por URL; sin sesión solo se ven la Landing e Iniciar sesión |

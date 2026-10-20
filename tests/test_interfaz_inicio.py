@@ -9,6 +9,7 @@ from streamlit.testing.v1 import AppTest
 import menu
 import paginas
 from cliente_api import ClienteMock
+from contrato import DatosEstudiante
 
 INICIO = str(RAIZ / "app" / "inicio.py")
 
@@ -61,6 +62,25 @@ class PuntoDeEntrada(unittest.TestCase):
         at = abrir("laura").sidebar.button(key="cerrar_sesion").click().run()
         self.assertNotIn("sesion", at.session_state)
         self.assertEqual(at.button(key="ir_acceso").label, "Iniciar sesión")  # la landing
+
+    def test_en_modo_demo_cerrar_sesion_conserva_lo_creado(self):
+        # El mock guarda en memoria lo que se crea en la demo: un estudiante nuevo debe poder entrar tras salir el admin
+        at = abrir("admin")
+        at.session_state["cliente"].crear_estudiante(DatosEstudiante(
+            nombre="Ana Prueba", usuario="ana", contrasena_temporal="temporal-ana-12"))
+        at = at.sidebar.button(key="cerrar_sesion").click().run()
+        self.assertNotIn("sesion", at.session_state)
+        sesion = at.session_state["cliente"].iniciar_sesion("ana", "temporal-ana-12")
+        self.assertEqual(sesion.usuario.nombre, "Ana Prueba")
+
+    def test_con_la_api_real_cerrar_sesion_borra_el_cliente(self):
+        cliente = ClienteMock()
+        cliente.es_mock = False  # se comporta como el cliente http: el token no debe sobrevivir
+        at = AppTest.from_file(INICIO, default_timeout=10)
+        at.session_state["cliente"] = cliente
+        at.session_state["sesion"] = cliente.iniciar_sesion("laura", CUENTAS["laura"])
+        at = at.run().sidebar.button(key="cerrar_sesion").click().run()
+        self.assertIsNot(at.session_state["cliente"], cliente)
 
     def test_el_logo_del_menu_solo_aparece_dentro_de_la_app(self):
         # st.logo hace aparecer la barra lateral: en la landing y en Iniciar sesión no debe haber menú
