@@ -1,11 +1,9 @@
 {
-  "id_paquete": "ejemplo-003",
+  "id": "266a1be6993abda3972b1d444c4c4897",
   "creado_en": "2026-10-14T15:30:00Z",
+  "id_tema": "t-redes",
   "status": "exito",
-  "codigo_error": null,
-  "mensaje_error": null,
   "metadatos": {
-    "tema": "Redes VCN en OCI",
     "tiempo_estimado_estudio_minutos": 12,
     "conceptos_clave": [
       "VCN",
@@ -25,54 +23,49 @@
     "introduccion_contextualizada": "Recorre paso a paso las piezas que forman una red en OCI.",
     "items": [
       {
-        "paso": 1,
         "titulo": "Crear la VCN",
-        "explicacion": "La VCN es tu red privada en OCI; todo lo demás vive dentro de ella.",
-        "ejemplo": null
+        "instrucciones": "La VCN es tu red privada en OCI; todo lo demás vive dentro de ella."
       },
       {
-        "paso": 2,
         "titulo": "Dividirla en subredes",
-        "explicacion": "Separa los recursos en subredes públicas (accesibles desde internet) y privadas (aisladas).",
-        "ejemplo": "Un servidor web en una subred pública y la base de datos en una privada."
+        "instrucciones": "Separa los recursos en subredes públicas (accesibles desde internet) y privadas (aisladas). Ejemplo: Un servidor web en una subred pública y la base de datos en una privada."
       },
       {
-        "paso": 3,
         "titulo": "Conectar con internet",
-        "explicacion": "El Internet Gateway permite tráfico de ida y vuelta entre la VCN e internet.",
-        "ejemplo": null
+        "instrucciones": "El Internet Gateway permite tráfico de ida y vuelta entre la VCN e internet."
       },
       {
-        "paso": 4,
         "titulo": "Dar salida a la subred privada",
-        "explicacion": "El NAT Gateway deja salir a los recursos privados sin aceptar conexiones entrantes.",
-        "ejemplo": "La base de datos descarga actualizaciones sin quedar expuesta."
+        "instrucciones": "El NAT Gateway deja salir a los recursos privados sin aceptar conexiones entrantes. Ejemplo: La base de datos descarga actualizaciones sin quedar expuesta."
       },
       {
-        "paso": 5,
         "titulo": "Definir las reglas de tráfico",
-        "explicacion": "Las Security Lists controlan qué tráfico entra (ingress) y sale (egress). Revisa con cuidado las de ingress.",
-        "ejemplo": null
+        "instrucciones": "Las Security Lists controlan qué tráfico entra (ingress) y sale (egress). Revisa con cuidado las de ingress."
       }
     ]
   },
+  "evaluacion_calidad": {
+    "anclaje_fuente_score": 1.0,
+    "calidad_pedagogica_score": 0.9,
+    "cumplimiento_formato_score": 0.95,
+    "claridad_pedagogica": "Alta",
+    "observaciones": "Fiel a la fuente y adecuado al perfil.",
+    "intentos_revision": 1
+  },
   "fuentes": [
     {
-      "documento": "oci_redes_vcn.pdf",
+      "documento_id": "d-redes",
+      "documento": "Redes VCN en OCI",
       "fragmento": 3,
+      "pagina": null,
       "extracto": "Una VCN es una red privada y personalizable en Oracle Cloud Infrastructure..."
     },
     {
-      "documento": "oci_redes_vcn.pdf",
+      "documento_id": "d-redes",
+      "documento": "Redes VCN en OCI",
       "fragmento": 7,
+      "pagina": null,
       "extracto": "El NAT Gateway permite que los recursos de una subred privada accedan a internet..."
     }
-  ],
-  "evaluacion_calidad": {
-    "anclaje_fuente_score": 1.0,
-    "claridad_pedagogica": "Alta",
-    "observaciones": "Fiel a la fuente y adecuado al perfil.",
-    "intentos_revision": 1,
-    "requiere_revision_admin": false
-  }
+  ]
 }

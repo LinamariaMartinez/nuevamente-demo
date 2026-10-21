@@ -22,9 +22,10 @@ def cargar(nombre):
     return json.loads((MOCKS / nombre).read_text(encoding="utf-8"))
 
 
-def correr(datos):
+def correr(datos, para_admin=False):
     at = AppTest.from_file(APP_VISTA, default_timeout=10)
     at.session_state["datos_paquete"] = datos
+    at.session_state["para_admin"] = para_admin
     return at.run()
 
 
@@ -48,9 +49,22 @@ class VistaGenerica(unittest.TestCase):
             with self.subTest(mock=nombre):
                 self.assertEqual(len(correr(cargar(nombre)).download_button), 0)
 
-    def test_paquete_que_requiere_revision_muestra_el_aviso(self):
-        at = correr(cargar("guion.json"))
-        self.assertEqual(at.warning[0].value, AVISO_REVISION)
+    def test_estudiante_solo_ve_el_tiempo_estimado(self):
+        # Anclaje, intentos y observaciones son datos internos del Revisor: solo los ve el admin
+        at = correr(cargar("quiz.json"))
+        self.assertEqual([m.label for m in at.metric], ["Tiempo estimado"])
+        etiquetas = [e.label for e in at.expander]
+        self.assertNotIn("Observaciones del revisor", etiquetas)
+        self.assertTrue(any(e.startswith("Fuentes") for e in etiquetas))
+
+    def test_admin_ve_todas_las_metricas_y_las_observaciones(self):
+        at = correr(cargar("quiz.json"), para_admin=True)
+        self.assertEqual([m.label for m in at.metric], ["Tiempo estimado", "Anclaje en fuentes", "Intentos de revisión"])
+        self.assertIn("Observaciones del revisor", [e.label for e in at.expander])
+
+    def test_paquete_que_requiere_revision_muestra_el_aviso_al_admin(self):
+        self.assertEqual(correr(cargar("guion.json"), para_admin=True).warning[0].value, AVISO_REVISION)
+        self.assertEqual(len(correr(cargar("guion.json")).warning), 0)
 
     def test_paquete_aprobado_no_muestra_el_aviso(self):
         self.assertEqual(len(correr(cargar("resumen.json")).warning), 0)
@@ -62,11 +76,18 @@ class VistaGenerica(unittest.TestCase):
         self.assertEqual(len(at.exception), 0)
         self.assertIn("Qué es", textos(at))
 
-    def test_paquete_con_error_muestra_el_mensaje_sin_romperse(self):
-        datos = cargar("error_sin_contexto.json")
-        at = correr(datos)
-        self.assertEqual(len(at.exception), 0)
-        self.assertIn(datos["mensaje_error"], [e.value for e in at.error])
+    def test_fuente_con_pagina(self):
+        datos = cargar("resumen.json")
+        fuente = datos["fuentes"][0]
+        fuente["pagina"] = 5
+        esperado = f"- **{fuente['documento']}**, fragmento {fuente['fragmento']}, página 5: {fuente['extracto']}"
+        self.assertIn(esperado, textos(correr(datos)))
+
+    def test_fuente_sin_pagina(self):
+        datos = cargar("resumen.json")
+        fuente = datos["fuentes"][0]
+        esperado = f"- **{fuente['documento']}**, fragmento {fuente['fragmento']}: {fuente['extracto']}"
+        self.assertIn(esperado, textos(correr(datos)))
 
     def test_paquete_sin_items_avisa_que_no_hay_contenido(self):
         datos = cargar("resumen.json")

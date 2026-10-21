@@ -1,13 +1,11 @@
-"""Archivos de la marca NuevaMente (logo e ícono) y cuál usar según el tema."""
+"""Archivos de la marca NuevaMente (logo e ícono)."""
 
 from pathlib import Path
 
 ASSETS = Path(__file__).resolve().parents[1] / "assets"
-LOGO_CLARO = ASSETS / "logo_nuevamente.svg"
-LOGO_OSCURO = ASSETS / "logo_nuevamente_oscuro.svg"
+LOGO = ASSETS / "logo_nuevamente.svg"  # fondo claro (desde la v2.4 ninguna pantalla lo usa)
+LOGO_MENU = ASSETS / "logo_nuevamente_menu.svg"  # fondos oscuros: menú lateral y panel de Iniciar sesión
 ICONO = ASSETS / "icono_nuevamente.svg"
+# Favicon en PNG: Safari y otros navegadores no muestran favicons SVG
+FAVICON = ASSETS / "icono_nuevamente.png"
 
-
-def logo_para(tipo_tema):
-    """`tipo_tema` es st.context.theme.type ("light", "dark" o None si el navegador no lo informó)."""
-    return LOGO_OSCURO if tipo_tema == "dark" else LOGO_CLARO
