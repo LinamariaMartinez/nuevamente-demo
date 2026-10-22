@@ -83,14 +83,21 @@ def build_content_object_id(
     profile: str,
     output_format: str,
     sequence: int = 1,
+    content_id: str | None = None,
 ) -> str:
     """Genera el `objeto_id` siguiendo el formato de la consigna.
 
-    Ejemplo: `contenido-vcn-principiante-flashcards-001.json`
+    Si se provee `content_id`, lo usa como sufijo único para evitar colisiones
+    entre contenidos del mismo `{tema}-{perfil}-{formato}`; en caso contrario
+    usa `sequence` (`contenido-vcn-principiante-flashcards-001.json`).
     """
     topic_slug = slugify(topic, max_words=2)
     profile_slug = slugify(profile, max_words=1)
     format_slug = slugify(output_format, max_words=1)
+    if content_id:
+        clean_id = re.sub(r"[^a-z0-9-]+", "", str(content_id).lower()).strip("-")
+        if clean_id:
+            return f"contenido-{topic_slug}-{profile_slug}-{format_slug}-{clean_id}.json"
     seq_number = max(1, int(sequence))
     return f"contenido-{topic_slug}-{profile_slug}-{format_slug}-{seq_number:03d}.json"
 
@@ -473,6 +480,7 @@ class OCIStorageManager:
         payload: dict[str, Any] | BaseModel | str,
         *,
         object_id: str | None = None,
+        content_id: str | None = None,
         topic: str | None = None,
         profile: str | None = None,
         output_format: str | None = None,
@@ -501,12 +509,14 @@ class OCIStorageManager:
         )
         resolved_profile = profile or metadatos.get("perfil_aplicado") or "principiante"
         resolved_format = output_format or metadatos.get("formato_generado") or "flashcards"
+        resolved_content_id = content_id or (data.get("id") if isinstance(data.get("id"), str) else None)
 
         raw_object_id = object_id or build_content_object_id(
             topic=str(resolved_topic),
             profile=str(resolved_profile),
             output_format=str(resolved_format),
             sequence=sequence,
+            content_id=resolved_content_id,
         )
         try:
             target_object_id = validate_object_id(raw_object_id)

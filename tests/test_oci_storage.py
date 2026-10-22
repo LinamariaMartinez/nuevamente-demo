@@ -123,6 +123,11 @@ class OCIStorageTests(unittest.TestCase):
         obj_id = build_content_object_id("VCN", "Principiante", "Flashcards", sequence=1)
         self.assertEqual(obj_id, "contenido-vcn-principiante-flashcards-001.json")
 
+        unique_id = build_content_object_id(
+            "VCN", "Principiante", "Flashcards", content_id="a1b2c3d4"
+        )
+        self.assertEqual(unique_id, "contenido-vcn-principiante-flashcards-a1b2c3d4.json")
+
         doc_id = build_document_object_id("arquitectura_redes_vcn_oci.md")
         self.assertEqual(doc_id, "documentos/redes-vcn-oci.md")
 

@@ -37,6 +37,7 @@ def backup_content_to_oci(oci: OCIStorageManager, content: ContentResponse, topi
     """Persiste el paquete educativo JSON aprobado en el bucket Always Free de OCI."""
     _, result = oci.upload_educational_json(
         content,
+        content_id=content.id,
         topic=topic,
         profile=content.metadatos.perfil_aplicado,
         output_format=content.metadatos.formato_generado,

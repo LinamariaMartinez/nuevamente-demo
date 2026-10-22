@@ -33,7 +33,7 @@ El modelo Pydantic `AlmacenamientoOCI` genera exactamente el bloque especificado
 3. **`OCIStorageManager.upload_document()`**:
    - Sube los documentos técnicos originales (`.pdf`, `.md`, `.txt`) bajo el prefijo `documentos/` y devuelve su `AlmacenamientoOCI` (`completado`, `error` u `omitido` si se ejecuta en local sin credenciales).
 4. **`OCIStorageManager.upload_educational_json()`**:
-   - Genera un `objeto_id` semántico (`contenido-{tema}-{perfil}-{formato}-{secuencia}.json`), inyecta el bloque `almacenamiento_oci` en el paquete educativo y persiste el JSON en UTF-8 dentro del bucket.
+   - Genera un `objeto_id` semántico único (`contenido-{tema}-{perfil}-{formato}-{id|secuencia}.json`), inyecta el bloque `almacenamiento_oci` en el paquete educativo y persiste el JSON en UTF-8 dentro del bucket.
 5. **`OCIStorageManager.download_object()` y `list_objects()`**:
    - Permiten recuperar y auditar los artefactos almacenados en el bucket.
 
