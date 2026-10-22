@@ -1,0 +1,100 @@
+"""Pruebas de las vistas: cada paquete se dibuja sin errores y los casos raros caen en la vista genérica."""
+
+import json
+from pathlib import Path
+import sys
+import unittest
+
+RAIZ = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(RAIZ / "src"))
+sys.path.insert(0, str(RAIZ / "app"))
+
+from streamlit.testing.v1 import AppTest
+
+from vistas.generica import AVISO_REVISION
+
+MOCKS = RAIZ / "app" / "mocks"
+APP_VISTA = str(RAIZ / "tests" / "apps_interfaz" / "vista_app.py")
+MOCKS_EXITO = ("flashcards.json", "quiz.json", "tutorial.json", "resumen.json", "guion.json")
+
+
+def cargar(nombre):
+    return json.loads((MOCKS / nombre).read_text(encoding="utf-8"))
+
+
+def correr(datos, para_admin=False):
+    at = AppTest.from_file(APP_VISTA, default_timeout=10)
+    at.session_state["datos_paquete"] = datos
+    at.session_state["para_admin"] = para_admin
+    return at.run()
+
+
+def textos(at):
+    return " ".join(m.value for m in at.markdown)
+
+
+class VistaGenerica(unittest.TestCase):
+    def test_cada_mock_de_exito_se_dibuja_con_titulo_y_fuentes(self):
+        for nombre in MOCKS_EXITO:
+            with self.subTest(mock=nombre):
+                datos = cargar(nombre)
+                at = correr(datos)
+                self.assertEqual(len(at.exception), 0)
+                self.assertEqual(at.header[0].value, datos["contenido_adaptado"]["titulo"])
+                self.assertTrue(any(e.label.startswith("Fuentes") for e in at.expander))
+
+    def test_la_vista_no_ofrece_descargar_el_json(self):
+        # El JSON es para integrar con otros sistemas: lo exporta el admin, no quien estudia
+        for nombre in MOCKS_EXITO:
+            with self.subTest(mock=nombre):
+                self.assertEqual(len(correr(cargar(nombre)).download_button), 0)
+
+    def test_estudiante_solo_ve_el_tiempo_estimado(self):
+        # Anclaje, intentos y observaciones son datos internos del Revisor: solo los ve el admin
+        at = correr(cargar("quiz.json"))
+        self.assertEqual([m.label for m in at.metric], ["Tiempo estimado"])
+        etiquetas = [e.label for e in at.expander]
+        self.assertNotIn("Observaciones del revisor", etiquetas)
+        self.assertTrue(any(e.startswith("Fuentes") for e in etiquetas))
+
+    def test_admin_ve_todas_las_metricas_y_las_observaciones(self):
+        at = correr(cargar("quiz.json"), para_admin=True)
+        self.assertEqual([m.label for m in at.metric], ["Tiempo estimado", "Anclaje en fuentes", "Intentos de revisión"])
+        self.assertIn("Observaciones del revisor", [e.label for e in at.expander])
+
+    def test_paquete_que_requiere_revision_muestra_el_aviso_al_admin(self):
+        self.assertEqual(correr(cargar("guion.json"), para_admin=True).warning[0].value, AVISO_REVISION)
+        self.assertEqual(len(correr(cargar("guion.json")).warning), 0)
+
+    def test_paquete_aprobado_no_muestra_el_aviso(self):
+        self.assertEqual(len(correr(cargar("resumen.json")).warning), 0)
+
+    def test_formato_desconocido_usa_la_vista_generica(self):
+        datos = cargar("resumen.json")
+        datos["metadatos"]["formato_generado"] = "Podcast"
+        at = correr(datos)
+        self.assertEqual(len(at.exception), 0)
+        self.assertIn("Qué es", textos(at))
+
+    def test_fuente_con_pagina(self):
+        datos = cargar("resumen.json")
+        fuente = datos["fuentes"][0]
+        fuente["pagina"] = 5
+        esperado = f"- **{fuente['documento']}**, fragmento {fuente['fragmento']}, página 5: {fuente['extracto']}"
+        self.assertIn(esperado, textos(correr(datos)))
+
+    def test_fuente_sin_pagina(self):
+        datos = cargar("resumen.json")
+        fuente = datos["fuentes"][0]
+        esperado = f"- **{fuente['documento']}**, fragmento {fuente['fragmento']}: {fuente['extracto']}"
+        self.assertIn(esperado, textos(correr(datos)))
+
+    def test_paquete_sin_items_avisa_que_no_hay_contenido(self):
+        datos = cargar("resumen.json")
+        datos["contenido_adaptado"]["items"] = []
+        at = correr(datos)
+        self.assertIn("Este material no trae contenido.", [i.value for i in at.info])
+
+
+if __name__ == "__main__":
+    unittest.main()

@@ -1,0 +1,65 @@
+[client]
+# Spec §7: un error inesperado no muestra el traceback en el navegador (queda en la terminal del servidor)
+showErrorDetails = "none"
+
+[server]
+# Límite del selector de archivos del admin, en MB (cuida los 20 GB de Object Storage)
+maxUploadSize = 10
+
+# Identidad visual "Bosque sereno" (contexto/nuevamente_identidad_visual_streamlit.md).
+# El tema claro es el inicial; quien usa la app puede pasar a oscuro desde el menú ⋮ → Settings.
+# Los contrastes se comprueban en tests/test_interfaz_tema.py: si cambias un color, corre esa prueba.
+[theme]
+base = "light"
+font = "sans-serif"  # en Streamlit es Source Sans 3, la tipografía de la marca
+codeFont = "'JetBrains Mono':https://fonts.googleapis.com/css2?family=JetBrains+Mono&display=swap, monospace"
+baseRadius = "medium"
+buttonRadius = "medium"
+showWidgetBorder = true
+linkUnderline = false
+
+[theme.light]
+primaryColor = "#205E58"
+backgroundColor = "#F5F7F5"
+secondaryBackgroundColor = "#FFFFFF"
+textColor = "#142E2A"
+linkColor = "#205E58"
+# Más oscuro que el #D6E2DC del documento: los bordes de los campos necesitan 3:1
+borderColor = "#7D948B"
+codeBackgroundColor = "#E7EEE8"
+greenTextColor = "#166534"
+yellowTextColor = "#854D0E"
+redTextColor = "#B42318"
+blueTextColor = "#1D4ED8"
+
+[theme.dark]
+# Paleta B (v2.1): fondo neutro como la referencia. Streamlit pone blanco el texto del botón
+# principal, por eso el verde claro #7DC1B0 va en enlaces y acentos, no en botones (2.07:1)
+primaryColor = "#3A8277"
+backgroundColor = "#14201E"
+secondaryBackgroundColor = "#1E2B28"
+textColor = "#EAF2EF"
+linkColor = "#7DC1B0"
+borderColor = "#6B8A81"
+codeBackgroundColor = "#24433C"
+greenTextColor = "#86E0AC"
+yellowTextColor = "#F5CD78"
+redTextColor = "#FF9D93"
+blueTextColor = "#8BC8F0"
+
+# Menú lateral verde oscuro en los dos modos (v2.1)
+[theme.light.sidebar]
+backgroundColor = "#205E58"
+secondaryBackgroundColor = "#2E6F66"
+textColor = "#EAF2EF"
+linkColor = "#A9CDBD"
+borderColor = "#A9CDBD"
+primaryColor = "#A9CDBD"
+
+[theme.dark.sidebar]
+backgroundColor = "#0E1715"
+secondaryBackgroundColor = "#2E6F66"
+textColor = "#EAF2EF"
+linkColor = "#7DC1B0"
+borderColor = "#6B8A81"
+primaryColor = "#7DC1B0"

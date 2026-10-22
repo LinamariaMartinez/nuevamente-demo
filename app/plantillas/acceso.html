@@ -1,0 +1,104 @@
+<style>
+/* Iniciar sesión y Cambia tu contraseña (v2.4): tarjeta flotante sobre fondo claro, sin scroll en pantallas grandes.
+   Siempre en claro, aunque la persona use el tema oscuro: el contraste entre el panel oscuro y el fondo claro es el
+   diseño. Solo vive en estas páginas: Streamlit quita este bloque al cambiar de página. */
+.stApp, [data-testid="stHeader"] { background: #F5F7F5 !important; color-scheme: light; }
+[data-testid="stToolbar"] button, [data-testid="stToolbar"] a, [data-testid="stToolbar"] span { color: #142E2A !important; }
+[data-testid="stMainBlockContainer"] { max-width: none !important; min-height: 100dvh; box-sizing: border-box;
+  padding: 64px 24px 24px !important; display: flex; flex-direction: column; justify-content: center; }
+/* Streamlit estira el bloque de adentro a todo el alto: sin esto la tarjeta no queda centrada */
+[data-testid="stMainBlockContainer"] > [data-testid="stVerticalBlock"] { flex: 0 0 auto !important; height: auto !important; }
+
+.st-key-acceso { width: 820px; max-width: 100%; margin: 0 auto; gap: 14px; }
+
+/* Volver al inicio y Salir: enlaces verdes, sin borde */
+.st-key-volver_landing button, .st-key-salir_cambio button { color: #205E58 !important; padding-left: 0; padding-right: 0; min-height: 0; }
+.st-key-volver_landing button p, .st-key-salir_cambio button p { font-size: 15px; font-weight: 600; }
+.st-key-volver_landing button:hover, .st-key-salir_cambio button:hover { color: #142E2A !important; }
+
+/* ---------- Tarjeta: panel oscuro (360 px) + formulario ---------- */
+/* Streamlit le pone flex: 1 1 0%, que manda sobre height. Alto mínimo: si sale un aviso largo, la tarjeta crece */
+.st-key-acceso_tarjeta { flex: 0 0 auto !important; height: auto !important; min-height: 500px; align-items: stretch !important; flex-wrap: nowrap; border-radius: 18px; overflow: hidden; background: #FFFFFF;
+  border: 1px solid #D6E2DC; box-shadow: 0 24px 60px rgba(20,46,42,.12); }
+@media (max-height: 800px) { .st-key-acceso_tarjeta { min-height: 460px; } }
+
+/* Streamlit envuelve cada contenedor en un stLayoutWrapper: el ancho y el alto se fijan en esa envoltura */
+.st-key-acceso_tarjeta > [data-testid="stLayoutWrapper"] { height: auto !important; align-self: stretch !important; }
+.st-key-acceso_tarjeta > [data-testid="stLayoutWrapper"]:has(> .st-key-acceso_panel) { flex: 0 0 360px !important; width: 360px !important; }
+.st-key-acceso_tarjeta > [data-testid="stLayoutWrapper"]:has(> .st-key-acceso_formulario) { flex: 1 1 auto !important; }
+.st-key-acceso_panel { height: 100% !important; background: #102522; }
+.st-key-acceso_panel [data-testid="stElementContainer"], .st-key-acceso_panel [data-testid="stHtml"] { height: 100% !important; }
+.ac-panel { height: 100%; position: relative; overflow: hidden; display: flex; flex-direction: column; padding: 40px;
+  color: #F1F6F3; font-family: inherit; }
+.ac-hoja { position: absolute; width: 320px; right: -110px; bottom: -110px; opacity: .07; }
+.ac-logo { width: 180px; height: auto; }
+.ac-pie { margin-top: auto; position: relative; }
+.ac-lema { margin: 0; font-size: 34px; line-height: 1.08; font-weight: 800; letter-spacing: -.01em; color: #F1F6F3; }
+.ac-lema span { color: #7DC1B0; }
+.ac-texto { margin: 18px 0 0; font-size: 16px; line-height: 1.5; color: #C2D2CB; }
+.ac-pasos { margin: 26px 0 0 !important; padding: 0 !important; list-style: none; display: flex; flex-direction: column; gap: 12px;
+  font-size: 16px; color: #C2D2CB; }
+.ac-pasos li { margin: 0 !important; padding: 0 !important; }
+.ac-pasos b { margin-right: 10px; font-family: 'JetBrains Mono', ui-monospace, monospace; font-weight: 600; color: #7DC1B0; }
+
+.st-key-acceso_formulario { flex: 1 1 auto; height: 100% !important; padding: 32px 24px; }
+.st-key-acceso_campos { gap: 14px; }
+.ac-titulo { margin: 0; font-size: 30px; line-height: 1.15; font-weight: 800; letter-spacing: -.01em; color: #142E2A; }
+.ac-sub { margin: 6px 0 0; font-size: 15px; line-height: 1.45; color: #4E625D; }
+
+/* Formulario sin el recuadro de st.form y con los colores del modo claro */
+.st-key-acceso_tarjeta [data-testid="stForm"] { border: 0; padding: 0; background: transparent; }
+.st-key-acceso_tarjeta label p { color: #142E2A !important; font-size: 14px; font-weight: 600; }
+.st-key-acceso_tarjeta [data-testid="stTextInputRootElement"] { background: #FFFFFF !important; border-color: #7D948B !important; }
+.st-key-acceso_tarjeta input { background-color: #FFFFFF !important; color: #142E2A !important;
+  -webkit-text-fill-color: #142E2A; caret-color: #142E2A; }
+.st-key-acceso_tarjeta [data-testid="stTextInputRootElement"] button { background: transparent !important; color: #4E625D !important; }
+.st-key-acceso_tarjeta [data-testid="stTextInputRootElement"]:focus-within { border-color: #205E58 !important; }
+.st-key-acceso_tarjeta [data-testid="stFormSubmitButton"] button { min-height: 42px; background: #205E58 !important;
+  border-color: #205E58 !important; color: #FFFFFF !important; }
+.st-key-acceso_tarjeta [data-testid="stFormSubmitButton"] button:hover { background: #2F7A70 !important; border-color: #2F7A70 !important; }
+.st-key-acceso_tarjeta [data-testid="stFormSubmitButton"] button p { font-size: 16px; font-weight: 700; }
+/* Avisos con los colores del modo claro: información en verde suave, advertencia en ámbar y error en rojo */
+.st-key-acceso_tarjeta [data-testid="stAlertContainer"] { color: #142E2A !important; background: #E7EEE8 !important; }
+.st-key-acceso_tarjeta [data-testid="stAlertContainer"]:has([data-testid="stAlertContentWarning"]) { background: #FDF3DC !important; }
+.st-key-acceso_tarjeta [data-testid="stAlertContainer"]:has([data-testid="stAlertContentError"]) { background: #FCEBEA !important; }
+.st-key-acceso_tarjeta [data-testid="stAlertContentWarning"], .st-key-acceso_tarjeta [data-testid="stAlertContentError"],
+.st-key-acceso_tarjeta [data-testid="stAlertContentInfo"] { color: #142E2A !important; }
+.st-key-acceso_tarjeta [data-testid="stTooltipIcon"] svg { stroke: #4E625D; }
+/* "Press Enter to submit form" sale en inglés: Enter sigue enviando el formulario */
+.st-key-acceso_tarjeta [data-testid="InputInstructions"] { display: none; }
+
+/* Íconos dentro de los campos: persona en Usuario y llave en las contraseñas */
+.st-key-acceso_usuario input { padding-left: 38px !important;
+  background: #FFFFFF url("$icono_usuario") no-repeat 12px center / 16px 16px !important; }
+.st-key-acceso_contrasena input, .st-key-cambio_actual input, .st-key-cambio_nueva input, .st-key-cambio_confirmar input {
+  padding-left: 38px !important; background: #FFFFFF url("$icono_llave") no-repeat 12px center / 16px 16px !important; }
+
+/* ---------- Cuentas de demostración, debajo de la tarjeta ---------- */
+.ac-demo { margin: 0; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; font-size: 13px; color: #4E625D; }
+.ac-ceja { font-size: 12px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: #205E58; }
+.ac-cuenta { display: inline-flex; align-items: center; gap: 7px; }
+.ac-usuario { font-weight: 700; color: #142E2A; }
+.ac-clave { display: inline-flex; align-items: center; gap: 5px; padding: 3px 8px; border-radius: 5px; background: #E7EEE8;
+  color: #142E2A; font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 12px; }
+.ac-icono { width: 15px; height: 15px; flex: 0 0 15px; }
+
+/* ---------- Celular: franja oscura arriba (logo y lema), formulario a lo ancho y con scroll ---------- */
+@media (max-width: 640px) {
+  [data-testid="stMainBlockContainer"] { justify-content: flex-start; padding: 56px 16px 24px !important; }
+  .st-key-acceso_tarjeta { min-height: 0; flex-direction: column; border-radius: 14px; }
+  .st-key-acceso_tarjeta > [data-testid="stLayoutWrapper"] { height: auto !important; }
+  .st-key-acceso_tarjeta > [data-testid="stLayoutWrapper"]:has(> .st-key-acceso_panel) { flex: 0 0 auto !important; width: 100% !important; }
+  .ac-panel { padding: 20px; }
+  .ac-logo { width: 140px; }
+  .ac-pie { margin-top: 14px; }
+  .ac-lema { font-size: 22px; }
+  .ac-lema br { display: none; }
+  .ac-pasos, .ac-hoja { display: none; }
+  .st-key-acceso_formulario { padding: 22px 20px 26px; }
+  .st-key-acceso_campos { width: 100% !important; }
+  .ac-titulo { font-size: 24px; }
+  .ac-demo { justify-content: flex-start; }
+  .ac-cuenta { flex-basis: 100%; flex-wrap: wrap; }
+}
+</style>
