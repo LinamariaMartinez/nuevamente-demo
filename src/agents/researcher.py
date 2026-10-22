@@ -15,7 +15,7 @@ def get_retriever():
 
     return vectorstore.as_retriever(
         search_type="similarity_score_threshold",
-        search_kwargs={"score_threshold": 0.3, "k": 4},
+        search_kwargs={"score_threshold": 0.3, "k": 8},
     )
 
 
@@ -25,7 +25,7 @@ def get_document_retriever(documents):
 
     return crear_vectorstore(documents).as_retriever(
         search_type="similarity_score_threshold",
-        search_kwargs={"score_threshold": 0.3, "k": 4},
+        search_kwargs={"score_threshold": 0.3, "k": 8},
     )
 
 

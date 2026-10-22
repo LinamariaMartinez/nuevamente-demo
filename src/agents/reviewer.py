@@ -147,6 +147,21 @@ Penalize:
 - claims that contradict the source
 - important technical distortions
 
+Sector-specific illustrative scenarios are allowed when they
+are clearly hypothetical and only apply technical concepts
+already supported by the source context.
+
+Do NOT penalize source fidelity merely because a hypothetical
+example mentions Fintech, Healthcare, E-commerce or another
+requested sector.
+
+However, penalize any unsupported technical claims, invented
+statistics, regulations, capabilities or real-world results
+presented within those examples.
+
+A hypothetical scenario must never override or contradict
+the technical source context.
+
 2. PEDAGOGICAL QUALITY
 
 Determine whether the explanation is clear and appropriate
@@ -159,6 +174,22 @@ Evaluate:
 - organization
 - complexity
 - usefulness for the specified audience
+
+- adaptation to the requested niche or sector
+
+When the target niche is not General, verify that the draft
+includes at least one meaningful sector-specific example,
+application or hypothetical scenario.
+
+The example must be relevant to the topic and help the
+target audience understand the technical concepts.
+
+If the draft remains generic, lower the pedagogical_score
+appropriately and explicitly request sector adaptation
+in the feedback for the Writer's next revision.
+
+When the target niche is General, do not require
+sector-specific examples.
 
 3. FORMAT COMPLIANCE
 
