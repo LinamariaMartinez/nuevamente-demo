@@ -18,7 +18,7 @@ from api import database
 from api.auth import require_password_updated
 from api.contracts import Catalogs, HealthResponse, MAX_DOCUMENT_CHARACTERS, MAX_PDF_PAGES, MAX_UPLOAD_BYTES
 from api.database import Store
-from api.dependencies import get_store
+from api.dependencies import get_oci_storage, get_store
 from api.errors import ApiError
 from api.routes.contenidos import get_generator, router as contenidos_router
 from api.routes.documentos import router as documentos_router
@@ -26,13 +26,14 @@ from api.routes.sesion import router as sesion_router
 from api.routes.temas import router as temas_router
 from api.routes.temas_recursos import router as temas_recursos_router
 from api.routes.usuarios import router as usuarios_router
+from oci_storage import OCIStorageManager
 from schemas import DRAFT_SCHEMAS, NICHE_CATALOG, PROFILE_GUIDANCE, ErrorDetail, ErrorResponse
 
 ROOT = Path(__file__).resolve().parents[1]
 load_dotenv(ROOT / ".env")
 logger = logging.getLogger(__name__)
 
-__all__ = ["app", "create_app", "get_generator"]
+__all__ = ["app", "create_app", "get_generator", "get_oci_storage"]
 
 HTTP_ERROR_CODES = {
     400: "SOLICITUD_INVALIDA",
@@ -114,6 +115,7 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
     if db_path is not None:
         database.DB_PATH = database.resolve_db_path(db_path)
     store = Store()
+    oci_storage = OCIStorageManager()
 
     @asynccontextmanager
     async def lifespan(application: FastAPI):
@@ -131,6 +133,7 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
         responses={code: {"model": ErrorResponse} for code in (401, 403, 404, 409, 413, 415, 422, 500, 502, 503)},
     )
     application.state.store = store
+    application.state.oci_storage = oci_storage
     origins = [origin.strip() for origin in os.getenv("NUEVAMENTE_CORS_ORIGINS", "").split(",") if origin.strip()]
     if origins:
         application.add_middleware(

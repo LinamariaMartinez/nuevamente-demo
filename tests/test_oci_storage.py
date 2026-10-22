@@ -5,6 +5,7 @@ import tempfile
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
+from unittest.mock import patch
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../src")))
 
@@ -12,6 +13,7 @@ from oci_storage import (
     DEFAULT_BUCKET_NAME,
     MAX_UPLOAD_BYTES,
     AlmacenamientoOCI,
+    OCIConfigurationError,
     OCIStorageError,
     OCIStorageManager,
     build_content_object_id,
@@ -44,6 +46,7 @@ class FakeOCIClient:
         self.object_events_enabled = object_events_enabled
         self.versioning = versioning
         self.fail_put = fail_put
+        self.get_bucket_calls = 0
         self.created_buckets = []
         self.uploaded_objects = {}
 
@@ -51,6 +54,7 @@ class FakeOCIClient:
         return SimpleNamespace(data="test_namespace")
 
     def get_bucket(self, namespace_name, bucket_name):
+        self.get_bucket_calls += 1
         if not self.bucket_exists:
             raise FakeNotFoundError()
         return SimpleNamespace(
@@ -202,6 +206,44 @@ class OCIStorageTests(unittest.TestCase):
                     manager.upload_educational_json(sample, raise_on_error=True)
 
                 self.assertEqual(len(client.uploaded_objects), 0)
+
+    def test_bucket_verify_ttl(self):
+        now = [1000.0]
+        client = FakeOCIClient(bucket_exists=True)
+        manager = OCIStorageManager(
+            client=client,
+            config={"tenancy": "ocid1.tenancy.oc1..test"},
+            bucket_verify_ttl=60.0,
+            clock=lambda: now[0],
+        )
+        manager.ensure_bucket_exists()
+        self.assertEqual(client.get_bucket_calls, 1)
+
+        # Dentro del TTL no vuelve a consultar a OCI
+        now[0] += 30.0
+        manager.ensure_bucket_exists()
+        self.assertEqual(client.get_bucket_calls, 1)
+
+        # Vencido el TTL revalida el bucket; si pasó a público, bloquea la subida
+        now[0] += 31.0
+        client.public_access_type = "ObjectRead"
+        res = manager.upload_document(b"# Titulo", filename="doc.md", raise_on_error=False)
+        self.assertEqual(client.get_bucket_calls, 2)
+        self.assertEqual(res.status_upload, "error")
+        self.assertEqual(len(client.uploaded_objects), 0)
+
+    def test_omit_when_oci_unconfigured(self):
+        with patch("oci_storage.load_oci_config", side_effect=OCIConfigurationError("sin config")):
+            manager = OCIStorageManager(bucket_name=DEFAULT_BUCKET_NAME)
+            res_doc = manager.upload_document(b"# Titulo", filename="doc.md", raise_on_error=False)
+            self.assertEqual(res_doc.status_upload, "omitido")
+
+            enriched, res_json = manager.upload_educational_json(
+                {"status": "exito", "metadatos": {"conceptos_clave": ["VCN"]}},
+                raise_on_error=False,
+            )
+            self.assertEqual(res_json.status_upload, "omitido")
+            self.assertEqual(enriched["almacenamiento_oci"]["status_upload"], "omitido")
 
     def test_upload_document_validation(self):
         client = FakeOCIClient()

@@ -3,7 +3,7 @@
 Cumple con los requisitos de la consigna oficial de NuevaMente:
 1. Autenticación mediante OCI Python SDK (soporta ~/.oci/config y variables de entorno en .env).
 2. Creación y verificación de Bucket estrictamente en la capa Always Free (Standard Tier, sin costos)
-   y con acceso privado estricto (NoPublicAccess).
+   y con acceso privado estricto (NoPublicAccess), con revalidación periódica (TTL) para servidores continuos.
 3. Persistencia de documentos técnicos originales (.pdf, .md, .txt) y paquetes educativos JSON.
 4. Generación del bloque estructurado `almacenamiento_oci` con `bucket`, `objeto_id` y `status_upload`.
 """
@@ -14,9 +14,10 @@ import io
 import json
 import os
 import re
+import time
 import unicodedata
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any, Callable, Literal
 
 from pydantic import BaseModel, Field
 
@@ -24,6 +25,7 @@ import the_keys
 
 # --- Constantes de protección de la capa Always Free (20 GiB límite gratuito) ---
 DEFAULT_BUCKET_NAME = "nuevamente-contenidos-educativos"
+DEFAULT_BUCKET_VERIFY_TTL_SECONDS = 300.0  # Revalidación periódica del bucket (5 min)
 MAX_UPLOAD_BYTES = 10 * 1024 * 1024  # 10 MiB por archivo para proteger la cuota Always Free
 SUPPORTED_DOCUMENT_EXTENSIONS = {".pdf", ".md", ".txt"}
 
@@ -166,6 +168,8 @@ class OCIStorageManager:
         bucket_name: str | None = None,
         namespace: str | None = None,
         compartment_id: str | None = None,
+        bucket_verify_ttl: float = DEFAULT_BUCKET_VERIFY_TTL_SECONDS,
+        clock: Callable[[], float] = time.monotonic,
     ) -> None:
         self.bucket_name = (
             bucket_name
@@ -181,7 +185,25 @@ class OCIStorageManager:
             or os.getenv("OCI_COMPARTMENT_OCID")
             or the_keys.OCI_COMPARTMENT_OCID
         )
+        self.bucket_verify_ttl = float(bucket_verify_ttl)
+        self._clock = clock
         self._bucket_verified: bool = False
+        self._bucket_verified_at: float | None = None
+
+    def _is_bucket_verification_valid(self) -> bool:
+        if not self._bucket_verified or self._bucket_verified_at is None:
+            return False
+        if self.bucket_verify_ttl <= 0:
+            return False
+        return (self._clock() - self._bucket_verified_at) < self.bucket_verify_ttl
+
+    def _mark_bucket_verified(self) -> None:
+        self._bucket_verified = True
+        self._bucket_verified_at = self._clock()
+
+    def _clear_bucket_verified(self) -> None:
+        self._bucket_verified = False
+        self._bucket_verified_at = None
 
     @property
     def config(self) -> dict[str, Any]:
@@ -252,7 +274,7 @@ class OCIStorageManager:
 
     def ensure_bucket_exists(self, force_refresh: bool = False) -> dict[str, Any]:
         """Verifica que el bucket exista o lo crea garantizando parámetros Always Free y acceso privado."""
-        if self._bucket_verified and not force_refresh:
+        if not force_refresh and self._is_bucket_verification_valid():
             return {
                 "bucket": self.bucket_name,
                 "namespace": self.namespace,
@@ -268,7 +290,7 @@ class OCIStorageManager:
                 bucket_name=self.bucket_name,
             )
             storage_tier, public_access_type = self._validate_bucket_policy(response.data)
-            self._bucket_verified = True
+            self._mark_bucket_verified()
             return {
                 "bucket": self.bucket_name,
                 "namespace": namespace,
@@ -277,8 +299,10 @@ class OCIStorageManager:
                 "public_access_type": public_access_type,
             }
         except OCIStorageError:
+            self._clear_bucket_verified()
             raise
         except Exception as exc:
+            self._clear_bucket_verified()
             status = getattr(exc, "status", None)
             if status != 404:
                 raise OCIStorageError(f"Error al verificar el bucket '{self.bucket_name}': {exc}") from exc
@@ -323,7 +347,7 @@ class OCIStorageManager:
                 storage_tier, public_access_type = self._validate_bucket_policy(bucket)
             else:
                 storage_tier, public_access_type = "Standard", "NoPublicAccess"
-            self._bucket_verified = True
+            self._mark_bucket_verified()
             return {
                 "bucket": self.bucket_name,
                 "namespace": namespace,
@@ -332,8 +356,10 @@ class OCIStorageManager:
                 "public_access_type": public_access_type,
             }
         except OCIStorageError:
+            self._clear_bucket_verified()
             raise
         except Exception as exc:
+            self._clear_bucket_verified()
             raise OCIStorageError(f"No se pudo crear el bucket '{self.bucket_name}': {exc}") from exc
 
     def upload_document(
@@ -401,6 +427,14 @@ class OCIStorageManager:
         # Asegura que el bucket existe, es Standard y tiene NoPublicAccess ANTES de llamar a put_object
         try:
             self.ensure_bucket_exists()
+        except OCIConfigurationError:
+            if raise_on_error:
+                raise
+            return AlmacenamientoOCI(
+                bucket=self.bucket_name,
+                objeto_id=target_object_id,
+                status_upload="omitido",
+            )
         except Exception as exc:
             if raise_on_error:
                 raise OCIStorageError(f"Validación de bucket fallida para '{self.bucket_name}': {exc}") from exc
@@ -511,6 +545,16 @@ class OCIStorageManager:
         # Asegura que el bucket existe, es Standard y tiene NoPublicAccess ANTES de llamar a put_object
         try:
             self.ensure_bucket_exists()
+        except OCIConfigurationError:
+            oci_record = AlmacenamientoOCI(
+                bucket=self.bucket_name,
+                objeto_id=target_object_id,
+                status_upload="omitido",
+            )
+            data["almacenamiento_oci"] = oci_record.model_dump()
+            if raise_on_error:
+                raise
+            return data, oci_record
         except Exception as exc:
             oci_record = AlmacenamientoOCI(
                 bucket=self.bucket_name,

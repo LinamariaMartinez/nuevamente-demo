@@ -5,10 +5,15 @@ from fastapi import Depends, Request
 from api.auth import require_password_updated
 from api.database import Store
 from api.errors import ApiError
+from oci_storage import OCIStorageManager
 
 
 def get_store(request: Request) -> Store:
     return request.app.state.store
+
+
+def get_oci_storage(request: Request) -> OCIStorageManager:
+    return request.app.state.oci_storage
 
 
 def is_admin(user: dict) -> bool:
