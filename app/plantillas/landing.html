@@ -211,7 +211,7 @@
           <div style="flex: 1 1 170px; min-width: 0; background: #F5F7F5; color: #142E2A; border-radius: 10px; padding: 16px; position: relative; overflow: hidden">
             <div style="display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 700">
               <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#205E58" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"></path><path d="M14 3v5h5"></path></svg>
-              Redes VCN en OCI.pdf
+              Manual de pagos inmediatos.md
             </div>
             <div aria-hidden="true" style="margin-top: 14px; display: flex; flex-direction: column; gap: 8px">
               <div style="height: 7px; border-radius: 4px; background: #D6E2DC; width: 92%"></div>
@@ -246,11 +246,11 @@
                   <label class="nm-tarjeta-flash" for="nm-voltear">
                     <span class="nm-frente" style="flex-direction: column; gap: 10px">
                       <span style="font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; opacity: .8">Pregunta</span>
-                      <span style="font-size: 20px; font-weight: 700; line-height: 1.3">¿Qué es una VCN?</span>
+                      <span style="font-size: 20px; font-weight: 700; line-height: 1.3">¿Qué es el fraude autorizado?</span>
                     </span>
                     <span class="nm-dorso" style="flex-direction: column; gap: 10px">
                       <span style="font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; opacity: .85">Respuesta</span>
-                      <span style="font-size: 18px; font-weight: 700; line-height: 1.35">Una red privada y personalizable en Oracle Cloud Infrastructure, con control total sobre su entorno de red.</span>
+                      <span style="font-size: 18px; font-weight: 700; line-height: 1.35">El propio cliente hace el pago, pero engañado por un tercero; por ejemplo, con una falsa oferta de inversión.</span>
                     </span>
                   </label>
                   <div style="margin-top: 10px; font-size: 13px; color: #4E625D">Toca la tarjeta para voltearla · 1 de 5</div>
@@ -259,53 +259,53 @@
 
               <div class="nm-panel nm-panel-1">
                 ${chips_1}
-                <div class="nm-quiz" role="radiogroup" aria-label="¿Qué permite el NAT Gateway?" style="margin-top: 14px; display: flex; flex-direction: column; gap: 8px">
-                  <div style="font-size: 18px; font-weight: 700">¿Qué permite el NAT Gateway?</div>
-                  <input class="nm-oculto nm-q" type="radio" name="nm-quiz" id="nm-q0"><label class="nm-opcion" for="nm-q0"><span>Recibir conexiones entrantes desde internet</span><span class="nm-marca">Incorrecta</span></label>
-                  <input class="nm-oculto nm-q" type="radio" name="nm-quiz" id="nm-q1"><label class="nm-opcion nm-correcta" for="nm-q1"><span>Que una subred privada salga a internet sin recibir conexiones entrantes</span><span class="nm-marca">Correcta</span></label>
-                  <input class="nm-oculto nm-q" type="radio" name="nm-quiz" id="nm-q2"><label class="nm-opcion" for="nm-q2"><span>Dividir la VCN en subredes</span><span class="nm-marca">Incorrecta</span></label>
-                  <div class="nm-justificacion" style="font-size: 14px; line-height: 1.45; color: #4E625D; background: #F5F7F5; border-radius: 8px; padding: 10px 12px">Permite que los recursos de una subred privada salgan a internet (por ejemplo, para actualizarse) sin quedar expuestos a conexiones entrantes.</div>
+                <div class="nm-quiz" role="radiogroup" aria-label="Un pago tiene puntaje de riesgo 74. ¿Qué hace Centinela?" style="margin-top: 14px; display: flex; flex-direction: column; gap: 8px">
+                  <div style="font-size: 18px; font-weight: 700">Un pago tiene puntaje de riesgo 74. ¿Qué hace Centinela?</div>
+                  <input class="nm-oculto nm-q" type="radio" name="nm-quiz" id="nm-q0"><label class="nm-opcion" for="nm-q0"><span>Lo aprueba sin más pasos</span><span class="nm-marca">Incorrecta</span></label>
+                  <input class="nm-oculto nm-q" type="radio" name="nm-quiz" id="nm-q1"><label class="nm-opcion nm-correcta" for="nm-q1"><span>Lo retiene para revisión manual</span><span class="nm-marca">Correcta</span></label>
+                  <input class="nm-oculto nm-q" type="radio" name="nm-quiz" id="nm-q2"><label class="nm-opcion" for="nm-q2"><span>Pide autenticación adicional</span><span class="nm-marca">Incorrecta</span></label>
+                  <div class="nm-justificacion" style="font-size: 14px; line-height: 1.45; color: #4E625D; background: #F5F7F5; border-radius: 8px; padding: 10px 12px">Con un puntaje de 70 a 100, Centinela retiene el pago: el dinero no sale de la cuenta hasta que un analista lo libere o lo rechace.</div>
                 </div>
               </div>
 
               <div class="nm-panel nm-panel-2">
                 ${chips_2}
-                <div style="margin-top: 14px; font-size: 18px; font-weight: 700">Crea tu primera VCN, paso a paso</div>
+                <div style="margin-top: 14px; font-size: 18px; font-weight: 700">Atiende un reporte de fraude, paso a paso</div>
                 <ol style="margin-top: 12px; list-style: none; display: flex; flex-direction: column; gap: 10px">
-                  <li style="display: flex; gap: 12px; align-items: flex-start"><span style="flex: 0 0 26px; height: 26px; border-radius: 50%; background: #205E58; color: #FFFFFF; font-size: 13px; font-weight: 700; display: flex; align-items: center; justify-content: center">1</span><span style="font-size: 15px; line-height: 1.4">Define el rango de direcciones de la VCN.</span></li>
-                  <li style="display: flex; gap: 12px; align-items: flex-start"><span style="flex: 0 0 26px; height: 26px; border-radius: 50%; background: #205E58; color: #FFFFFF; font-size: 13px; font-weight: 700; display: flex; align-items: center; justify-content: center">2</span><span style="font-size: 15px; line-height: 1.4">Divide la red en una subred pública y una privada.</span></li>
-                  <li style="display: flex; gap: 12px; align-items: flex-start"><span style="flex: 0 0 26px; height: 26px; border-radius: 50%; background: #E7EEE8; color: #142E2A; font-size: 13px; font-weight: 700; display: flex; align-items: center; justify-content: center">3</span><span style="font-size: 15px; line-height: 1.4">Conecta la subred pública con un Internet Gateway.</span></li>
+                  <li style="display: flex; gap: 12px; align-items: flex-start"><span style="flex: 0 0 26px; height: 26px; border-radius: 50%; background: #205E58; color: #FFFFFF; font-size: 13px; font-weight: 700; display: flex; align-items: center; justify-content: center">1</span><span style="font-size: 15px; line-height: 1.4">Bloquea la sesión, los dispositivos y las llaves del cliente.</span></li>
+                  <li style="display: flex; gap: 12px; align-items: flex-start"><span style="flex: 0 0 26px; height: 26px; border-radius: 50%; background: #205E58; color: #FFFFFF; font-size: 13px; font-weight: 700; display: flex; align-items: center; justify-content: center">2</span><span style="font-size: 15px; line-height: 1.4">Registra el caso con los comprobantes y el relato del cliente.</span></li>
+                  <li style="display: flex; gap: 12px; align-items: flex-start"><span style="flex: 0 0 26px; height: 26px; border-radius: 50%; background: #E7EEE8; color: #142E2A; font-size: 13px; font-weight: 700; display: flex; align-items: center; justify-content: center">3</span><span style="font-size: 15px; line-height: 1.4">Clasifícalo como fraude autorizado o no autorizado.</span></li>
                 </ol>
               </div>
 
               <div class="nm-panel nm-panel-3">
                 ${chips_3}
-                <div style="margin-top: 14px; font-size: 18px; font-weight: 700">Resumen ejecutivo: redes VCN en OCI</div>
+                <div style="margin-top: 14px; font-size: 18px; font-weight: 700">Resumen ejecutivo: pagos inmediatos y fraude</div>
                 <div style="margin-top: 10px; background: #E7EEE8; border-radius: 10px; padding: 14px">
                   <div style="font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: #205E58">En pocas palabras</div>
-                  <div style="margin-top: 6px; font-size: 15px; line-height: 1.45">Una VCN es la red privada de la empresa en la nube de Oracle: decide qué se expone a internet y qué queda protegido.</div>
+                  <div style="margin-top: 6px; font-size: 15px; line-height: 1.45">Los pagos inmediatos llegan en segundos y no se pueden cancelar: por eso Centinela evalúa cada pago antes de que salga.</div>
                 </div>
-                <div style="margin-top: 10px; font-size: 14px; line-height: 1.45; color: #4E625D">Subredes públicas y privadas · Gateways · Reglas de seguridad</div>
+                <div style="margin-top: 10px; font-size: 14px; line-height: 1.45; color: #4E625D">Llaves · Motor Centinela · Fraude autorizado y no autorizado</div>
               </div>
 
               <div class="nm-panel nm-panel-4">
                 ${chips_4}
-                <div style="margin-top: 14px; font-size: 18px; font-weight: 700">Guion de clase: la red en la nube</div>
+                <div style="margin-top: 14px; font-size: 18px; font-weight: 700">Guion de clase: la llamada falsa</div>
                 <div style="margin-top: 10px; display: flex; gap: 12px; background: #F5F7F5; border-radius: 10px; padding: 12px">
                   <span class="nm-mono" style="font-size: 12px; font-weight: 600; color: #205E58; padding-top: 2px">ESC 1</span>
-                  <span style="font-size: 15px; line-height: 1.4">Abre con una pregunta: ¿qué pasaría si todos tus servidores estuvieran en internet?</span>
+                  <span style="font-size: 15px; line-height: 1.4">Abre con una pregunta: ¿qué harías si alguien de "Nubo" te pide mover tu dinero a una cuenta segura?</span>
                 </div>
                 <div style="margin-top: 10px; display: flex; gap: 12px; background: #F5F7F5; border-radius: 10px; padding: 12px">
                   <span class="nm-mono" style="font-size: 12px; font-weight: 600; color: #205E58; padding-top: 2px">ESC 2</span>
-                  <span style="font-size: 15px; line-height: 1.4">Muestra el diagrama de la VCN y señala las dos subredes.</span>
+                  <span style="font-size: 15px; line-height: 1.4">Cuenta el caso de Laura y muestra cómo Centinela retuvo el pago.</span>
                 </div>
               </div>
             </div>
 
             <div style="margin-top: 14px; font-size: 13px; color: #4E625D; line-height: 1.4">
               <span class="nm-intro nm-intro-0">Para Principiante: lenguaje sencillo y una pista en cada tarjeta.</span>
-              <span class="nm-intro nm-intro-1">Para Intermedio: más términos técnicos y casos de configuración.</span>
-              <span class="nm-intro nm-intro-2">Para Avanzado: decisiones de arquitectura y comparación de opciones.</span>
+              <span class="nm-intro nm-intro-1">Para Intermedio: más términos del negocio y casos reales.</span>
+              <span class="nm-intro nm-intro-2">Para Avanzado: controles, umbrales y decisiones de riesgo.</span>
             </div>
           </div>
         </div>
@@ -342,8 +342,8 @@
         <p style="margin-top: 14px; font-size: 17px; line-height: 1.5; color: #C2D2CB">Si el anclaje a las fuentes no llega a 0.8, vuelve al Redactor con las observaciones. Hasta tres intentos.</p>
         <div class="nm-mono" aria-hidden="true" style="margin-top: 22px; background: #0C1C1A; border: 1px solid #24433C; border-radius: 10px; padding: 14px 16px; font-size: 13px; line-height: 1.6; color: #C2D2CB">
           <div class="nm-capas">
-            <div class="nm-paso nm-paso-0"><div style="color: #7DC1B0">[Investigador]</div><div>Busca en Redes VCN en OCI.pdf… 3 fragmentos<span style="animation: nm-cursor 1s step-end infinite">_</span></div></div>
-            <div class="nm-paso nm-paso-1"><div style="color: #7DC1B0">[Redactor]</div><div>Adapta a Principiante · Flashcards · General<span style="animation: nm-cursor 1s step-end infinite">_</span></div></div>
+            <div class="nm-paso nm-paso-0"><div style="color: #7DC1B0">[Investigador]</div><div>Busca en Manual de pagos inmediatos.md… 3 fragmentos<span style="animation: nm-cursor 1s step-end infinite">_</span></div></div>
+            <div class="nm-paso nm-paso-1"><div style="color: #7DC1B0">[Redactor]</div><div>Adapta a Principiante · Flashcards · Fintech<span style="animation: nm-cursor 1s step-end infinite">_</span></div></div>
             <div class="nm-paso nm-paso-2"><div style="color: #7DC1B0">[Revisor]</div><div>Fidelidad a las fuentes y claridad… 0.72<span style="animation: nm-cursor 1s step-end infinite">_</span></div></div>
             <div class="nm-paso nm-paso-3"><div style="color: #7DC1B0">[Redactor]</div><div>Corrige con las observaciones del Revisor<span style="animation: nm-cursor 1s step-end infinite">_</span></div></div>
             <div class="nm-paso nm-paso-4"><div style="color: #7DC1B0">[Revisor]</div><div>Vuelve a revisar… 0.86<span style="animation: nm-cursor 1s step-end infinite">_</span></div></div>
