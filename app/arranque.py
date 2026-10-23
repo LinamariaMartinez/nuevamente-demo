@@ -61,8 +61,9 @@ def _puerto_libre():
 
 
 def _admin_demo():
-    """Crea el admin de ADMIN_DEMO_USUARIO / ADMIN_DEMO_CONTRASENA si no existe.
+    """Crea el admin de ADMIN_DEMO_USUARIO / ADMIN_DEMO_CONTRASENA, o le pone esa contraseña si ya existe.
 
+    Así los secretos mandan: si se cambia la contraseña en Streamlit Cloud, basta con reiniciar la app.
     Temporal: lo reemplaza el script de datos de la demo de Backend.
     """
     usuario = os.getenv("ADMIN_DEMO_USUARIO", "").strip()
@@ -75,6 +76,11 @@ def _admin_demo():
     init_db()
     with get_connection() as conexion:
         if conexion.execute("SELECT 1 FROM usuarios WHERE usuario = ?", (usuario,)).fetchone():
+            conexion.execute(
+                "UPDATE usuarios SET contrasena_hash = ?, rol = 'admin', activo = 1, debe_cambiar_contrasena = 0 "
+                "WHERE usuario = ?",
+                (hash_password(contrasena), usuario),
+            )
             return
         conexion.execute(
             "INSERT INTO usuarios (nombre, usuario, contrasena_hash, rol, activo, debe_cambiar_contrasena) "
