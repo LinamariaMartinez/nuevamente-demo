@@ -56,6 +56,15 @@ La carga Markdown de la API conserva el texto UTF-8 y no requiere ese paso. En L
 
 ## Iniciar la API
 
+Cuentas para probar todos los roles y el flujo completo: consulta
+[Crear cuentas demo y probar backend/frontend](docs/cuentas_demo.md).
+El script genera un admin, un estudiante listo para estudiar y otro con contraseña
+temporal; opcionalmente carga y asigna un tema con fuentes reales:
+
+```powershell
+.\.venv\Scripts\python.exe -m scripts.crear_cuentas_demo --con-tema-demo
+```
+
 Crea el primer administrador (una sola vez):
 
 ```powershell
