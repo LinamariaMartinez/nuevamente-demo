@@ -48,8 +48,8 @@ POR_DENTRO = (
     ("Fiel a las fuentes", "RAG",
      "Cada material cita los fragmentos de los documentos que usó. Si el tema no tiene contexto suficiente, "
      "lo dice en lugar de inventar.",
-     "fuentes", '"fuentes": [\n  {\n    "documento_id": "d-redes",\n    "documento": "Redes VCN en OCI",\n'
-                '    "fragmento": 1,\n    "pagina": 12,\n    "extracto": "Una VCN es una red privada…"\n  }\n]'),
+     "fuentes", '"fuentes": [\n  {\n    "documento_id": "d-pagos",\n    "documento": "Manual de pagos inmediatos",\n'
+                '    "fragmento": 1,\n    "pagina": null,\n    "extracto": "Fraude autorizado: el propio cliente…"\n  }\n]'),
     ("Calidad revisada", "≥ 0.8",
      "El Revisor puntúa fidelidad a las fuentes, pedagogía y formato; si no alcanza el mínimo, se corrige hasta "
      "3 veces. Lo que aun así no pasa queda en revisión para la institución.",
@@ -61,9 +61,9 @@ POR_DENTRO = (
      "La salida es JSON estructurado, con metadatos de aprendizaje. Documentos y paquetes se guardan en "
      "OCI Object Storage.",
      "metadatos", '"metadatos": {\n  "tiempo_estimado_estudio_minutos": 5,\n  "conceptos_clave": [\n'
-                  '    "VCN", "Subredes",\n    "Internet Gateway", "NAT Gateway"\n  ],\n  "prerrequisitos": [],\n'
+                  '    "Pago inmediato", "Llave",\n    "Fraude autorizado", "Cuenta mula"\n  ],\n  "prerrequisitos": [],\n'
                   '  "perfil_aplicado": "Principiante",\n  "formato_generado": "Flashcards",\n'
-                  '  "nicho_sector": "General",\n  "nivel_detalle": "Didáctico"\n}'),
+                  '  "nicho_sector": "Fintech",\n  "nivel_detalle": "Didáctico"\n}'),
 )
 # Arquitectura de la demo (04-decisiones.md, 23-oct): app en Streamlit Community Cloud + OCI Object Storage (Always Free);
 # LLM por la API de Gemini
