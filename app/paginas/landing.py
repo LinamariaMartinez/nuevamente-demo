@@ -29,7 +29,7 @@ SECTORES = ("General", "Salud", "Fintech", "E-commerce")
 PASOS = (
     ("Sube documentos", "La institución carga sus manuales y arma temas, cada uno con su sector."),
     ("Tres agentes", "El Investigador busca, el Redactor adapta y el Revisor verifica."),
-    ("Estudia y evalúa", "Material a tu nivel, con fuentes; luego, la evaluación del tema."),
+    ("Estudia a tu nivel", "Flashcards, quiz, guía o resumen, con sus fuentes. El quiz te muestra tu puntaje al instante."),
 )
 AGENTES = (
     ("Investigador", "Busca los fragmentos que responden al tema."),
@@ -65,13 +65,14 @@ POR_DENTRO = (
                   '  "perfil_aplicado": "Principiante",\n  "formato_generado": "Flashcards",\n'
                   '  "nicho_sector": "General",\n  "nivel_detalle": "Didáctico"\n}'),
 )
-# Arquitectura en OCI Always Free (04-decisiones.md, 25-sep): VM Ampere A1 + Object Storage; LLM por la API de Gemini
+# Arquitectura de la demo (04-decisiones.md, 23-oct): app en Streamlit Community Cloud + OCI Object Storage (Always Free);
+# LLM por la API de Gemini
 COMPONENTES_VM = (("Interfaz", "Streamlit"), ("API", "FastAPI · /api/v1"), ("Agentes", "LangGraph · RAG"),
                   ("Datos de la app", "SQLite e índice vectorial"))
 ALMACENAMIENTO = (("PDF", "Documentos que sube la institución"), ("JSON", "Paquetes de material aprobado"),
-                  ("BAK", "Respaldos de la base y del índice"))
+                  ("PRIV", "Bucket privado: sin acceso público"))
 VENTAJAS_OCI = (("Sin costo de nube:", "todo cabe en la capa Always Free."),
-                ("Nada se pierde:", "si la máquina se reinicia, se reconstruye desde Object Storage."),
+                ("Privado por defecto:", "la app comprueba el bucket antes de guardar cada archivo."),
                 ("Integrable:", "otros sistemas leen los paquetes JSON directamente."))
 CIERRE_TITULO = "Aprender hoy, construir mañana."
 CIERRE_TEXTO = "Entra con una cuenta de demostración y recorre la plataforma como estudiante o como administración."

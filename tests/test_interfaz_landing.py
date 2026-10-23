@@ -51,7 +51,7 @@ class HtmlLanding(unittest.TestCase):
         for nombre, _, explicacion, _, _ in landing.POR_DENTRO:
             self.assertIn(nombre, texto)
             self.assertIn(explicacion, texto)
-        for frase in ("VM Ampere A1", "OCI Object Storage", "Always Free", "API de Gemini"):
+        for frase in ("Streamlit Community Cloud", "OCI Object Storage", "Always Free", "API de Gemini"):
             with self.subTest(frase=frase):
                 self.assertIn(frase, texto)
 

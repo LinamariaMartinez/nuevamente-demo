@@ -21,7 +21,7 @@ from paginas.landing import CUENTAS_DEMO, SIN_CUENTAS_DEMO
 ESTILO = Path(__file__).resolve().parents[1] / "plantillas" / "acceso.html"
 
 LEMA = ("Aprender hoy,", "construir mañana.")
-PASOS = ("Consulta tus temas", "Estudia con material a tu medida", "Presenta la evaluación")
+PASOS = ("Consulta tus temas", "Estudia con material a tu medida", "Ponte a prueba")
 # Nombres cortos para que las cuentas quepan en una línea debajo de la tarjeta (la landing usa los largos)
 ROL_CORTO = {"Con contraseña temporal": "Temporal", "Administración": "Admin"}
 
