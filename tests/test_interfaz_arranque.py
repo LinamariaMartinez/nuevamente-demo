@@ -17,11 +17,11 @@ import arranque
 
 class LlaveOciTest(unittest.TestCase):
     def test_escribe_la_llave_y_apunta_oci_key_file(self):
-        with patch.dict(os.environ, {"OCI_KEY_CONTENT": "-----BEGIN PRIVATE KEY-----\nabc\n-----END PRIVATE KEY-----"}, clear=False):
+        with patch.dict(os.environ, {"OCI_KEY_CONTENT": "llave-de-prueba\nlinea-2"}, clear=False):
             os.environ.pop("OCI_KEY_FILE", None)
             arranque._llave_oci_a_archivo()
             ruta = Path(os.environ["OCI_KEY_FILE"])
-            self.assertTrue(ruta.read_text().startswith("-----BEGIN PRIVATE KEY-----"))
+            self.assertTrue(ruta.read_text().startswith("llave-de-prueba"))
             self.assertEqual(ruta.stat().st_mode & 0o777, 0o600)
 
     def test_no_pisa_un_oci_key_file_existente(self):
