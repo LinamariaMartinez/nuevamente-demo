@@ -89,6 +89,24 @@ def _admin_demo():
         )
 
 
+def _diagnostico_oci():
+    """Deja en el registro si OCI quedó listo o por qué no (sin mostrar claves)."""
+    faltan = [v for v in ("OCI_USER_OCID", "OCI_TENANCY_OCID", "OCI_FINGERPRINT", "OCI_KEY_FILE") if not os.getenv(v)]
+    if faltan:
+        print(f"[arranque] OCI sin configurar: faltan {', '.join(faltan)}", flush=True)
+        return
+    llave = Path(os.environ["OCI_KEY_FILE"])
+    lineas = llave.read_text().splitlines() if llave.is_file() else []
+    print(f"[arranque] Llave OCI: {len(lineas)} líneas, primera: {lineas[0][:31] if lineas else '(vacía)'}", flush=True)
+    try:
+        from oci_storage import OCIStorageManager
+
+        OCIStorageManager().ensure_bucket_exists()
+        print("[arranque] OCI listo: bucket verificado", flush=True)
+    except Exception as exc:
+        print(f"[arranque] OCI no disponible: {type(exc).__name__}: {str(exc)[:300]}", flush=True)
+
+
 @st.cache_resource(show_spinner="Iniciando NuevaMente…")
 def iniciar_backend():
     """Prende el backend si ARRANCAR_BACKEND=1. Devuelve True si quedó respondiendo."""
@@ -104,6 +122,7 @@ def iniciar_backend():
     from api.main import app
 
     _admin_demo()
+    _diagnostico_oci()
     servidor = uvicorn.Server(uvicorn.Config(app, host="127.0.0.1", port=_puerto(), log_level="warning"))
     threading.Thread(target=servidor.run, name="backend-fastapi", daemon=True).start()
     limite = time.monotonic() + ESPERA_MAXIMA_SEGUNDOS
