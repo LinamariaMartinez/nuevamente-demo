@@ -55,6 +55,17 @@ class AdminDemoTest(unittest.TestCase):
             arranque._admin_demo()
         self.assertEqual(self.admins(), [("jurado",)])
 
+    def test_si_cambia_la_contrasena_en_los_secretos_se_actualiza(self):
+        from api.auth import verify_password
+
+        with patch.dict(os.environ, {"ADMIN_DEMO_USUARIO": "jurado", "ADMIN_DEMO_CONTRASENA": "la-primera-clave-123"}):
+            arranque._admin_demo()
+        with patch.dict(os.environ, {"ADMIN_DEMO_USUARIO": "jurado", "ADMIN_DEMO_CONTRASENA": "la-segunda-clave-456"}):
+            arranque._admin_demo()
+        with sqlite3.connect(self.db) as conexion:
+            (hash_guardado,) = conexion.execute("SELECT contrasena_hash FROM usuarios WHERE usuario = 'jurado'").fetchone()
+        self.assertTrue(verify_password("la-segunda-clave-456", hash_guardado))
+
     def test_sin_variables_no_hace_nada(self):
         with patch.dict(os.environ, {"ADMIN_DEMO_USUARIO": "", "ADMIN_DEMO_CONTRASENA": ""}):
             arranque._admin_demo()
