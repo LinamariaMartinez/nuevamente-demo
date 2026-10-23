@@ -10,11 +10,17 @@ from pathlib import Path
 import sys
 
 RAIZ = Path(__file__).resolve().parents[1]
-for ruta in (RAIZ / "src", RAIZ / "app"):
+# RAIZ: el arranque en Streamlit Cloud importa el backend (paquete api/)
+for ruta in (RAIZ, RAIZ / "src", RAIZ / "app"):
     if str(ruta) not in sys.path:
         sys.path.insert(0, str(ruta))
 
 import streamlit as st
+
+import arranque
+
+# Solo actúa con ARRANCAR_BACKEND=1 (Streamlit Cloud); en local no hace nada
+arranque.iniciar_backend()
 
 import estilo
 import marca
