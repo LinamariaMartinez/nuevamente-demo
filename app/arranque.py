@@ -98,6 +98,24 @@ def _diagnostico_oci():
     llave = Path(os.environ["OCI_KEY_FILE"])
     lineas = llave.read_text().splitlines() if llave.is_file() else []
     print(f"[arranque] Llave OCI: {len(lineas)} líneas, primera: {lineas[0][:31] if lineas else '(vacía)'}", flush=True)
+    # Largos y prefijos (no son secretos) para detectar valores cortados, con espacios o cruzados
+    for variable in ("OCI_USER_OCID", "OCI_TENANCY_OCID", "OCI_FINGERPRINT", "OCI_REGION"):
+        valor = os.getenv(variable, "")
+        print(f"[arranque] {variable}: {len(valor)} caracteres, empieza con {valor[:14]!r}", flush=True)
+    try:
+        import hashlib
+
+        from cryptography.hazmat.primitives import serialization
+
+        privada = serialization.load_pem_private_key(llave.read_bytes(), password=None)
+        publica = privada.public_key().public_bytes(
+            serialization.Encoding.DER, serialization.PublicFormat.SubjectPublicKeyInfo
+        )
+        huella = ":".join(f"{b:02x}" for b in hashlib.md5(publica).digest())
+        coincide = huella == os.getenv("OCI_FINGERPRINT", "").strip()
+        print(f"[arranque] El fingerprint {'SÍ' if coincide else 'NO'} corresponde a la llave", flush=True)
+    except Exception as exc:
+        print(f"[arranque] No se pudo calcular el fingerprint de la llave: {type(exc).__name__}", flush=True)
     try:
         from oci_storage import OCIStorageManager
 
