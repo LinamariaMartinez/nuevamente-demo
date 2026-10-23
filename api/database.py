@@ -490,7 +490,7 @@ class Store:
         """Registro con la respuesta educativa y sus metadatos de trazabilidad."""
         with self.connection() as conn:
             row = conn.execute(
-                """SELECT id, id_tema, id_usuario, status, creado_en, aprobado_en, respuesta_json, fuentes_json
+                """SELECT id, id_tema, id_usuario, tema, status, creado_en, aprobado_en, respuesta_json, fuentes_json
                 FROM contenidos WHERE id = ?""", (identifier,),
             ).fetchone()
         if row is None:

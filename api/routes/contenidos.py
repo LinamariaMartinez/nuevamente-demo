@@ -14,9 +14,10 @@ from api.contracts import (
     ContentList, ContentRequest, ContentResponse, Fuente, Identifier, PendingReviewResponse, TopicId,
 )
 from api.database import Store, is_pending, pages_from_document
-from api.dependencies import get_store, is_admin, require_admin, require_document, require_topic_access
+from api.dependencies import get_oci_storage, get_store, is_admin, require_admin, require_document, require_topic_access
 from api.errors import ApiError
 from errors import ConfigurationError, NoContextError
+from oci_storage import OCIStorageManager
 from schemas import DEFAULT_DETAIL, DEFAULT_NICHE, EducationalResponse, GenerationRequest, UserProfile
 
 logger = logging.getLogger(__name__)
@@ -30,6 +31,20 @@ def get_generator() -> Callable:
     from generation import generate_content_with_sources
 
     return generate_content_with_sources
+
+
+def backup_content_to_oci(oci: OCIStorageManager, content: ContentResponse, topic: str | None = None) -> None:
+    """Persiste el paquete educativo JSON aprobado en el bucket Always Free de OCI."""
+    _, result = oci.upload_educational_json(
+        content,
+        content_id=content.id,
+        topic=topic,
+        profile=content.metadatos.perfil_aplicado,
+        output_format=content.metadatos.formato_generado,
+        raise_on_error=False,
+    )
+    if result.status_upload == "error":
+        logger.warning("No se pudo respaldar el contenido '%s' en OCI (%s).", content.id, result.objeto_id)
 
 
 def require_visible_content(store: Store, user: dict, identifier: str) -> dict:
@@ -126,6 +141,7 @@ def generate(
     body: ContentRequest, response: Response,
     user: dict = Depends(require_password_updated),
     db: Store = Depends(get_store), generator: Callable = Depends(get_generator),
+    oci: OCIStorageManager = Depends(get_oci_storage),
 ):
     pages, niche, detail, query = resolve_source(db, user, body)
     body = body.model_copy(update={"tema": query})
@@ -142,10 +158,13 @@ def generate(
         return JSONResponse(status_code=202, content=pending.model_dump(mode="json"), headers={"X-Contenido-ID": identifier})
     response.headers["X-Contenido-ID"] = identifier
     response.headers["Location"] = f"/api/v1/contenidos/{identifier}"
-    return content_response({
+    content = content_response({
         "id": identifier, "creado_en": created, "id_tema": body.id_tema, "aprobado_en": None,
         "respuesta": result, "fuentes": sources,
     })
+    if result.status == "exito":
+        backup_content_to_oci(oci, content, topic=query)
+    return content
 
 
 @router.get("", response_model=ContentList)
@@ -184,11 +203,19 @@ def download_content(contenido_id: Identifier, user: dict = Depends(require_pass
 
 
 @router.post("/{contenido_id}/aprobar", response_model=ContentResponse)
-def approve_content(contenido_id: Identifier, _: dict = Depends(require_admin), db: Store = Depends(get_store)):
+def approve_content(
+    contenido_id: Identifier,
+    _: dict = Depends(require_admin),
+    db: Store = Depends(get_store),
+    oci: OCIStorageManager = Depends(get_oci_storage),
+):
     """El material pasa a ser visible para el estudiante; se conserva la evaluación original."""
     require_pending_content(db, contenido_id)
     db.approve_content(contenido_id)
-    return content_response(db.get_content(contenido_id))
+    record = db.get_content(contenido_id)
+    content = content_response(record)
+    backup_content_to_oci(oci, content, topic=record.get("tema"))
+    return content
 
 
 @router.post("/{contenido_id}/rechazar", status_code=204, response_class=Response)

@@ -26,6 +26,7 @@ class AgentState(TypedDict, total=False):
     # --- Final Output ---
     final_content: str
     requires_admin_review: bool
+    almacenamiento_oci: dict
 
     # --- Salida estructurada F06 y fuente aislada de la API ---
     detail_level: str

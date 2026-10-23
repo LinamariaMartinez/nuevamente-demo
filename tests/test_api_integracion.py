@@ -1,8 +1,9 @@
-﻿"""Pruebas de integración F06 + F08: autorización por tema, fuentes e historial por usuario.
+"""Pruebas de integración F06 + F08: autorización por tema, fuentes e historial por usuario.
 
 El generador se sustituye por un doble de prueba; no se llama a Gemini.
 """
 
+import json
 import sqlite3
 
 import pytest
@@ -12,7 +13,9 @@ from langchain_core.documents import Document
 from api import database
 from api.auth import hash_password
 from api.main import create_app, get_generator
+from oci_storage import OCIConfigurationError, OCIStorageManager
 from schemas import DEFAULT_DETAIL, DEFAULT_NICHE
+from tests.test_oci_storage import FakeOCIClient
 
 PASSWORD = "clave-segura-123"
 DOC_TEXT = "Python es un lenguaje interpretado. Las listas guardan elementos ordenados. " * 8
@@ -62,12 +65,17 @@ def ctx(tmp_path, monkeypatch):
     monkeypatch.setattr(database, "DB_PATH", tmp_path / "integracion.sqlite3")
     app = create_app()
     generator = FakeGenerator()
+    oci_client = FakeOCIClient()
     app.dependency_overrides[get_generator] = lambda: generator
+    app.state.oci_storage = OCIStorageManager(
+        client=oci_client,
+        config={"tenancy": "ocid1.tenancy.oc1..test"},
+    )
     with TestClient(app) as client:
         users = {name: create_user(name, rol) for name, rol in
                  (("admin", "admin"), ("ana", "estudiante"), ("beto", "estudiante"))}
         tokens = {name: login(client, name) for name in users}
-        yield {"client": client, "generator": generator, "users": users, "tokens": tokens}
+        yield {"client": client, "generator": generator, "oci_client": oci_client, "users": users, "tokens": tokens}
 
 
 def create_user(usuario, rol):
@@ -564,3 +572,81 @@ def test_admin_desbloquea_a_un_estudiante(ctx):
     assert client.post(url, headers=auth(ctx, "admin")).status_code == 204
     assert bad_login(client, password=PASSWORD).status_code == 200
     assert client.post(f"/api/v1/usuarios/{ctx['users']['admin']}/desbloqueo", headers=auth(ctx, "admin")).status_code == 404
+
+
+def test_respaldo_oci_en_documentos_y_contenidos_aprobados(ctx):
+    client, admin, oci_client = ctx["client"], auth(ctx, "admin"), ctx["oci_client"]
+    setup_topic(ctx)
+    assert "documentos/manual-python.txt" in oci_client.uploaded_objects
+
+    upload = client.post(
+        "/api/v1/documentos",
+        headers=admin,
+        files={"archivo": ("guia_redes_vcn.md", DOC_TEXT.encode("utf-8"), "text/markdown")},
+    )
+    assert upload.status_code == 201
+    assert "documentos/guia-redes-vcn.md" in oci_client.uploaded_objects
+
+    # Generación con éxito se respalda inmediatamente en OCI
+    ok_resp = generate(ctx, "ana", tema="Listas")
+    assert ok_resp.status_code == 201
+    ok_id = ok_resp.json()["id"]
+    content_obj = f"contenido-listas-principiante-resumen-{ok_id}.json"
+    assert content_obj in oci_client.uploaded_objects
+    stored_json = json.loads(oci_client.uploaded_objects[content_obj]["content"].decode("utf-8"))
+    assert stored_json["id"] == ok_id
+    assert stored_json["almacenamiento_oci"]["status_upload"] == "completado"
+
+    # Material en revisión NO se sube a OCI hasta que un admin lo apruebe
+    oci_client.uploaded_objects.clear()
+    ctx["generator"].approved = False
+    pending_resp = generate(ctx, "ana", tema="Tuplas")
+    assert pending_resp.status_code == 202
+    pending_id = pending_resp.json()["id"]
+    assert oci_client.uploaded_objects == {}
+
+    approved_resp = client.post(f"/api/v1/contenidos/{pending_id}/aprobar", headers=admin)
+    assert approved_resp.status_code == 200
+    approved_obj = f"contenido-tuplas-principiante-resumen-{pending_id}.json"
+    assert approved_obj in oci_client.uploaded_objects
+    approved_json = json.loads(oci_client.uploaded_objects[approved_obj]["content"].decode("utf-8"))
+    assert approved_json["id"] == pending_id
+    assert approved_json["aprobado_en"] is not None
+    assert approved_json["almacenamiento_oci"]["status_upload"] == "completado"
+
+
+def test_respaldo_oci_no_pisa_contenidos_con_mismos_parametros(ctx):
+    oci_client = ctx["oci_client"]
+    setup_topic(ctx)
+    oci_client.uploaded_objects.clear()
+
+    first = generate(ctx, "ana", tema="Listas", perfil_destinatario="Principiante", formato_salida="Resumen")
+    second = generate(ctx, "ana", tema="Listas", perfil_destinatario="Principiante", formato_salida="Resumen")
+    assert first.status_code == 201 and second.status_code == 201
+
+    first_id, second_id = first.json()["id"], second.json()["id"]
+    assert first_id != second_id
+
+    first_obj = f"contenido-listas-principiante-resumen-{first_id}.json"
+    second_obj = f"contenido-listas-principiante-resumen-{second_id}.json"
+    assert first_obj in oci_client.uploaded_objects
+    assert second_obj in oci_client.uploaded_objects
+
+    first_stored = json.loads(oci_client.uploaded_objects[first_obj]["content"].decode("utf-8"))
+    second_stored = json.loads(oci_client.uploaded_objects[second_obj]["content"].decode("utf-8"))
+    assert first_stored["id"] == first_id
+    assert second_stored["id"] == second_id
+
+
+def test_api_opera_sin_credenciales_oci(ctx, monkeypatch):
+    import oci_storage
+
+    def sin_credenciales(*args, **kwargs):
+        raise OCIConfigurationError("Sin credenciales OCI en entorno local")
+
+    monkeypatch.setattr(oci_storage, "load_oci_config", sin_credenciales)
+    ctx["client"].app.state.oci_storage = OCIStorageManager()
+
+    setup_topic(ctx)
+    response = generate(ctx, "ana")
+    assert response.status_code == 201
