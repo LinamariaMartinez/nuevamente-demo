@@ -30,7 +30,13 @@ class LlaveOciTest(unittest.TestCase):
             self.assertEqual(os.environ["OCI_KEY_FILE"], "/ruta/propia.pem")
 
 
-class AdminDemoTest(unittest.TestCase):
+class DatosDemoTest(unittest.TestCase):
+    CLAVES = {
+        "DEMO_ADMIN_PASSWORD": "Clave-admin-prueba-123",
+        "DEMO_ESTUDIANTE_PASSWORD": "Clave-estudiante-prueba-123",
+        "DEMO_TEMPORAL_PASSWORD": "Clave-temporal-prueba-123",
+    }
+
     def setUp(self):
         from api import database
 
@@ -45,30 +51,34 @@ class AdminDemoTest(unittest.TestCase):
         database.DB_PATH = self.ruta_anterior
         self.carpeta.cleanup()
 
-    def admins(self):
+    def consultar(self, sql):
         with sqlite3.connect(self.db) as conexion:
-            return conexion.execute("SELECT usuario FROM usuarios WHERE rol = 'admin'").fetchall()
+            return conexion.execute(sql).fetchall()
 
-    def test_crea_el_admin_una_sola_vez(self):
-        with patch.dict(os.environ, {"ADMIN_DEMO_USUARIO": "jurado", "ADMIN_DEMO_CONTRASENA": "una-clave-larga-123"}):
-            arranque._admin_demo()
-            arranque._admin_demo()
-        self.assertEqual(self.admins(), [("jurado",)])
+    def test_carga_cuentas_y_temas_por_sector_una_sola_vez(self):
+        with patch.dict(os.environ, self.CLAVES):
+            arranque._datos_demo()
+            arranque._datos_demo()
+        self.assertEqual(self.consultar("SELECT count(*) FROM usuarios"), [(3,)])
+        self.assertEqual(
+            sorted(self.consultar("SELECT nicho_sector FROM temas")),
+            [("E-commerce",), ("Fintech",), ("General",), ("Salud",)],
+        )
+        self.assertEqual(self.consultar("SELECT count(*) FROM usuario_temas"), [(8,)])
 
-    def test_si_cambia_la_contrasena_en_los_secretos_se_actualiza(self):
+    def test_las_claves_de_los_secretos_mandan(self):
         from api.auth import verify_password
 
-        with patch.dict(os.environ, {"ADMIN_DEMO_USUARIO": "jurado", "ADMIN_DEMO_CONTRASENA": "la-primera-clave-123"}):
-            arranque._admin_demo()
-        with patch.dict(os.environ, {"ADMIN_DEMO_USUARIO": "jurado", "ADMIN_DEMO_CONTRASENA": "la-segunda-clave-456"}):
-            arranque._admin_demo()
-        with sqlite3.connect(self.db) as conexion:
-            (hash_guardado,) = conexion.execute("SELECT contrasena_hash FROM usuarios WHERE usuario = 'jurado'").fetchone()
-        self.assertTrue(verify_password("la-segunda-clave-456", hash_guardado))
+        with patch.dict(os.environ, self.CLAVES):
+            arranque._datos_demo()
+        with patch.dict(os.environ, {**self.CLAVES, "DEMO_ADMIN_PASSWORD": "Otra-clave-admin-456"}):
+            arranque._datos_demo()
+        ((hash_guardado,),) = self.consultar("SELECT contrasena_hash FROM usuarios WHERE usuario = 'admin_demo'")
+        self.assertTrue(verify_password("Otra-clave-admin-456", hash_guardado))
 
-    def test_sin_variables_no_hace_nada(self):
-        with patch.dict(os.environ, {"ADMIN_DEMO_USUARIO": "", "ADMIN_DEMO_CONTRASENA": ""}):
-            arranque._admin_demo()
+    def test_sin_las_tres_claves_no_hace_nada(self):
+        with patch.dict(os.environ, {**self.CLAVES, "DEMO_TEMPORAL_PASSWORD": ""}):
+            arranque._datos_demo()
         self.assertFalse(self.db.exists())
 
 

@@ -60,33 +60,32 @@ def _puerto_libre():
         return conexion.connect_ex(("127.0.0.1", _puerto())) != 0
 
 
-def _admin_demo():
-    """Crea el admin de ADMIN_DEMO_USUARIO / ADMIN_DEMO_CONTRASENA, o le pone esa contraseña si ya existe.
+def _datos_demo():
+    """Carga las cuentas y los temas de la demo con el script de Backend (scripts/crear_cuentas_demo.py).
 
-    Así los secretos mandan: si se cambia la contraseña en Streamlit Cloud, basta con reiniciar la app.
-    Temporal: lo reemplaza el script de datos de la demo de Backend.
+    Usa claves fijas (DEMO_ADMIN_PASSWORD, DEMO_ESTUDIANTE_PASSWORD, DEMO_TEMPORAL_PASSWORD): así las cuentas
+    que muestra la landing coinciden con la base. Streamlit Cloud borra el disco al reiniciar, y el script es
+    idempotente, por eso corre en cada arranque. Si falla, el backend arranca igual y queda en el registro.
     """
-    usuario = os.getenv("ADMIN_DEMO_USUARIO", "").strip()
-    contrasena = os.getenv("ADMIN_DEMO_CONTRASENA", "")
-    if not usuario or not contrasena:
-        return
-    from api.auth import hash_password
-    from api.database import get_connection, init_db
+    from api import database
+    from scripts.crear_cuentas_demo import CUENTAS, TEMAS_DEMO, crear_cuentas
 
-    init_db()
-    with get_connection() as conexion:
-        if conexion.execute("SELECT 1 FROM usuarios WHERE usuario = ?", (usuario,)).fetchone():
-            conexion.execute(
-                "UPDATE usuarios SET contrasena_hash = ?, rol = 'admin', activo = 1, debe_cambiar_contrasena = 0 "
-                "WHERE usuario = ?",
-                (hash_password(contrasena), usuario),
-            )
-            return
-        conexion.execute(
-            "INSERT INTO usuarios (nombre, usuario, contrasena_hash, rol, activo, debe_cambiar_contrasena) "
-            "VALUES (?, ?, ?, 'admin', 1, 0)",
-            ("Administración demo", usuario, hash_password(contrasena)),
+    faltan = [c.variable for c in CUENTAS if not os.getenv(c.variable)]
+    if faltan:
+        print(f"[arranque] Sin datos de la demo: faltan {', '.join(faltan)}", flush=True)
+        return
+    try:
+        resultados = crear_cuentas(
+            database.DB_PATH,  # la misma base que usa la API
+            con_tema_demo=True,
+            passwords={c.usuario: os.environ[c.variable] for c in CUENTAS},
+            claves_fijas=True,
         )
+    except Exception as exc:
+        print(f"[arranque] No se cargaron los datos de la demo: {type(exc).__name__}: {str(exc)[:300]}", flush=True)
+        return
+    creadas = sum(r["creada"] for r in resultados)
+    print(f"[arranque] Datos de la demo listos: {creadas} cuentas nuevas, {len(TEMAS_DEMO)} temas por sector", flush=True)
 
 
 def _diagnostico_oci():
@@ -139,7 +138,7 @@ def iniciar_backend():
     import uvicorn
     from api.main import app
 
-    _admin_demo()
+    _datos_demo()
     _diagnostico_oci()
     servidor = uvicorn.Server(uvicorn.Config(app, host="127.0.0.1", port=_puerto(), log_level="warning"))
     threading.Thread(target=servidor.run, name="backend-fastapi", daemon=True).start()
