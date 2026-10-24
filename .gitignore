@@ -40,3 +40,6 @@ tmp/
 # Base de datos local NuevaMente
 nuevamente.db
 nuevamente.db-*
+
+# Secretos locales de Streamlit (el ejemplo sí se versiona)
+.streamlit/secrets.toml

@@ -12,10 +12,93 @@ del backend y el cliente HTTP del frontend. No modifica los usuarios del modo mo
 | `estudiante_demo` | `estudiante` | No; permite probar directamente el estudio |
 | `temporal_demo` | `estudiante` | Sí; permite probar el primer acceso |
 
-Las tres cuentas se crean activas. Cada una recibe una contraseña aleatoria de 24
+Las tres cuentas se crean activas. Por defecto cada una recibe una contraseña aleatoria de 24
 caracteres, mostrada en la terminal únicamente al crearla. Guarda esas claves.
 SQLite almacena solo su hash Argon2, mediante `api.auth.hash_password`.
 Estas cuentas son para desarrollo y demostraciones.
+
+## Demo del jurado: claves fijas sin depender de la consola
+
+Para la landing, usa `admin_demo` y `estudiante_demo`: no obligan a cambiar la
+contraseña al entrar. `temporal_demo` sigue siendo una cuenta especial para probar
+el cambio obligatorio; no la uses como acceso compartido principal del jurado.
+
+### Configurar el backend
+
+Añade estas variables al `.env` del backend o a las variables de su despliegue.
+Son valores de ejemplo para una demo pública; el equipo puede elegir otros de
+al menos 12 caracteres:
+
+```dotenv
+DEMO_ADMIN_PASSWORD=Jurado-Admin-2026!
+DEMO_ESTUDIANTE_PASSWORD=Jurado-Estudiante-2026!
+DEMO_TEMPORAL_PASSWORD=Jurado-Temporal-2026!
+```
+
+En CMD o PowerShell, desde la raíz del backend:
+
+```text
+.\.venv\Scripts\python.exe -m scripts.crear_cuentas_demo --con-tema-demo --claves-fijas
+```
+
+En el servidor puede ejecutarse con `python -m scripts.crear_cuentas_demo
+--con-tema-demo --claves-fijas` como paso de inicialización antes de arrancar la
+API. El script y la API deben apuntar al mismo `NUEVAMENTE_DB_PATH`.
+
+Este modo exige las tres claves configuradas: si falta alguna, falla sin generar
+claves aleatorias ni modificar datos. Crea las cuentas que falten y, si una cuenta
+demo ya tenía otra contraseña, actualiza su hash y revoca sus sesiones. **No es
+necesario borrar la base**, sus documentos ni su historial. Si la clave ya coincide,
+conserva el hash y las sesiones. No imprime ni devuelve las claves configuradas.
+
+No modifica nombres, roles, activación ni el estado de cambio obligatorio. Una
+cuenta desactivada sigue desactivada. Ejecuta esta sincronización al preparar la
+demo o al cambiar las claves, no en cada recarga de la interfaz.
+
+### Configurar Streamlit Cloud y la landing
+
+En la configuración **Secrets** de la app de Streamlit Cloud, copia la plantilla
+`.streamlit/secrets.example.toml`. Mantén los mismos valores de `DEMO_*_PASSWORD`
+que configuraste en el backend y sustituye `URL_API` por la URL HTTPS real de la
+API (no `localhost` cuando está alojada en otro servidor).
+
+Streamlit permite leer esas claves con `st.secrets`; los secretos de nivel raíz
+también están disponibles como variables de entorno en su proceso.
+Referencias: [secretos de Streamlit](https://docs.streamlit.io/develop/concepts/connections/secrets-management)
+y [configuración en Community Cloud](https://docs.streamlit.io/deploy/streamlit-community-cloud/deploy-your-app/secrets-management).
+
+**Configurar Secrets en el frontend no crea cuentas en una API remota ni le
+transfiere variables de entorno.** El servidor del backend necesita su propia
+configuración y debe ejecutar el script. Este script tampoco lee por sí solo un
+archivo `secrets.toml` cuando se ejecuta desde una terminal normal.
+
+La landing del frontend puede mostrar los mismos valores sin duplicarlos en el
+código. Ejemplo para incorporar en su sección de acceso de demostración:
+
+```python
+import streamlit as st
+
+st.write("Usuario: estudiante_demo")
+st.code(st.secrets["DEMO_ESTUDIANTE_PASSWORD"], language=None)
+st.write("Usuario: admin_demo")
+st.code(st.secrets["DEMO_ADMIN_PASSWORD"], language=None)
+```
+
+Ese código publica intencionalmente las credenciales demo al jurado. Usa una base
+con datos de demostración, ya que quien vea la clave del admin tendrá sus permisos.
+Esta rama no contiene `app/`: la plantilla y el ejemplo quedan listos para el
+equipo frontend, pero no modifican ni publican su landing.
+
+### Comprobar las claves fijas
+
+1. Configura las tres variables y ejecuta el script con `--claves-fijas`.
+2. En `/docs`, usa `POST /api/v1/sesion` con `admin_demo` y la clave configurada:
+   debe devolver 200 y rol `admin`. Repite con `estudiante_demo` y su clave.
+3. Reejecuta el mismo comando: las cuentas quedan conservadas, sin duplicados y
+   sin imprimir contraseñas. Los tokens siguen funcionando si la clave no cambió.
+4. Si actualizas una variable, ejecuta nuevamente con `--claves-fijas`: solo esa
+   cuenta cambia de clave y sus tokens anteriores dejan de funcionar. Actualiza
+   también el secreto del frontend para que la landing muestre la clave vigente.
 
 ## 1. Instalar y crear cuentas
 
@@ -167,7 +250,7 @@ para eso sigue la tabla anterior.
 
 ## Repetición y contraseñas
 
-Repetir el script no cambia contraseñas, roles, nombres, activación ni el estado
+Repetir el script **sin `--claves-fijas`** no cambia contraseñas, roles, nombres, activación ni el estado
 de cambio obligatorio de cuentas existentes. Tampoco borra sesiones, historial
 ni asignaciones anteriores. Solo añade las asignaciones solicitadas que falten.
 Si un nombre existe con otro rol, aborta sin promoverlo. Los conflictos de nombre
@@ -175,10 +258,12 @@ del tema demo o de contenido del documento también se rechazan.
 
 Opcionalmente puedes elegir claves mediante `DEMO_ADMIN_PASSWORD`,
 `DEMO_ESTUDIANTE_PASSWORD` y `DEMO_TEMPORAL_PASSWORD` en el entorno o `.env`.
-Deben tener al menos 12 caracteres; no se aceptan claves vacías. Solo se aplican
-al crear cuentas nuevas. No las incluyas en archivos versionados.
+Deben tener al menos 12 caracteres; no se aceptan claves vacías. Sin
+`--claves-fijas`, solo se aplican al crear cuentas nuevas. No incluyas claves
+privadas en archivos versionados.
 
 Si pierdes una clave de estudiante, el admin puede restablecerla desde Usuarios.
 Si pierdes la del admin, puedes crear otro administrador con `python -m api.crear_admin`
 usando un nombre distinto, o iniciar otra demo en una base nueva. Reejecutar el
-script no recupera ni reemplaza claves existentes.
+script sin `--claves-fijas` no recupera ni reemplaza claves existentes. Para las
+cuentas demo puedes sincronizar las claves configuradas con ese modo explícito.

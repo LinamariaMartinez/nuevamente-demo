@@ -128,6 +128,66 @@ def test_cli_genera_claves_y_solo_las_muestra_al_crear(db_path, monkeypatch, cap
     assert "Contraseña: " not in capsys.readouterr().out
 
 
+def test_claves_fijas_exige_todas_antes_de_crear_base(db_path):
+    with pytest.raises(ValueError, match="DEMO_ESTUDIANTE_PASSWORD"):
+        crear_cuentas(db_path, passwords={"admin_demo": PASSWORDS["admin_demo"]}, claves_fijas=True)
+    assert not db_path.exists()
+
+
+def test_cli_claves_fijas_lee_entorno_y_no_imprime_secretos(db_path, monkeypatch, capsys):
+    monkeypatch.setattr("dotenv.load_dotenv", lambda *a, **kw: None)
+    for cuenta in CUENTAS:
+        monkeypatch.setenv(cuenta.variable, PASSWORDS[cuenta.usuario])
+    assert main(["--db", str(db_path), "--claves-fijas"]) == 0
+    output = capsys.readouterr().out
+    assert all(password not in output for password in PASSWORDS.values())
+    assert "Contraseña: " not in output
+    with TestClient(create_app()) as client:
+        for cuenta in CUENTAS:
+            _, usuario = login(client, cuenta.usuario)
+            assert usuario["rol"] == cuenta.rol
+            assert usuario["debe_cambiar_contrasena"] == cuenta.temporal
+
+
+def test_claves_fijas_actualiza_solo_claves_distintas_y_revoca_sus_sesiones(seeded):
+    nuevas = {**PASSWORDS, "estudiante_demo": "Jurado-estudiante-nueva-2026!"}
+    with TestClient(create_app()) as client:
+        admin, _ = login(client, "admin_demo")
+        estudiante, _ = login(client, "estudiante_demo")
+        with database.connect(seeded) as conn:
+            before = {r["usuario"]: dict(r) for r in conn.execute("SELECT * FROM usuarios")}
+        result = crear_cuentas(seeded, passwords=nuevas, claves_fijas=True)
+        assert [r["usuario"] for r in result if r["clave_actualizada"]] == ["estudiante_demo"]
+        assert all(r["contrasena"] is None for r in result)
+        assert client.get("/api/v1/usuarios", headers=admin).status_code == 200
+        assert client.get("/api/v1/temas", headers=estudiante).status_code == 401
+        assert client.post("/api/v1/sesion", json={
+            "usuario": "estudiante_demo", "contrasena": PASSWORDS["estudiante_demo"],
+        }).status_code == 401
+        estudiante, _ = login(client, "estudiante_demo", nuevas["estudiante_demo"])
+        repeated = crear_cuentas(seeded, passwords=nuevas, claves_fijas=True)
+        assert all(not r["clave_actualizada"] for r in repeated)
+        assert client.get("/api/v1/temas", headers=estudiante).status_code == 200
+        with database.connect(seeded) as conn:
+            after = {r["usuario"]: dict(r) for r in conn.execute("SELECT * FROM usuarios")}
+        assert before["admin_demo"] == after["admin_demo"]
+        assert before["temporal_demo"] == after["temporal_demo"]
+        for key, value in before["estudiante_demo"].items():
+            if key != "contrasena_hash":
+                assert after["estudiante_demo"][key] == value
+
+
+def test_claves_fijas_no_reactiva_ni_promueve_cuentas(seeded):
+    with database.connect(seeded) as conn:
+        conn.execute("UPDATE usuarios SET activo = 0 WHERE usuario = 'estudiante_demo'")
+    crear_cuentas(seeded, passwords=PASSWORDS, claves_fijas=True)
+    with database.connect(seeded) as conn:
+        assert conn.execute("SELECT activo FROM usuarios WHERE usuario = 'estudiante_demo'").fetchone()[0] == 0
+        conn.execute("UPDATE usuarios SET rol = 'estudiante' WHERE usuario = 'admin_demo'")
+    with pytest.raises(ValueError, match="otro rol"):
+        crear_cuentas(seeded, passwords=PASSWORDS, claves_fijas=True)
+
+
 def test_login_permisos_y_cambio_obligatorio(seeded):
     with TestClient(create_app()) as client:
         admin, usuario_admin = login(client, "admin_demo")
