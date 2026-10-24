@@ -25,7 +25,7 @@ def _id_documento(clave):
 
 TEMA_DEMO = "demo-redes-oci"
 DOCUMENTO_DEMO = _id_documento("redes-oci")
-NOMBRE_TEMA = "Demo: Redes VCN en OCI"
+NOMBRE_TEMA = "Redes VCN en OCI"
 
 
 @dataclass(frozen=True)
@@ -45,16 +45,16 @@ class TemaDemo:
 
 # Un tema por sector del catálogo (src/schemas.py); el de redes va en General.
 TEMAS_DEMO = (
-    TemaDemo("demo-fintech", "Demo: Pagos inmediatos y fraude",
-             "Manual operativo de una billetera digital ficticia.", "Fintech",
+    TemaDemo("demo-fintech", "Pagos inmediatos y fraude",
+             "Manual operativo de pagos inmediatos y prevención de fraude.", "Fintech",
              _id_documento("fintech"), "Pagos inmediatos y prevención de fraude",
              "fintech_pagos_inmediatos_fraude.md"),
-    TemaDemo("demo-salud", "Demo: Higiene de manos",
-             "Protocolo de higiene de manos de una clínica ficticia.", "Salud",
+    TemaDemo("demo-salud", "Higiene de manos",
+             "Protocolo de higiene de manos para el personal de la clínica.", "Salud",
              _id_documento("salud"), "Protocolo de higiene de manos",
              "salud_protocolo_higiene_manos.pdf"),
-    TemaDemo("demo-ecommerce", "Demo: Devoluciones, retracto y garantías",
-             "Manual de atención al cliente de una tienda en línea ficticia.", "E-commerce",
+    TemaDemo("demo-ecommerce", "Devoluciones, retracto y garantías",
+             "Manual de atención al cliente para devoluciones y garantías.", "E-commerce",
              _id_documento("ecommerce"), "Devoluciones, retracto, reversión del pago y garantías",
              "ecommerce_devoluciones_retracto_garantias.txt"),
     TemaDemo(TEMA_DEMO, NOMBRE_TEMA,
@@ -75,8 +75,8 @@ class CuentaDemo:
 
 
 CUENTAS = (
-    CuentaDemo("admin_demo", "Administración Demo", "admin", False, "DEMO_ADMIN_PASSWORD"),
-    CuentaDemo("estudiante_demo", "Estudiante Demo", "estudiante", False, "DEMO_ESTUDIANTE_PASSWORD"),
+    CuentaDemo("admin_demo", "Administración", "admin", False, "DEMO_ADMIN_PASSWORD"),
+    CuentaDemo("estudiante_demo", "Estudiante", "estudiante", False, "DEMO_ESTUDIANTE_PASSWORD"),
     CuentaDemo("temporal_demo", "Estudiante con clave temporal", "estudiante", True, "DEMO_TEMPORAL_PASSWORD"),
 )
 
