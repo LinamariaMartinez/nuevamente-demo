@@ -18,11 +18,51 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+def _id_documento(clave):
+    # El contrato HTTP exige 32 caracteres hexadecimales para los documentos.
+    return uuid5(NAMESPACE_DNS, f"demo.{clave}.nuevamente").hex
+
+
 TEMA_DEMO = "demo-redes-oci"
-# El contrato HTTP exige 32 caracteres hexadecimales para los documentos.
-DOCUMENTO_DEMO = uuid5(NAMESPACE_DNS, "demo.redes-oci.nuevamente").hex
-NOMBRE_TEMA = "Demo: Redes VCN en OCI"
-FUENTE_DEMO = ROOT / "data" / "arquitectura_redes_vcn_oci.md"
+DOCUMENTO_DEMO = _id_documento("redes-oci")
+NOMBRE_TEMA = "Redes VCN en OCI"
+
+
+@dataclass(frozen=True)
+class TemaDemo:
+    id_tema: str
+    nombre: str
+    descripcion: str
+    nicho_sector: str
+    documento_id: str
+    documento_titulo: str
+    archivo: str
+
+    @property
+    def fuente(self):
+        return ROOT / "data" / self.archivo
+
+
+# Un tema por sector del catálogo (src/schemas.py); el de redes va en General.
+TEMAS_DEMO = (
+    TemaDemo("demo-fintech", "Pagos inmediatos y fraude",
+             "Manual operativo de pagos inmediatos y prevención de fraude.", "Fintech",
+             _id_documento("fintech"), "Pagos inmediatos y prevención de fraude",
+             "fintech_pagos_inmediatos_fraude.md"),
+    TemaDemo("demo-salud", "Higiene de manos",
+             "Protocolo de higiene de manos para el personal de la clínica.", "Salud",
+             _id_documento("salud"), "Protocolo de higiene de manos",
+             "salud_protocolo_higiene_manos.pdf"),
+    TemaDemo("demo-ecommerce", "Devoluciones, retracto y garantías",
+             "Manual de atención al cliente para devoluciones y garantías.", "E-commerce",
+             _id_documento("ecommerce"), "Devoluciones, retracto, reversión del pago y garantías",
+             "ecommerce_devoluciones_retracto_garantias.txt"),
+    TemaDemo(TEMA_DEMO, NOMBRE_TEMA,
+             "Guía de arquitectura de redes VCN en OCI.", "General",
+             DOCUMENTO_DEMO, "Redes VCN en OCI",
+             "tecnologia_redes_vcn_oci.md"),
+)
+IDS_TEMAS_DEMO = tuple(t.id_tema for t in TEMAS_DEMO)
 
 
 @dataclass(frozen=True)
@@ -35,47 +75,47 @@ class CuentaDemo:
 
 
 CUENTAS = (
-    CuentaDemo("admin_demo", "Administración Demo", "admin", False, "DEMO_ADMIN_PASSWORD"),
-    CuentaDemo("estudiante_demo", "Estudiante Demo", "estudiante", False, "DEMO_ESTUDIANTE_PASSWORD"),
+    CuentaDemo("admin_demo", "Administración", "admin", False, "DEMO_ADMIN_PASSWORD"),
+    CuentaDemo("estudiante_demo", "Estudiante", "estudiante", False, "DEMO_ESTUDIANTE_PASSWORD"),
     CuentaDemo("temporal_demo", "Estudiante con clave temporal", "estudiante", True, "DEMO_TEMPORAL_PASSWORD"),
 )
 
 
-def _preparar_documento():
+def _preparar_documento(tema):
     from api.documents import extract_document
 
-    raw = FUENTE_DEMO.read_bytes()
-    filename, kind, pages = extract_document(FUENTE_DEMO.name, raw)
+    raw = tema.fuente.read_bytes()
+    filename, kind, pages = extract_document(tema.fuente.name, raw)
     return raw, filename, kind, pages
 
 
-def _crear_tema_demo(conn, documento):
+def _crear_tema_demo(conn, tema, documento):
     from api.database import utc_now
 
     raw, filename, kind, pages = documento
-    existente = conn.execute("SELECT original FROM documentos WHERE id = ?", (DOCUMENTO_DEMO,)).fetchone()
+    existente = conn.execute("SELECT original FROM documentos WHERE id = ?", (tema.documento_id,)).fetchone()
     if existente is not None and existente["original"] != raw:
-        raise ValueError(f"El documento {DOCUMENTO_DEMO} ya existe con otro contenido; no se sobrescribió.")
-    tema = conn.execute("SELECT nombre FROM temas WHERE id_tema = ?", (TEMA_DEMO,)).fetchone()
-    if tema is not None and tema["nombre"] != NOMBRE_TEMA:
-        raise ValueError(f"El tema {TEMA_DEMO} ya existe con otro nombre; no se sobrescribió.")
+        raise ValueError(f"El documento {tema.documento_id} ya existe con otro contenido; no se sobrescribió.")
+    fila = conn.execute("SELECT nombre FROM temas WHERE id_tema = ?", (tema.id_tema,)).fetchone()
+    if fila is not None and fila["nombre"] != tema.nombre:
+        raise ValueError(f"El tema {tema.id_tema} ya existe con otro nombre; no se sobrescribió.")
     if existente is None:
         conn.execute(
             """INSERT INTO documentos
             (id, documento_titulo, nombre_archivo, tipo, tamano_bytes, fragmentos_extraidos,
              creado_en, original, paginas_json) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-            (DOCUMENTO_DEMO, "Redes VCN en OCI", filename, kind, len(raw), len(pages), utc_now(), raw,
+            (tema.documento_id, tema.documento_titulo, filename, kind, len(raw), len(pages), utc_now(), raw,
              json.dumps([{"page_content": p.page_content, "metadata": p.metadata} for p in pages],
                         ensure_ascii=False)),
         )
-    if tema is None:
+    if fila is None:
         conn.execute(
-            "INSERT INTO temas (id_tema, nombre, descripcion) VALUES (?, ?, ?)",
-            (TEMA_DEMO, NOMBRE_TEMA, "Tema de prueba con el documento de redes incluido en el repositorio."),
+            "INSERT INTO temas (id_tema, nombre, descripcion, nicho_sector) VALUES (?, ?, ?, ?)",
+            (tema.id_tema, tema.nombre, tema.descripcion, tema.nicho_sector),
         )
     conn.execute(
         "INSERT OR IGNORE INTO tema_documentos (id_tema, documento_id, asociado_en) VALUES (?, ?, ?)",
-        (TEMA_DEMO, DOCUMENTO_DEMO, utc_now()),
+        (tema.id_tema, tema.documento_id, utc_now()),
     )
 
 
@@ -105,7 +145,7 @@ def crear_cuentas(db_path=None, *, con_tema_demo=False, temas=(), passwords=None
     temas = list(dict.fromkeys(temas))
     if any(not isinstance(t, str) or not t.strip() for t in temas):
         raise ValueError("Los identificadores de tema no pueden estar vacíos.")
-    documento = _preparar_documento() if con_tema_demo else None
+    documentos = [(t, _preparar_documento(t)) for t in TEMAS_DEMO] if con_tema_demo else []
     path = resolve_db_path(db_path)
     init_db(path)
     resultados = []
@@ -113,7 +153,7 @@ def crear_cuentas(db_path=None, *, con_tema_demo=False, temas=(), passwords=None
         # Serializa ejecuciones simultáneas: comprobar e insertar es una sola operación.
         conn.execute("BEGIN IMMEDIATE")
         for id_tema in temas:
-            if con_tema_demo and id_tema == TEMA_DEMO:
+            if con_tema_demo and id_tema in IDS_TEMAS_DEMO:
                 continue
             if conn.execute("SELECT 1 FROM temas WHERE id_tema = ?", (id_tema,)).fetchone() is None:
                 raise ValueError(f"No existe el tema {id_tema}. No se crearon cuentas.")
@@ -123,9 +163,10 @@ def crear_cuentas(db_path=None, *, con_tema_demo=False, temas=(), passwords=None
             if row is not None and row["rol"] != cuenta.rol:
                 raise ValueError(f"{cuenta.usuario} ya existe con otro rol. No se modificaron cuentas.")
             existentes[cuenta.usuario] = row
+        for tema, documento in documentos:
+            _crear_tema_demo(conn, tema, documento)
         if con_tema_demo:
-            _crear_tema_demo(conn, documento)
-            temas = list(dict.fromkeys([*temas, TEMA_DEMO]))
+            temas = list(dict.fromkeys([*temas, *IDS_TEMAS_DEMO]))
         for cuenta in CUENTAS:
             row = existentes[cuenta.usuario]
             password = None
@@ -163,7 +204,7 @@ def crear_cuentas(db_path=None, *, con_tema_demo=False, temas=(), passwords=None
 def main(argv=None):
     parser = argparse.ArgumentParser(description="Crea cuentas reales de prueba para los roles admin y estudiante.")
     parser.add_argument("--db", help="Ruta SQLite; por defecto NUEVAMENTE_DB_PATH de .env o storage/nuevamente.sqlite3.")
-    parser.add_argument("--con-tema-demo", action="store_true", help="Carga el documento de redes OCI y asigna su tema a ambos estudiantes.")
+    parser.add_argument("--con-tema-demo", action="store_true", help="Carga los 4 documentos de demostración (uno por sector) y asigna sus temas a ambos estudiantes.")
     parser.add_argument("--tema", action="append", default=[], metavar="ID", help="Asigna un tema existente a ambos estudiantes; se puede repetir.")
     parser.add_argument("--claves-fijas", action="store_true",
                         help="Exige las tres DEMO_*_PASSWORD y sincroniza las claves demo existentes; no las imprime.")
@@ -191,7 +232,7 @@ def main(argv=None):
         print(f"  Activa: {cuenta['activo']} | Cambio obligatorio: {cuenta['debe_cambiar_contrasena']}")
         if cuenta["creada"] and not args.claves_fijas:
             print(f"  Contraseña: {cuenta['contrasena']}")
-    asignados = list(dict.fromkeys([*args.tema, *([TEMA_DEMO] if args.con_tema_demo else [])]))
+    asignados = list(dict.fromkeys([*args.tema, *(IDS_TEMAS_DEMO if args.con_tema_demo else ())]))
     print("\nTemas asignados a ambos estudiantes: " + (", ".join(asignados) or "ninguno nuevo"))
     if args.claves_fijas:
         print("Claves sincronizadas con DEMO_*_PASSWORD; consulta su configuración, no los logs.")
