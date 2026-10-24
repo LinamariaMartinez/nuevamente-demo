@@ -6,6 +6,7 @@ Solo el botón Iniciar sesión es de Streamlit, porque cambia de página dentro 
 """
 
 import base64
+import os
 from html import escape
 from pathlib import Path
 import re
@@ -83,6 +84,20 @@ CUENTAS_DEMO = (
     ("Con contraseña temporal", "mateo", "temporal-123"),
     ("Administración", "admin", "demo-admin"),
 )
+# Con la API real: las crea scripts/crear_cuentas_demo.py y la clave sale de los secretos.
+# temporal_demo no se muestra: si alguien le cambia la clave, la publicada deja de servir.
+CUENTAS_DEMO_REALES = (
+    ("Estudiante", "estudiante_demo", "DEMO_ESTUDIANTE_PASSWORD"),
+    ("Administración", "admin_demo", "DEMO_ADMIN_PASSWORD"),
+)
+
+
+def cuentas_demo(es_mock):
+    """Cuentas (rol, usuario, contraseña) para mostrar; vacío si no hay ninguna configurada."""
+    if es_mock:
+        return CUENTAS_DEMO
+    cuentas = tuple((rol, usuario, os.getenv(variable, "")) for rol, usuario, variable in CUENTAS_DEMO_REALES)
+    return cuentas if all(contrasena for _, _, contrasena in cuentas) else ()
 
 # Colores que cambian con el tema y que van dentro de íconos (una imagen no lee las variables de CSS)
 COLORES = {
@@ -266,15 +281,16 @@ def html_principal(tema_oscuro=False):
 
 
 def html_cuentas(es_mock):
-    """Tarjeta de la derecha del cierre: las cuentas de demostración solo existen en modo mock."""
-    if es_mock:
+    """Tarjeta de la derecha del cierre: las cuentas mock o las de la demo real, si están configuradas."""
+    cuentas = cuentas_demo(es_mock)
+    if cuentas:
         filas = "".join(
             '<div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 10px; '
             'padding: 14px 0; border-bottom: 1px solid #D6E2DC">'
             f'<span style="font-size: 16px; font-weight: 600">{escape(rol)}</span>'
             '<span class="nm-mono" style="font-size: 14px; background: #E7EEE8; padding: 5px 10px; border-radius: 6px">'
             f'{escape(usuario)} / {escape(contrasena)}</span></div>'
-            for rol, usuario, contrasena in CUENTAS_DEMO)
+            for rol, usuario, contrasena in cuentas)
         cuerpo = (f'<div style="margin-top: 14px; display: flex; flex-direction: column">{filas}</div>'
                   '<p style="margin-top: 14px; font-size: 14px; color: #4E625D">'
                   'Disponibles solo en el modo de demostración.</p>')
