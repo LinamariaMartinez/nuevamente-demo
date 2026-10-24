@@ -113,9 +113,19 @@ Si aún no tienes entorno virtual, primero ejecuta `python -m venv .venv`.
 En Linux/macOS sustituye `.\.venv\Scripts\python.exe` por `.venv/bin/python`.
 También se admite ejecutar directamente `scripts/crear_cuentas_demo.py`.
 
-`--con-tema-demo` carga `data/arquitectura_redes_vcn_oci.md` con el extractor del
-backend, crea el tema `demo-redes-oci` y lo asigna a ambos estudiantes. Así, **Mis
-temas** tiene un tema con fuentes reales para generar material. La carga no llama
+`--con-tema-demo` carga 4 documentos de `data/` con el extractor del backend, crea
+un tema por documento con su sector y los asigna a ambos estudiantes:
+
+| Tema | Sector | Documento |
+|---|---|---|
+| `demo-fintech` | Fintech | `fintech_pagos_inmediatos_fraude.md` |
+| `demo-salud` | Salud | `salud_protocolo_higiene_manos.pdf` |
+| `demo-ecommerce` | E-commerce | `ecommerce_devoluciones_retracto_garantias.txt` |
+| `demo-redes-oci` | General | `tecnologia_redes_vcn_oci.md` |
+
+Así, **Mis temas** muestra un tema por sector con fuentes reales para generar
+material. Los sectores salen del catálogo de `src/schemas.py`. Los documentos son
+ficticios, escritos para la demo. La carga no llama
 a Gemini ni sube archivos a OCI; los embeddings se calculan al generar, como en
 el resto de la API. Tampoco crea material educativo ficticio en el historial.
 

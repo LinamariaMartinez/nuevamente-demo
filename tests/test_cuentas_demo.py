@@ -9,7 +9,9 @@ from fastapi.testclient import TestClient
 from api import database
 from api.auth import verify_password
 from api.main import create_app, get_generator
-from scripts.crear_cuentas_demo import CUENTAS, DOCUMENTO_DEMO, ROOT, TEMA_DEMO, crear_cuentas, main
+from scripts.crear_cuentas_demo import (
+    CUENTAS, DOCUMENTO_DEMO, IDS_TEMAS_DEMO, ROOT, TEMA_DEMO, TEMAS_DEMO, crear_cuentas, main,
+)
 
 
 PASSWORDS = {c.usuario: f"Clave-prueba-{c.usuario}-123!" for c in CUENTAS}
@@ -44,11 +46,23 @@ def test_crea_roles_hashes_y_documento_utilizable(seeded):
         for row in rows:
             assert row["contrasena_hash"].startswith("$argon2")
             assert verify_password(PASSWORDS[row["usuario"]], row["contrasena_hash"])
-        assert conn.execute("SELECT count(*) FROM usuario_temas").fetchone()[0] == 2
+        assert conn.execute("SELECT count(*) FROM usuario_temas").fetchone()[0] == 2 * len(TEMAS_DEMO)
         assert conn.execute("PRAGMA foreign_key_check").fetchall() == []
     pages = database.Store(seeded).topic_pages(TEMA_DEMO)
     assert pages and "VCN" in pages[0].page_content
     assert pages[0].metadata["documento_id"] == DOCUMENTO_DEMO
+
+
+def test_un_tema_por_sector_con_su_documento(seeded):
+    assert sorted(t.nicho_sector for t in TEMAS_DEMO) == ["E-commerce", "Fintech", "General", "Salud"]
+    with database.connect(seeded) as conn:
+        sectores = dict(conn.execute("SELECT id_tema, nicho_sector FROM temas").fetchall())
+    assert sectores == {t.id_tema: t.nicho_sector for t in TEMAS_DEMO}
+    store = database.Store(seeded)
+    for tema in TEMAS_DEMO:
+        pages = store.topic_pages(tema.id_tema)
+        assert pages and all(p.metadata["documento_id"] == tema.documento_id for p in pages)
+        assert any(p.page_content.strip() for p in pages)
 
 
 def test_repetir_preserva_claves_estados_sesiones_y_no_duplica(seeded):
@@ -61,7 +75,7 @@ def test_repetir_preserva_claves_estados_sesiones_y_no_duplica(seeded):
     assert all(not r["creada"] and r["contrasena"] is None for r in result)
     with database.connect(seeded) as conn:
         assert [tuple(r) for r in conn.execute("SELECT * FROM usuarios ORDER BY id_usuario")] == before
-        for table, count in (("documentos", 1), ("temas", 1), ("usuario_temas", 2), ("sesiones", 1)):
+        for table, count in (("documentos", 4), ("temas", 4), ("usuario_temas", 8), ("sesiones", 1)):
             assert conn.execute(f"SELECT count(*) FROM {table}").fetchone()[0] == count
 
 
@@ -106,7 +120,7 @@ def test_asigna_temas_existentes_sin_quitar_asignaciones(seeded):
         conn.execute("INSERT INTO temas (id_tema, nombre) VALUES ('otro', 'Otro tema')")
     crear_cuentas(seeded, temas=["otro", "otro"])
     with database.connect(seeded) as conn:
-        assert conn.execute("SELECT count(*) FROM usuario_temas").fetchone()[0] == 4
+        assert conn.execute("SELECT count(*) FROM usuario_temas").fetchone()[0] == 2 * len(TEMAS_DEMO) + 2
         assert conn.execute("SELECT count(*) FROM usuario_temas ut JOIN usuarios u USING (id_usuario) WHERE u.rol = 'admin'").fetchone()[0] == 0
 
 
@@ -204,7 +218,7 @@ def test_login_permisos_y_cambio_obligatorio(seeded):
         assert client.get("/api/v1/temas").status_code == 401
         assert client.get("/api/v1/temas", headers=temporal).status_code == 403
         temas = client.get("/api/v1/temas", headers=estudiante).json()
-        assert [t["id_tema"] for t in temas] == [TEMA_DEMO]
+        assert sorted(t["id_tema"] for t in temas) == sorted(IDS_TEMAS_DEMO)
         docs = client.get(f"/api/v1/temas/{TEMA_DEMO}/documentos", headers=estudiante).json()
         assert docs[0]["id"] == DOCUMENTO_DEMO
         nueva = "Clave-nueva-temporal-456!"
