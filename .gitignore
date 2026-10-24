@@ -41,5 +41,5 @@ tmp/
 nuevamente.db
 nuevamente.db-*
 
-# Secretos de Streamlit (contraseña del admin)
+# Secretos locales de Streamlit (el ejemplo sí se versiona)
 .streamlit/secrets.toml
