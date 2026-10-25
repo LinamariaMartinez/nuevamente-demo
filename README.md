@@ -56,6 +56,21 @@ La carga Markdown de la API conserva el texto UTF-8 y no requiere ese paso. En L
 
 ## Iniciar la API
 
+Cuentas para probar todos los roles y el flujo completo: consulta
+[Crear cuentas demo y probar backend/frontend](docs/cuentas_demo.md).
+El script genera un admin, un estudiante listo para estudiar y otro con contraseña
+temporal; opcionalmente carga y asigna un tema con fuentes reales:
+
+```powershell
+.\.venv\Scripts\python.exe -m scripts.crear_cuentas_demo --con-tema-demo
+```
+
+Para el jurado, configura `DEMO_ADMIN_PASSWORD`, `DEMO_ESTUDIANTE_PASSWORD` y
+`DEMO_TEMPORAL_PASSWORD` y añade `--claves-fijas`: sincroniza las claves de las
+cuentas demo existentes sin borrar datos ni imprimir claves. La configuración
+del backend y los Secrets del frontend deben tener los mismos valores. Plantilla
+para Streamlit Cloud: [secrets.example.toml](.streamlit/secrets.example.toml).
+
 Crea el primer administrador (una sola vez):
 
 ```powershell
