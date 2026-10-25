@@ -13,7 +13,7 @@ oci
 python-dotenv
 
 # Liberías necesarias para trabajar con modelos de Google
-langchain-google-genai 
+langchain-google-genai>=4.0,<5
 
 # Librería necesaria para divider el texto y 
 langchain-text-splitters 
@@ -29,7 +29,19 @@ google-genai
 
 # Orquestación multiagente y validación estructurada (Hito 3)
 langgraph
-pydantic
+pydantic>=2.12,<3
+
+# Backend HTTP y subida de archivos; SQLite usa sqlite3 de Python.
+fastapi>=0.115,<1
+uvicorn[standard]>=0.30,<1
+python-multipart>=0.0.20,<1
+
+# Autenticaci?n (F08): hash de contrase?as con Argon2
+pwdlib[argon2]
+
+# Pruebas de API
+httpx
+pytest
 
 # Interfaz (F07): app web y llamadas HTTP a la API del Backend
 streamlit>=1.65

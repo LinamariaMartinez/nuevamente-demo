@@ -1,0 +1,155 @@
+MANUAL DE ATENCIÓN AL CLIENTE: DEVOLUCIONES, RETRACTO, REVERSIÓN DEL PAGO Y GARANTÍAS
+Mercadito Andino (tienda en línea) · Código MA-SAC-007 · Versión 4 · Área responsable: Servicio al Cliente y Posventa
+
+DOCUMENTO FICTICIO DE CAPACITACIÓN. Mercadito Andino no existe. Este manual se escribió para demostrar la plataforma NuevaMente. Resume, con fines de capacitación, figuras del Estatuto del Consumidor de Colombia (Ley 1480 de 2011) y de su reglamentación; los plazos internos, los cargos y los sistemas son inventados. Ante cualquier duda sobre un caso real, se debe consultar la norma vigente y al área jurídica.
+
+
+1. OBJETIVO
+
+Dar al equipo de servicio al cliente un procedimiento único para atender solicitudes de devolución, derecho de retracto, reversión del pago y garantía en las compras hechas en la tienda en línea, de forma que todos los asesores den la misma respuesta, en el mismo plazo y con el mismo tono.
+
+
+2. ALCANCE
+
+Aplica a las compras hechas en el sitio web y en la aplicación de Mercadito Andino, pagadas con tarjeta de crédito, tarjeta débito, transferencia o pago contra entrega. No aplica a las compras en los puntos de venta físicos de los aliados, que tienen su propio manual.
+
+
+3. DEFINICIONES
+
+Consumidor: persona que compra un producto para su uso personal o familiar, y no para revenderlo.
+Venta a distancia: venta en la que el consumidor no tiene contacto físico con el producto antes de comprarlo, como ocurre en la tienda en línea.
+Derecho de retracto: posibilidad que tiene el consumidor de deshacer una compra a distancia sin dar explicaciones, dentro de un plazo corto.
+Reversión del pago: devolución del dinero pagado con un medio electrónico cuando la compra tuvo un problema específico, por ejemplo fraude o un producto que no llegó.
+Garantía legal: obligación del productor y del proveedor de responder por la calidad, idoneidad y seguridad del producto durante un tiempo.
+Devolución comercial: política voluntaria de Mercadito Andino que permite cambios o devoluciones por gusto en algunos productos, más allá de lo que exige la ley.
+PQR: petición, queja o reclamo presentado por un cliente.
+Guía de devolución: número de envío que genera el sistema Retorna para que el cliente entregue el producto a la transportadora.
+
+
+4. CÓMO DISTINGUIR CADA SOLICITUD
+
+La primera tarea del asesor es identificar qué está pidiendo el cliente, porque cada figura tiene requisitos y plazos distintos.
+
+Pregunta clave para el asesor:
+- ¿El cliente quiere deshacer la compra sin que el producto tenga ningún problema y está dentro del plazo? Es un RETRACTO.
+- ¿El producto no llegó, no corresponde a lo pedido, llegó defectuoso o el cliente no reconoce la compra, y pagó con un medio electrónico? Puede ser una REVERSIÓN DEL PAGO.
+- ¿El producto falló o tiene un defecto durante su uso normal? Es una GARANTÍA.
+- ¿Al cliente simplemente no le gustó el producto y ya pasó el plazo del retracto? Puede aplicar la DEVOLUCIÓN COMERCIAL, solo si el producto está en la lista de productos con cambio.
+
+
+5. DERECHO DE RETRACTO
+
+5.1 Qué es
+En las ventas a distancia, el consumidor puede retractarse de la compra dentro de los cinco (5) días hábiles siguientes a la entrega del producto. No tiene que explicar el motivo.
+
+5.2 Condiciones
+- El producto debe devolverse en las mismas condiciones en que se recibió.
+- Los costos de transporte y los demás que implique la devolución corren por cuenta del consumidor.
+- Mercadito Andino debe devolver el dinero pagado, sin descuentos ni retenciones, en un plazo máximo de treinta (30) días calendario desde el momento en que el cliente ejerció el retracto. La política interna fija como meta hacerlo en diez (10) días calendario.
+
+5.3 Productos en los que no aplica el retracto
+- Productos hechos a la medida o personalizados (por ejemplo, una camiseta estampada con el nombre del cliente).
+- Productos perecederos, como alimentos frescos y flores.
+- Productos de uso personal que por higiene no pueden revenderse una vez abiertos, como ropa interior o cosméticos sin sello.
+- Periódicos y revistas.
+- Contenidos digitales descargados o servicios que ya empezaron a prestarse con el acuerdo del consumidor.
+- Productos cuyo precio depende de fluctuaciones del mercado financiero que la tienda no controla.
+
+5.4 Procedimiento
+1. El cliente solicita el retracto desde "Mis pedidos" o por chat, indicando el número de pedido.
+2. El asesor verifica en el sistema Retorna la fecha de entrega y cuenta los días hábiles. El día de la entrega no se cuenta; los sábados, domingos y festivos tampoco.
+3. Si está dentro del plazo y el producto no está en las excepciones, el asesor aprueba la solicitud y Retorna genera la guía de devolución.
+4. Cuando la bodega recibe el producto, revisa su estado en un máximo de dos (2) días hábiles.
+5. Si el producto está en las mismas condiciones, Tesorería ordena el reembolso por el mismo medio de pago.
+
+5.5 Ejemplo
+Andrés recibe unos audífonos el jueves 1 de octubre de 2026. Los días hábiles del plazo son el viernes 2, el lunes 5, el martes 6, el miércoles 7 y el jueves 8 de octubre. Si escribe el miércoles 7 pidiendo deshacer la compra, el retracto procede aunque los audífonos funcionen bien. Si escribe el viernes 9, el plazo ya venció y el asesor debe revisar si aplica la devolución comercial.
+
+
+6. REVERSIÓN DEL PAGO
+
+6.1 Cuándo procede
+Cuando el cliente pagó con tarjeta de crédito, tarjeta débito u otro instrumento de pago electrónico y ocurre alguna de estas situaciones:
+- Fue víctima de fraude o la compra no fue solicitada por él.
+- El producto no fue recibido.
+- El producto recibido no corresponde a lo solicitado.
+- El producto es defectuoso.
+
+6.2 Cómo funciona
+El consumidor debe presentar su queja ante Mercadito Andino y, al mismo tiempo, pedir la reversión al emisor de su medio de pago (su banco), dentro de los cinco (5) días hábiles siguientes a la fecha en que tuvo noticia de la situación. En los casos de producto no recibido, de producto que no corresponde o defectuoso, el cliente debe devolver el producto. Los participantes del proceso de pago deben reversar la transacción, por regla general, dentro de los quince (15) días hábiles siguientes a la solicitud.
+
+6.3 Qué hace el asesor
+1. Registrar la queja en la herramienta de PQR con el tipo "reversión".
+2. Explicar al cliente que también debe hacer la solicitud ante su banco y entregarle el número de la queja.
+3. Pedir al área de Logística la prueba de entrega o la evidencia del producto despachado.
+4. Si Mercadito Andino reconoce el error (por ejemplo, la transportadora confirma que el pedido se perdió), ofrecer de inmediato el reenvío o el reembolso, sin esperar el proceso del banco.
+
+6.4 Ejemplo
+Camila paga con tarjeta de crédito una licuadora que, según el sistema, se entregó el lunes. Ella dice que nunca la recibió. El martes escribe al chat. El asesor registra la queja de reversión, le explica que debe avisar también a su banco y pide a Logística la firma de recibido. La transportadora reconoce que entregó el paquete en otra dirección. El asesor ofrece reenviar la licuadora sin costo o devolver el dinero, y Camila elige el reenvío.
+
+
+7. GARANTÍA LEGAL
+
+7.1 Qué cubre
+Todo producto debe ser apto para su uso normal y cumplir las condiciones de calidad e idoneidad anunciadas. Si falla durante el término de la garantía, Mercadito Andino, como proveedor, responde junto con el productor.
+
+7.2 Término
+El término de la garantía es el que indica la ley o la autoridad para ese tipo de producto. A falta de esa disposición, es el que anuncia el productor o el proveedor. Si no se anunció ninguno, para los productos nuevos es de un (1) año contado desde la entrega.
+
+7.3 Qué se ofrece al cliente
+1. Primero, la reparación totalmente gratuita del defecto, incluido el transporte si el producto debe enviarse al servicio técnico.
+2. Si el producto no admite reparación, o si el mismo defecto se repite después de repararlo, el cliente puede elegir entre el cambio por otro producto igual o de similares características, o la devolución del dinero.
+3. Mientras el producto está en reparación, el tiempo de la garantía se suspende y se reanuda al entregarlo reparado.
+
+7.4 Cuándo no aplica
+- Daños por uso indebido o por no seguir las instrucciones del manual del producto.
+- Daños causados por fuerza mayor o caso fortuito.
+- Daños causados por un tercero ajeno a la tienda y al productor.
+
+7.5 Procedimiento
+1. El cliente abre la solicitud de garantía desde "Mis pedidos" y adjunta fotos o un video de la falla.
+2. El asesor confirma que el producto está dentro del término de la garantía.
+3. Retorna genera la guía para enviar el producto al centro de servicio técnico del aliado. El envío no tiene costo para el cliente.
+4. El centro de servicio emite un diagnóstico. Si la falla está cubierta, se repara o se aplica el paso 2 del numeral 7.3.
+5. Toda solicitud de garantía debe tener una respuesta de fondo al cliente dentro de los quince (15) días hábiles siguientes a su presentación.
+
+
+8. DEVOLUCIÓN COMERCIAL (POLÍTICA VOLUNTARIA DE LA TIENDA)
+
+Además de lo que exige la ley, Mercadito Andino permite cambiar por talla o color la ropa y el calzado dentro de los treinta (30) días calendario siguientes a la entrega, siempre que el producto no se haya usado y conserve las etiquetas. El primer cambio no tiene costo de envío. Esta política no aplica a ropa interior, trajes de baño ni productos en liquidación.
+
+El asesor debe dejar claro que se trata de un beneficio de la tienda y no de una obligación legal, para no confundir al cliente con el retracto.
+
+
+9. TONO Y ERRORES FRECUENTES
+
+Tono: claro, cercano y sin términos jurídicos innecesarios. Explicar siempre qué va a pasar, en qué plazo y qué tiene que hacer el cliente.
+
+Errores frecuentes:
+- Pedir al cliente que explique por qué se retracta. El retracto no requiere motivo.
+- Contar el plazo del retracto en días calendario en lugar de días hábiles.
+- Descontar del reembolso los gastos de envío originales o una "tarifa de devolución". En el retracto se devuelve el dinero pagado completo; solo los costos de la devolución corren por cuenta del cliente.
+- Negar una garantía porque el cliente perdió la caja o la factura. La compra se puede verificar en el sistema con el número de pedido.
+- Confundir una reversión del pago con un retracto: la reversión exige una causa (fraude, producto no recibido, no corresponde o defectuoso) y también una solicitud ante el banco.
+
+
+10. INDICADORES DEL ÁREA
+
+- Reembolsos por retracto pagados en diez (10) días calendario o menos: meta mayor o igual al 90 %.
+- Solicitudes de garantía con respuesta de fondo en quince (15) días hábiles o menos: meta del 100 %.
+- PQR resueltas en el primer contacto: meta mayor o igual al 60 %.
+- Satisfacción del cliente después de la atención: meta mayor o igual a 4,5 sobre 5.
+
+
+11. GLOSARIO RÁPIDO
+
+Día hábil: de lunes a viernes, sin contar los festivos.
+Emisor: banco o entidad que entregó la tarjeta o el medio de pago al cliente.
+Idoneidad: aptitud del producto para satisfacer la necesidad para la que fue fabricado.
+Proveedor: quien vende el producto al consumidor; en este manual, Mercadito Andino.
+Productor: quien fabrica o importa el producto.
+
+
+12. REFERENCIAS
+
+Congreso de la República de Colombia. Ley 1480 de 2011, Estatuto del Consumidor (artículos sobre garantía legal, derecho de retracto y reversión del pago). Decreto 587 de 2016, sobre la reversión del pago. Superintendencia de Industria y Comercio, Guía para la protección del consumidor en el comercio electrónico. Este manual es un resumen ficticio con fines de capacitación.

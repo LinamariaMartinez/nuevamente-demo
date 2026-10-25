@@ -6,7 +6,7 @@ from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 from langchain_core.documents import Document
-from langchain_core.messages import AIMessage
+import json
 from langchain_core.runnables import RunnableLambda
 from agents import writer
 from agents.writer_examples import profile_examples
@@ -27,19 +27,25 @@ class WriterPromptTests(unittest.TestCase):
         captured = []
         def respond(prompt):
             captured.append(prompt.to_messages())
-            return AIMessage(content="Respuesta simulada")
+            return {
+                "tiempo_estimado_estudio_minutos": 5, "conceptos_clave": ["Observación"], "prerrequisitos": [],
+                "contenido_adaptado": {"titulo": "Observación", "introduccion_contextualizada": "Aprende a observar.",
+                                      "items": [{"titulo": "Observar", "instrucciones": "Observa antes de registrar."}]},
+            }
 
-        with patch.object(writer, "ChatGoogleGenerativeAI", return_value=RunnableLambda(respond)):
+        with patch.object(writer, "ChatGoogleGenerativeAI") as model:
+            model.return_value.with_structured_output.return_value = RunnableLambda(respond)
             result = writer.writer_node({
-                "user_profile": "Docente de biología", "output_format": "Paso a paso",
+                "user_profile": "Intermedio", "output_format": "Tutorial",
                 "niche": "Escuela rural", "query": "Explica {tema}",
                 "retrieved_docs": [Document(page_content="Fuente real con {llaves}: observar antes de registrar.")],
                 "review_feedback": "No añadas cifras.",
             })
-        self.assertEqual(result, {"current_draft": "Respuesta simulada"})
+        self.assertEqual(json.loads(result["current_draft"]), result["structured_draft"])
+        self.assertEqual(result["structured_draft"]["contenido_adaptado"]["titulo"], "Observación")
         messages = captured[0]
         self.assertEqual([m.type for m in messages], ["system", "human", "ai", "human", "ai", "human"])
-        for text in ["Docente de biología", "Paso a paso", "Escuela rural", "No son fuentes"]:
+        for text in ["Intermedio", "Tutorial", "Escuela rural", "No son fuentes"]:
             self.assertIn(text, messages[0].content)
         for text in ["Fuente real con {llaves}", "Explica {tema}", "No añadas cifras."]:
             self.assertIn(text, messages[-1].content)

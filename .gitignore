@@ -6,6 +6,8 @@ env/
 # Variables de entorno y secretos (API Keys y credenciales OCI)
 .env
 .env.local
+.oci/
+*.pem
 
 # Archivos compilados de Python
 __pycache__/
@@ -27,5 +29,17 @@ Thumbs.db
 # Índice vectorial FAISS (se regenera a partir de los documentos)
 vectorstore/
 
-# Secretos de Streamlit (contraseña del admin)
+# Datos locales, resultados y pruebas de la API
+storage/
+output/
+tmp/
+.pytest_cache/
+*.sqlite3
+*.sqlite3-wal
+*.sqlite3-shm
+# Base de datos local NuevaMente
+nuevamente.db
+nuevamente.db-*
+
+# Secretos locales de Streamlit (el ejemplo sí se versiona)
 .streamlit/secrets.toml
