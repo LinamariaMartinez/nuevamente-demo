@@ -1,0 +1,31 @@
+"""Vista interactiva de quiz (capa 2): el estudiante responde, califica y ve las justificaciones."""
+
+import streamlit as st
+
+from vistas.generica import texto_seguro
+
+
+def mostrar(paquete, items):
+    clave = f"quiz_{paquete.id}"
+    for numero, pregunta in enumerate(items, start=1):
+        st.markdown(f"**{numero}. {texto_seguro(pregunta.pregunta)}**")
+        # format_func solo cambia lo que se ve: la respuesta guardada sigue siendo el texto original
+        st.radio(f"Respuesta a la pregunta {numero}", pregunta.opciones, index=None, format_func=texto_seguro,
+                 key=f"{clave}_{numero}", label_visibility="collapsed")
+    if st.button("Calificar", key=f"{clave}_calificar", type="primary"):
+        st.session_state[f"{clave}_calificado"] = True
+    if not st.session_state.get(f"{clave}_calificado"):
+        return
+    aciertos = 0
+    for numero, pregunta in enumerate(items, start=1):
+        elegida = st.session_state.get(f"{clave}_{numero}")
+        correcta = pregunta.respuesta_correcta  # el texto de la opción correcta
+        mostrada, justificacion = texto_seguro(correcta), texto_seguro(pregunta.justificacion)
+        if elegida == correcta:
+            aciertos += 1
+            st.success(f"{numero}. Correcto. {justificacion}")
+        elif elegida is None:
+            st.warning(f"{numero}. Sin responder. La respuesta era: {mostrada}. {justificacion}")
+        else:
+            st.error(f"{numero}. Incorrecto. La respuesta era: {mostrada}. {justificacion}")
+    st.metric("Tu puntaje", f"{aciertos} de {len(items)}")

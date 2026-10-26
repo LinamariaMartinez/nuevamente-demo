@@ -1,0 +1,71 @@
+{
+  "id": "266a1be6993abda3972b1d444c4c4897",
+  "creado_en": "2026-10-14T15:30:00Z",
+  "id_tema": "t-redes",
+  "status": "exito",
+  "metadatos": {
+    "tiempo_estimado_estudio_minutos": 12,
+    "conceptos_clave": [
+      "VCN",
+      "Subredes",
+      "Internet Gateway",
+      "NAT Gateway",
+      "Security Lists"
+    ],
+    "prerrequisitos": [],
+    "perfil_aplicado": "Principiante",
+    "formato_generado": "Tutorial",
+    "nicho_sector": "General",
+    "nivel_detalle": "Didáctico"
+  },
+  "contenido_adaptado": {
+    "titulo": "Guía: cómo se organiza la red de una VCN",
+    "introduccion_contextualizada": "Recorre paso a paso las piezas que forman una red en OCI.",
+    "items": [
+      {
+        "titulo": "Crear la VCN",
+        "instrucciones": "La VCN es tu red privada en OCI; todo lo demás vive dentro de ella."
+      },
+      {
+        "titulo": "Dividirla en subredes",
+        "instrucciones": "Separa los recursos en subredes públicas (accesibles desde internet) y privadas (aisladas). Ejemplo: Un servidor web en una subred pública y la base de datos en una privada."
+      },
+      {
+        "titulo": "Conectar con internet",
+        "instrucciones": "El Internet Gateway permite tráfico de ida y vuelta entre la VCN e internet."
+      },
+      {
+        "titulo": "Dar salida a la subred privada",
+        "instrucciones": "El NAT Gateway deja salir a los recursos privados sin aceptar conexiones entrantes. Ejemplo: La base de datos descarga actualizaciones sin quedar expuesta."
+      },
+      {
+        "titulo": "Definir las reglas de tráfico",
+        "instrucciones": "Las Security Lists controlan qué tráfico entra (ingress) y sale (egress). Revisa con cuidado las de ingress."
+      }
+    ]
+  },
+  "evaluacion_calidad": {
+    "anclaje_fuente_score": 1.0,
+    "calidad_pedagogica_score": 0.9,
+    "cumplimiento_formato_score": 0.95,
+    "claridad_pedagogica": "Alta",
+    "observaciones": "Fiel a la fuente y adecuado al perfil.",
+    "intentos_revision": 1
+  },
+  "fuentes": [
+    {
+      "documento_id": "d-redes",
+      "documento": "Redes VCN en OCI",
+      "fragmento": 3,
+      "pagina": null,
+      "extracto": "Una VCN es una red privada y personalizable en Oracle Cloud Infrastructure..."
+    },
+    {
+      "documento_id": "d-redes",
+      "documento": "Redes VCN en OCI",
+      "fragmento": 7,
+      "pagina": null,
+      "extracto": "El NAT Gateway permite que los recursos de una subred privada accedan a internet..."
+    }
+  ]
+}

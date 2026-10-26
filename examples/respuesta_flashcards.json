@@ -1,0 +1,34 @@
+{
+  "status": "exito",
+  "metadatos": {
+    "perfil_aplicado": "Intermedio",
+    "formato_generado": "Flashcards",
+    "nicho_sector": "General",
+    "nivel_detalle": "Didáctico",
+    "tiempo_estimado_estudio_minutos": 5,
+    "conceptos_clave": [
+      "VCN",
+      "OCI"
+    ],
+    "prerrequisitos": []
+  },
+  "contenido_adaptado": {
+    "titulo": "Redes en OCI",
+    "introduccion_contextualizada": "Conoce una red privada en la nube.",
+    "items": [
+      {
+        "frente": "¿Qué es una VCN?",
+        "dorso": "Una red privada y personalizable en OCI.",
+        "pista_didactica": "Relaciona el concepto con una red tradicional."
+      }
+    ]
+  },
+  "evaluacion_calidad": {
+    "anclaje_fuente_score": 0.95,
+    "calidad_pedagogica_score": 0.9,
+    "cumplimiento_formato_score": 0.95,
+    "claridad_pedagogica": "Alta",
+    "observaciones": "Ejemplo ilustrativo del contrato; no representa una evaluación real.",
+    "intentos_revision": 1
+  }
+}
