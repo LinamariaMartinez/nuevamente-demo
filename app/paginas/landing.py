@@ -6,6 +6,7 @@ Solo el botón Iniciar sesión es de Streamlit, porque cambia de página dentro 
 """
 
 import base64
+import os
 from html import escape
 from pathlib import Path
 import re
@@ -29,7 +30,7 @@ SECTORES = ("General", "Salud", "Fintech", "E-commerce")
 PASOS = (
     ("Sube documentos", "La institución carga sus manuales y arma temas, cada uno con su sector."),
     ("Tres agentes", "El Investigador busca, el Redactor adapta y el Revisor verifica."),
-    ("Estudia y evalúa", "Material a tu nivel, con fuentes; luego, la evaluación del tema."),
+    ("Estudia a tu nivel", "Flashcards, quiz, guía o resumen, con sus fuentes. El quiz te muestra tu puntaje al instante."),
 )
 AGENTES = (
     ("Investigador", "Busca los fragmentos que responden al tema."),
@@ -48,8 +49,8 @@ POR_DENTRO = (
     ("Fiel a las fuentes", "RAG",
      "Cada material cita los fragmentos de los documentos que usó. Si el tema no tiene contexto suficiente, "
      "lo dice en lugar de inventar.",
-     "fuentes", '"fuentes": [\n  {\n    "documento_id": "d-redes",\n    "documento": "Redes VCN en OCI",\n'
-                '    "fragmento": 1,\n    "pagina": 12,\n    "extracto": "Una VCN es una red privada…"\n  }\n]'),
+     "fuentes", '"fuentes": [\n  {\n    "documento_id": "d-pagos",\n    "documento": "Manual de pagos inmediatos",\n'
+                '    "fragmento": 1,\n    "pagina": null,\n    "extracto": "Fraude autorizado: el propio cliente…"\n  }\n]'),
     ("Calidad revisada", "≥ 0.8",
      "El Revisor puntúa fidelidad a las fuentes, pedagogía y formato; si no alcanza el mínimo, se corrige hasta "
      "3 veces. Lo que aun así no pasa queda en revisión para la institución.",
@@ -61,17 +62,18 @@ POR_DENTRO = (
      "La salida es JSON estructurado, con metadatos de aprendizaje. Documentos y paquetes se guardan en "
      "OCI Object Storage.",
      "metadatos", '"metadatos": {\n  "tiempo_estimado_estudio_minutos": 5,\n  "conceptos_clave": [\n'
-                  '    "VCN", "Subredes",\n    "Internet Gateway", "NAT Gateway"\n  ],\n  "prerrequisitos": [],\n'
+                  '    "Pago inmediato", "Llave",\n    "Fraude autorizado", "Cuenta mula"\n  ],\n  "prerrequisitos": [],\n'
                   '  "perfil_aplicado": "Principiante",\n  "formato_generado": "Flashcards",\n'
-                  '  "nicho_sector": "General",\n  "nivel_detalle": "Didáctico"\n}'),
+                  '  "nicho_sector": "Fintech",\n  "nivel_detalle": "Didáctico"\n}'),
 )
-# Arquitectura en OCI Always Free (04-decisiones.md, 25-sep): VM Ampere A1 + Object Storage; LLM por la API de Gemini
+# Arquitectura de la demo (04-decisiones.md, 23-oct): app en Streamlit Community Cloud + OCI Object Storage (Always Free);
+# LLM por la API de Gemini
 COMPONENTES_VM = (("Interfaz", "Streamlit"), ("API", "FastAPI · /api/v1"), ("Agentes", "LangGraph · RAG"),
                   ("Datos de la app", "SQLite e índice vectorial"))
 ALMACENAMIENTO = (("PDF", "Documentos que sube la institución"), ("JSON", "Paquetes de material aprobado"),
-                  ("BAK", "Respaldos de la base y del índice"))
+                  ("PRIV", "Bucket privado: sin acceso público"))
 VENTAJAS_OCI = (("Sin costo de nube:", "todo cabe en la capa Always Free."),
-                ("Nada se pierde:", "si la máquina se reinicia, se reconstruye desde Object Storage."),
+                ("Privado por defecto:", "la app comprueba el bucket antes de guardar cada archivo."),
                 ("Integrable:", "otros sistemas leen los paquetes JSON directamente."))
 CIERRE_TITULO = "Aprender hoy, construir mañana."
 CIERRE_TEXTO = "Entra con una cuenta de demostración y recorre la plataforma como estudiante o como administración."
@@ -82,6 +84,20 @@ CUENTAS_DEMO = (
     ("Con contraseña temporal", "mateo", "temporal-123"),
     ("Administración", "admin", "demo-admin"),
 )
+# Con la API real: las crea scripts/crear_cuentas_demo.py y la clave sale de los secretos.
+# temporal_demo no se muestra: si alguien le cambia la clave, la publicada deja de servir.
+CUENTAS_DEMO_REALES = (
+    ("Estudiante", "estudiante_demo", "DEMO_ESTUDIANTE_PASSWORD"),
+    ("Administración", "admin_demo", "DEMO_ADMIN_PASSWORD"),
+)
+
+
+def cuentas_demo(es_mock):
+    """Cuentas (rol, usuario, contraseña) para mostrar; vacío si no hay ninguna configurada."""
+    if es_mock:
+        return CUENTAS_DEMO
+    cuentas = tuple((rol, usuario, os.getenv(variable, "")) for rol, usuario, variable in CUENTAS_DEMO_REALES)
+    return cuentas if all(contrasena for _, _, contrasena in cuentas) else ()
 
 # Colores que cambian con el tema y que van dentro de íconos (una imagen no lee las variables de CSS)
 COLORES = {
@@ -265,15 +281,16 @@ def html_principal(tema_oscuro=False):
 
 
 def html_cuentas(es_mock):
-    """Tarjeta de la derecha del cierre: las cuentas de demostración solo existen en modo mock."""
-    if es_mock:
+    """Tarjeta de la derecha del cierre: las cuentas mock o las de la demo real, si están configuradas."""
+    cuentas = cuentas_demo(es_mock)
+    if cuentas:
         filas = "".join(
             '<div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 10px; '
             'padding: 14px 0; border-bottom: 1px solid #D6E2DC">'
             f'<span style="font-size: 16px; font-weight: 600">{escape(rol)}</span>'
             '<span class="nm-mono" style="font-size: 14px; background: #E7EEE8; padding: 5px 10px; border-radius: 6px">'
             f'{escape(usuario)} / {escape(contrasena)}</span></div>'
-            for rol, usuario, contrasena in CUENTAS_DEMO)
+            for rol, usuario, contrasena in cuentas)
         cuerpo = (f'<div style="margin-top: 14px; display: flex; flex-direction: column">{filas}</div>'
                   '<p style="margin-top: 14px; font-size: 14px; color: #4E625D">'
                   'Disponibles solo en el modo de demostración.</p>')

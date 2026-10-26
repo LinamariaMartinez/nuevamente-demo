@@ -1,6 +1,10 @@
+from array import array
+from collections import OrderedDict
 import os
+import threading
 
 from langchain_community.vectorstores import FAISS
+from langchain_core.embeddings import Embeddings
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from pydantic import SecretStr
@@ -11,13 +15,52 @@ from the_models import GEMINI_EMBEDDINGS
 # Carpeta donde se guarda el índice FAISS (relativa a donde se ejecuta el script).
 RUTA_VECTORSTORE = "vectorstore"
 
+# Vectores ya calculados, por (modelo, texto del fragmento). Viven mientras dure el proceso.
+# Tope: con 3072 dimensiones, cada vector ocupa ~24 KB → 5000 vectores ≈ 120 MB.
+MAXIMO_VECTORES_EN_MEMORIA = 5000
+_VECTORES = OrderedDict()
+_CANDADO = threading.Lock()
+
+
+class EmbeddingsConMemoria(Embeddings):
+    """Envuelve el modelo y recuerda los vectores de los fragmentos que ya calculó.
+
+    Cada generación arma el índice del tema desde cero; sin esta memoria, todos sus fragmentos
+    se vuelven a pedir a Gemini y se agota rápido el límite por minuto. Los vectores son los mismos
+    que devuelve el modelo (se guardan en doble precisión, sin redondeo). Las consultas no se guardan.
+    """
+
+    def __init__(self, modelo):
+        self._modelo = modelo
+
+    def embed_documents(self, texts):
+        with _CANDADO:
+            faltan = [t for t in dict.fromkeys(texts) if (GEMINI_EMBEDDINGS, t) not in _VECTORES]
+        nuevos = dict(zip(faltan, self._modelo.embed_documents(faltan))) if faltan else {}
+        with _CANDADO:
+            resultado = []
+            for texto in texts:
+                clave = (GEMINI_EMBEDDINGS, texto)
+                if texto in nuevos:
+                    _VECTORES[clave] = array("d", nuevos[texto])
+                    resultado.append(list(nuevos[texto]))
+                else:
+                    _VECTORES.move_to_end(clave)
+                    resultado.append(list(_VECTORES[clave]))
+            while len(_VECTORES) > MAXIMO_VECTORES_EN_MEMORIA:
+                _VECTORES.popitem(last=False)
+        return resultado
+
+    def embed_query(self, text):
+        return self._modelo.embed_query(text)
+
 
 def crear_modelo_embeddings():
     """Modelo de embeddings compartido: crear y cargar el índice deben usar el mismo."""
-    return GoogleGenerativeAIEmbeddings(
+    return EmbeddingsConMemoria(GoogleGenerativeAIEmbeddings(
         model=GEMINI_EMBEDDINGS,
         api_key=SecretStr(GEMINI_API_KEY) if GEMINI_API_KEY else None,
-    )
+    ))
 
 
 def crear_vectorstore(docs, chunk_size=1000, chunk_overlap=100):

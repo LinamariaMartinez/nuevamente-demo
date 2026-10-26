@@ -16,12 +16,12 @@ import sesion
 from cliente_api import ErrorCliente
 from contrato import LARGO_MINIMO_CONTRASENA
 from paginas import ir_a, mostrar_error
-from paginas.landing import CUENTAS_DEMO, SIN_CUENTAS_DEMO
+from paginas.landing import SIN_CUENTAS_DEMO, cuentas_demo
 
 ESTILO = Path(__file__).resolve().parents[1] / "plantillas" / "acceso.html"
 
 LEMA = ("Aprender hoy,", "construir mañana.")
-PASOS = ("Consulta tus temas", "Estudia con material a tu medida", "Presenta la evaluación")
+PASOS = ("Consulta tus temas", "Estudia con material a tu medida", "Ponte a prueba")
 # Nombres cortos para que las cuentas quepan en una línea debajo de la tarjeta (la landing usa los largos)
 ROL_CORTO = {"Con contraseña temporal": "Temporal", "Administración": "Admin"}
 
@@ -65,7 +65,8 @@ def html_encabezado(titulo, subtitulo):
 
 def html_cuentas(es_mock):
     """Debajo de la tarjeta. Sin decir "usuario" ni "contraseña": la persona y la llave son las mismas de los campos."""
-    if not es_mock:
+    cuentas = cuentas_demo(es_mock)
+    if not cuentas:
         return f'<p class="ac-demo">{escape(SIN_CUENTAS_DEMO)}</p>'
     persona = _datos_svg(_PERSONA.format(color="#205E58"))
     llave = _datos_svg(_LLAVE.format(color="#205E58"))
@@ -73,7 +74,7 @@ def html_cuentas(es_mock):
         f'<span class="ac-cuenta">{escape(ROL_CORTO.get(rol, rol))}'
         f'<img class="ac-icono" src="{persona}" alt="Usuario"><span class="ac-usuario">{escape(usuario)}</span>'
         f'<span class="ac-clave"><img class="ac-icono" src="{llave}" alt="Contraseña">{escape(contrasena)}</span></span>'
-        for rol, usuario, contrasena in CUENTAS_DEMO)
+        for rol, usuario, contrasena in cuentas)
     return f'<div class="ac-demo"><span class="ac-ceja">Demo</span>{cuentas}</div>'
 
 

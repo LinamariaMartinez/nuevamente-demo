@@ -1,8 +1,10 @@
 """Pruebas de la landing (v2.4): HTML y CSS con st.html, sin JavaScript, y el botón real de Iniciar sesión."""
 
 import json
+import os
 import re
 import unittest
+from unittest.mock import patch
 
 from apoyo_interfaz import RAIZ, abrir_pagina
 
@@ -51,7 +53,7 @@ class HtmlLanding(unittest.TestCase):
         for nombre, _, explicacion, _, _ in landing.POR_DENTRO:
             self.assertIn(nombre, texto)
             self.assertIn(explicacion, texto)
-        for frase in ("VM Ampere A1", "OCI Object Storage", "Always Free", "API de Gemini"):
+        for frase in ("Streamlit Community Cloud", "OCI Object Storage", "Always Free", "API de Gemini"):
             with self.subTest(frase=frase):
                 self.assertIn(frase, texto)
 
@@ -113,9 +115,22 @@ class PaginaLanding(unittest.TestCase):
     def test_cuentas_de_demostracion_solo_en_modo_mock(self):
         html = _html(abrir_pagina(LANDING, usuario=None))
         self.assertIn("laura / demo-estudiante", html)
-        html = _html(abrir_pagina(LANDING, usuario=None, cliente=ClienteReal()))
+        with patch.dict(os.environ, {"DEMO_ESTUDIANTE_PASSWORD": "", "DEMO_ADMIN_PASSWORD": ""}):
+            html = _html(abrir_pagina(LANDING, usuario=None, cliente=ClienteReal()))
         self.assertNotIn("laura", html)
         self.assertIn(landing.SIN_CUENTAS_DEMO, html)
+
+    def test_con_la_api_real_muestra_las_cuentas_de_los_secretos(self):
+        with patch.dict(os.environ, {"DEMO_ESTUDIANTE_PASSWORD": "Clave-estudiante-123", "DEMO_ADMIN_PASSWORD": "Clave-admin-123", "DEMO_TEMPORAL_PASSWORD": "Clave-temporal-123"}):
+            html = _html(abrir_pagina(LANDING, usuario=None, cliente=ClienteReal()))
+        self.assertIn("estudiante_demo / Clave-estudiante-123", html)
+        self.assertIn("admin_demo / Clave-admin-123", html)
+        self.assertNotIn("temporal_demo", html)
+        self.assertNotIn(landing.SIN_CUENTAS_DEMO, html)
+
+    def test_si_falta_una_clave_no_muestra_cuentas_a_medias(self):
+        with patch.dict(os.environ, {"DEMO_ESTUDIANTE_PASSWORD": "Clave-estudiante-123", "DEMO_ADMIN_PASSWORD": ""}):
+            self.assertEqual(landing.cuentas_demo(es_mock=False), ())
 
 
 if __name__ == "__main__":

@@ -1,6 +1,8 @@
 """Pruebas de la sesión y de las pantallas de acceso: iniciar sesión y cambiar la contraseña temporal."""
 
+import os
 import unittest
+from unittest.mock import patch
 
 from streamlit.proto.TextInput_pb2 import TextInput
 
@@ -88,9 +90,19 @@ class IniciarSesion(unittest.TestCase):
         for texto in ("laura", "demo-estudiante", "mateo", "temporal-123", "admin", "demo-admin"):
             with self.subTest(texto=texto):
                 self.assertIn(texto, html)
-        html = _html(abrir_pagina(INICIO, usuario=None, cliente=ClienteReal()))
+        with patch.dict(os.environ, {"DEMO_ESTUDIANTE_PASSWORD": "", "DEMO_ADMIN_PASSWORD": ""}):
+            html = _html(abrir_pagina(INICIO, usuario=None, cliente=ClienteReal()))
         self.assertNotIn("demo-estudiante", html)
         self.assertIn(SIN_CUENTAS_DEMO, html)
+
+    def test_con_la_api_real_muestra_las_cuentas_de_los_secretos(self):
+        with patch.dict(os.environ, {"DEMO_ESTUDIANTE_PASSWORD": "Clave-estudiante-123", "DEMO_ADMIN_PASSWORD": "Clave-admin-123", "DEMO_TEMPORAL_PASSWORD": "Clave-temporal-123"}):
+            html = _html(abrir_pagina(INICIO, usuario=None, cliente=ClienteReal()))
+        for texto in ("estudiante_demo", "Clave-estudiante-123", "admin_demo", "Clave-admin-123"):
+            with self.subTest(texto=texto):
+                self.assertIn(texto, html)
+        self.assertNotIn("temporal_demo", html)
+        self.assertNotIn(SIN_CUENTAS_DEMO, html)
 
     def test_los_avisos_van_arriba_de_los_campos(self):
         at = entrar(abrir_pagina(INICIO, usuario=None), "   ", "")
